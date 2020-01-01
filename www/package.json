@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/rustwasm/create-wasm-app#readme",
   "dependencies": {
-    "word-history-explorer": "file:../pkg"
+    "word-history-explorer-backend": "file:../pkg"
   },
   "devDependencies": {
     "hello-wasm-pack": "^0.1.0",

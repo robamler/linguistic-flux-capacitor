@@ -1,5 +1,5 @@
 [package]
-name = "word-history-explorer"
+name = "word-history-explorer-backend"
 version = "0.0.1"
 authors = ["Robert Bamler <robert.bamler@gmail.com>"]
 edition = "2018"

@@ -1,3 +1,3 @@
-import * as wasm from "word-history-explorer";
+import * as wasm from "word-history-explorer-backend";
 
 wasm.greet();
