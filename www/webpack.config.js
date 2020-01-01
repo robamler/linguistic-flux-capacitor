@@ -1,14 +1,28 @@
-const CopyWebpackPlugin = require("copy-webpack-plugin");
-const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+var path = require('path');
 
 module.exports = {
-  entry: "./bootstrap.js",
-  output: {
-    path: path.resolve(__dirname, "dist"),
-    filename: "bootstrap.js",
+  mode: 'development', // TODO: Eventually change to 'production'.
+  module: {
+    rules: [
+      {
+        test: /\.html$/,
+        use: [{
+          loader: 'html-loader',
+          options: {
+            minimize: true
+          }
+        }],
+      },
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader'],
+      },
+    ]
   },
-  mode: "development",
   plugins: [
-    new CopyWebpackPlugin(['index.html'])
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, 'src', 'index.html'),
+    })
   ],
 };

@@ -1,0 +1,387 @@
+svg.plot {
+    width: 100%;
+    height: 100%;
+}
+
+svg.plot .plotBorders {
+    fill: none;
+    stroke: #000000;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+svg.plot .axisLabel {
+    font-size: 16pt;
+    font-family: 'Arial', sans-serif;
+    fill: #000000;
+    text-align: center;
+    text-anchor: middle
+}
+
+svg.plot .axisTickLabel {
+    font-size: 12pt;
+    font-family: 'Arial', sans-serif;
+    fill: #000000;
+}
+
+svg.plot .xAxis .axisTickLabel {
+    text-align: center;
+    text-anchor: middle;
+}
+
+svg.plot .yAxis .axisTickLabel {
+    text-align: end;
+    text-anchor: end;
+}
+
+svg.plot .axisTick {
+    stroke: #777;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+}
+
+svg.plot .invisible {
+    fill: #fff;
+    fill-opacity: 0;
+    stroke: none;
+}
+
+svg.plot .hoverCursorContainer>.hoverCursor {
+    transition: transform 0.2s cubic-bezier(.16, 1.36, .61, 1.39);
+    transform: scale(1, 1);
+}
+
+svg.plot .hoverCursorContainer.hidden>.hoverCursor {
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: scale(0, 0);
+}
+
+svg.plot .hoverCursor {
+    stroke: #ffffff;
+    stroke-width: 1.5;
+}
+
+svg.plot .hoverCursorContainer.upsideDown>.noCaptureZone {
+    transform: scaleY(-1);
+}
+
+svg.plot .lineGroup>.line {
+    fill: none;
+    transition: stroke-width 0.2s;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+svg.plot .lineGroup {
+    cursor: pointer;
+}
+
+svg.plot .lineGroup.main {
+    pointer-events: none;
+    cursor: auto;
+}
+
+svg.plot .lineGroup.main>.line {
+    stroke-width: 3;
+}
+
+svg.plot .lineGroup:hover>.line {
+    animation: lineHover 0.5s cubic-bezier(.5, 0, .6, 1) infinite alternate;
+}
+
+@keyframes lineHover {
+    from {
+        stroke-width: 2.5;
+    }
+    to {
+        stroke-width: 3.5;
+    }
+}
+
+svg.plot .lineGroup>.bleed {
+    fill: none;
+    transition: stroke-width 0.2s;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke: #ffffff;
+}
+
+svg.plot .lineGroup.main>.bleed {
+    stroke-width: 6;
+}
+
+svg.plot .lineGroup:hover>.bleed {
+    stroke-width: 6;
+}
+
+svg.plot .lineGroup>.mouseCapture {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke: #ffffff;
+    stroke-opacity: 0;
+}
+
+svg.plot .lineGroup.main>.mouseCapture {
+    stroke-width: 0;
+}
+
+svg.plot .lineGroup.color0>.line {
+    stroke: #f94a01;
+}
+
+svg.plot .lineGroup.color1>.line {
+    stroke: #6b42b6;
+}
+
+svg.plot .lineGroup.color2>.line {
+    stroke: #11a854;
+}
+
+svg.plot .lineGroup.color3>.line {
+    stroke: #128db2;
+}
+
+svg.plot .lineGroup.color4>.line {
+    stroke: #e12fbc;
+}
+
+svg.plot .lineGroup.color5>.line {
+    stroke: #e6ab02;
+}
+
+svg.plot .lineGroup.color6>.line {
+    stroke: #9ed034;
+}
+
+svg.plot .lineGroup.color7>.line {
+    stroke: #666666;
+}
+
+svg.plot .hoverCursor.color0 {
+    fill: #f94a01;
+}
+
+svg.plot .hoverCursor.color1 {
+    fill: #6b42b6;
+}
+
+svg.plot .hoverCursor.color2 {
+    fill: #11a854;
+}
+
+svg.plot .hoverCursor.color3 {
+    fill: #128db2;
+}
+
+svg.plot .hoverCursor.color4 {
+    fill: #e12fbc;
+}
+
+svg.plot .hoverCursor.color5 {
+    fill: #e6ab02;
+}
+
+svg.plot .hoverCursor.color6 {
+    fill: #9ed034;
+}
+
+svg.plot .hoverCursor.color7 {
+    fill: #666666;
+}
+
+.plot.tooltip {
+    position: relative;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16pt;
+    transition: opacity 0.4s cubic-bezier(.75, 0, .84, .05);
+    opacity: 0.95;
+    width: 0;
+    /* (Setting `width` to zero prevents spurious horizontal scroll bar from appearing.) */
+}
+
+.plot.tooltip.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.plot.tooltip>.tooltipInnerContainer {
+    position: absolute;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.plot.tooltip>.tooltipInnerContainer>.tooltipMain {
+    position: relative;
+    bottom: 2em;
+    left: -50%;
+    border-radius: 0.5em;
+    box-shadow: 0 0 0.02em 0.15em #fff;
+    pointer-events: auto;
+}
+
+.plot.tooltip>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    position: relative;
+    z-index: 2;
+    border-radius: 0.5em;
+    padding: 0.5em 0.8em 0.7em 0.8em;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.plot.tooltip>.tooltipInnerContainer>.tooltipPointer {
+    position: absolute;
+    width: 2em;
+    height: 2em;
+    bottom: 1.3em;
+    left: -1em;
+    transform: rotate(45deg);
+    box-shadow: 0 0 0.02em 0.15em #fff;
+    z-index: 1;
+    pointer-events: auto;
+}
+
+.plot.tooltip.color0>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #ef7e4e;
+}
+
+.plot.tooltip.color0>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #ef7e4e;
+}
+
+.plot.tooltip.color1>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #b29fd6;
+}
+
+.plot.tooltip.color1>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #b29fd6;
+}
+
+.plot.tooltip.color2>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #419969;
+}
+
+.plot.tooltip.color2>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #419969;
+}
+
+.plot.tooltip.color3>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #34849c;
+}
+
+.plot.tooltip.color3>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #34849c;
+}
+
+.plot.tooltip.color4>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #ad519b;
+}
+
+.plot.tooltip.color4>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #ad519b;
+}
+
+.plot.tooltip.color5>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #e6ab02;
+}
+
+.plot.tooltip.color5>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #e6ab02;
+}
+
+.plot.tooltip.color6>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #8aa551;
+}
+
+.plot.tooltip.color6>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #8aa551;
+}
+
+.plot.tooltip.color7>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #888888;
+}
+
+.plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #888888;
+}
+
+.plot.tooltip.pointsUp>.tooltipInnerContainer {
+    bottom: auto;
+    top: 0;
+}
+
+.plot.tooltip.pointsUp>.tooltipInnerContainer>.tooltipMain {
+    bottom: auto;
+    top: 2em;
+}
+
+.plot.tooltip.pointsUp>.tooltipInnerContainer>.tooltipPointer {
+    bottom: auto;
+    top: 1.3em;
+    transform: rotate(45deg);
+}
+
+.plot.tooltip .wait {
+    display: none;
+    white-space: normal;
+    opacity: 0.7;
+    font-size: 90%;
+    padding-top: 0.8em;
+}
+
+.plot.tooltip.waiting .wait {
+    display: block;
+}
+
+.plot.tooltip .year {
+    font-weight: bold;
+    font-size: 120%;
+}
+
+.plot.tooltip .mainWord {
+    font-style: italic;
+    margin: 0.3em 0;
+}
+
+.plot.tooltip .mainWord::before {
+    content: '“';
+}
+
+.plot.tooltip .mainWord::after {
+    content: '”';
+}
+
+.plot.tooltip .suggestions {
+    margin: 0.5em 0 0 0;
+    padding: 0;
+}
+
+.plot.tooltip.waiting .suggestions {
+    display: none;
+}
+
+.plot.tooltip .suggestion {
+    display: block;
+    cursor: pointer;
+    background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sOmxhbmc9ImVuIiB3aWR0aD0iMzYiIGhlaWdodD0iMzYiPjxyZWN0IHN0eWxlPSJmaWxsOm5vbmU7c3Ryb2tlOiMwMDA7c3Ryb2tlLXdpZHRoOjIuNTtzdHJva2UtbGluZWpvaW46bWl0ZXIiIHdpZHRoPSIyMyIgaGVpZ2h0PSIyMyIgeD0iMS4yNSIgeT0iMTEuMjUiLz48L3N2Zz4=');
+    background-repeat: no-repeat;
+    background-position: top left;
+    background-size: 1.2em;
+    padding: 0.1em 0 0.1em 1.2em;
+}
+
+.plot.tooltip .suggestion:hover {
+    background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sOmxhbmc9ImVuIiB3aWR0aD0iMzYiIGhlaWdodD0iMzYiPjxyZWN0IHN0eWxlPSJmaWxsOiNmZmY7ZmlsbC1vcGFjaXR5OjAuNTtzdHJva2U6IzAwMDtzdHJva2Utd2lkdGg6Mi41O3N0cm9rZS1saW5lam9pbjptaXRlciIgd2lkdGg9IjIzIiBoZWlnaHQ9IjIzIiB4PSIxLjI1IiB5PSIxMS4yNSIvPjwvc3ZnPg==');
+}
+
+.plot.tooltip .suggestion.active {
+    background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sOmxhbmc9ImVuIiB3aWR0aD0iMzYiIGhlaWdodD0iMzYiPjxwYXRoIHN0eWxlPSJmaWxsOiMwMDA7c3Ryb2tlOm5vbmUiIGQ9Ik0gMjAuNzI0NjA5LDAuMDU4NTkzNzUgMTIuNDI5Njg4LDI0LjAxOTUzMSA2Ljk1NTA3ODEsMTguNTQ0OTIyIDUuMDQ0OTIxOSwyMC40NTUwNzggMTMuNTcwMzEyLDI4Ljk4MDQ2OSAyMy4yNzUzOTEsMC45NDE0MDYyNSBaIE0gMCwxMCBWIDM1LjUgSCAyNS41IFYgMTAgaCAtMy42MTUyMzQgbCAtMC44NjUyMzUsMi41IEggMjMgViAzMyBIIDIuNSBWIDEyLjUgSCAxNC42NzE4NzUgTCAxNS41MzkwNjIsMTAgWiIvPjwvc3ZnPg==');
+}
+
+.plot.tooltip .suggestion.active:hover {
+    background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sOmxhbmc9ImVuIiB3aWR0aD0iMzYiIGhlaWdodD0iMzYiPjxyZWN0IHN0eWxlPSJmaWxsOiNmZmY7ZmlsbC1vcGFjaXR5OjAuNTtzdHJva2U6bm9uZSIgd2lkdGg9IjI1LjUiIGhlaWdodD0iMjUuNSIgeD0iMCIgeT0iMTAiLz48cGF0aCBzdHlsZT0iZmlsbDojMDAwO3N0cm9rZTpub25lIiBkPSJNIDIwLjcyNDYwOSwwLjA1ODU5Mzc1IDEyLjQyOTY4OCwyNC4wMTk1MzEgNi45NTUwNzgxLDE4LjU0NDkyMiA1LjA0NDkyMTksMjAuNDU1MDc4IDEzLjU3MDMxMiwyOC45ODA0NjkgMjMuMjc1MzkxLDAuOTQxNDA2MjUgWiBNIDAsMTAgViAzNS41IEggMjUuNSBWIDEwIGggLTMuNjE1MjM0IGwgLTAuODY1MjM1LDIuNSBIIDIzIFYgMzMgSCAyLjUgViAxMi41IEggMTQuNjcxODc1IEwgMTUuNTM5MDYyLDEwIFoiLz48L3N2Zz4=');
+}
