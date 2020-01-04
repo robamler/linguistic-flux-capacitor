@@ -1,7 +1,7 @@
 import './default.css';
 
 export function createPlot(
-    containerElement, pointsX, ticksX, updateTooltipContents, tooltipOrientationThreshold
+    containerElement, pointsX, ticksX, updateTooltipContents
 ) {
     const BORDERS_MIN_X = 54;
     const BORDERS_MAX_X = 639;
@@ -29,10 +29,6 @@ export function createPlot(
     let mainLineIndex = null;
     let hideCursorTimeout = null;
     let hoverCursorContainer = null;
-
-    if (typeof tooltipOrientationThreshold == 'undefined') {
-        tooltipOrientationThreshold = 0.5;
-    }
 
     _initialize()
     return { plotLine, setMainLine };
@@ -152,13 +148,12 @@ export function createPlot(
 
         // Add invisible area just above or below cursor to prevent mouseover
         // events when the user moves from the cursor to the tooltip.
-        // TODO: set hoverCursorContainer.upsideDown CSS class when tooltip is below
         hoverCursorContainer.appendChild(
             createSvgElement('rect', ['invisible', 'noCaptureZone'], {
-                x: -8.75,
-                y: -30,
-                width: 17.5,
-                height: 30,
+                x: -15,
+                y: -35,
+                width: 30,
+                height: 37,
             })
         );
 
@@ -180,6 +175,10 @@ export function createPlot(
                 if (typeof x !== 'undefined') {
                     let line = lines[mainLineIndex];
                     let y = line.coordsY[index];
+                    let svgBox = svg.getBoundingClientRect();
+                    let svgTop = svgBox.top;
+                    let svgBottom = svgBox.bottom;
+                    let mouseY = ((event.clientY - svgTop) / (svgBottom - svgTop)) * SVG_HEIGHT;
                     hoverCursorContainer.setAttribute('transform', 'translate(' + x + ',' + y + ')');
 
                     if (line.colorIndex !== hoverColorIndex) {
@@ -190,7 +189,7 @@ export function createPlot(
                     hoverCursorContainer.classList.remove('hidden');
 
                     updateTooltipContents(cursorTooltip, line, index);
-                    showTooltip(cursorTooltip, line, index);
+                    showTooltip(cursorTooltip, line, index, mouseY < y);
                 }
             }
         };
@@ -240,15 +239,10 @@ export function createPlot(
                 -10, 1.02 * tenTimesMinYValue - 0.02 * tenTimesMaxYValue);
 
             // Make sure that there are at least 2 viable y-axis ticks (at one decimal precision).
-            // while (Math.floor(scaledMaxYValue) - Math.ceil(scaledMinYValue) < 2) {
-            //     let roomBelow = scaledMinYValue - Math.floor(scaledMinYValue);
-            //     let roomAbove = Math.ceil(scaledMaxYValue) - scaledMaxYValue;
-            //     if (roomAbove > roomBelow) {
-            //         scaledMinYValue = Math.ceil(scaledMinYValue - 1);
-            //     } else {
-            //         scaledMaxYValue = Math.floor(scaledMaxYValue + 1);
-            //     }
-            // }
+            if (Math.floor(displayRangeTop) - Math.ceil(displayRangeBottom) <= 0) {
+                displayRangeBottom = Math.ceil(displayRangeBottom - 1);
+                displayRangeTop = Math.floor(displayRangeTop + 1);
+            }
             if (displayRangeTop > 10) {
                 displayRangeBottom -= displayRangeTop - 10;
                 displayRangeTop = 10;
@@ -258,7 +252,7 @@ export function createPlot(
             }
 
             scaleY = 10 * (MIN_Y - MAX_Y) / (displayRangeTop - displayRangeBottom);
-            offsetY = MAX_Y + 0.1 * displayRangeTop * scaleY;
+            offsetY = MIN_Y - 0.1 * displayRangeTop * scaleY;
 
             // Update y-axis ticks.
             while (yAxis.childNodes.length !== 0) {
@@ -294,8 +288,6 @@ export function createPlot(
                     document.createTextNode((0.1 * pos).toFixed(1))
                 );
             }
-
-
 
             // Rescale all existing lines.
             for (let line of lines) {
@@ -363,7 +355,7 @@ export function createPlot(
         mainLineIndex = lineIndex;
     }
 
-    function showTooltip(tooltip, line, index) {
+    function showTooltip(tooltip, line, index, showBelow) {
         let oldColorIndex = tooltip.getAttribute('data-color-index');
         if ((oldColorIndex != line.colorIndex)) {
             tooltip.classList.remove('color' + oldColorIndex);
@@ -377,15 +369,14 @@ export function createPlot(
         tooltip.style.left = x + 'px';
         tooltip.style.top = y + 'px';
 
-        let wasBelow = tooltip.classList.contains('pointsUp');
         let relativeY = (coordY - MIN_Y) / (MAX_Y - MIN_Y);
-        console.log(relativeY);
 
-        let tooltipBelow = relativeY < tooltipOrientationThreshold - 0.05 || (
-            wasBelow && relativeY <= tooltipOrientationThreshold + 0.05);
-        if (tooltipBelow != wasBelow) {
-            tooltip.classList.toggle('pointsUp');
-            hoverCursorContainer.classList.toggle('upsideDown');
+        if (showBelow) {
+            tooltip.classList.add('pointsUp');
+            hoverCursorContainer.classList.add('upsideDown');
+        } else {
+            tooltip.classList.remove('pointsUp');
+            hoverCursorContainer.classList.remove('upsideDown');
         }
 
         tooltip.classList.remove('hidden');
@@ -423,7 +414,7 @@ function createTooltip() {
     tooltip.classList.add('tooltip');
     tooltip.classList.add('hidden');
     tooltip.classList.add('color0');
-    tooltip.innerHTML = "<div class='tooltipInnerContainer'><div class='tooltipMain'><div class='tooltipContent'><div class='year'>1890</div><div class='mainWord'>word</div>was most related to:<div class='wait'>(crunching numbers,<br>please stand by&nbsp;...)</div><ul class='suggestions'><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li></ul></div></div><div class='tooltipPointer'></div></div>";
+    tooltip.innerHTML = "<div class='tooltipInnerContainer'><div class='tooltipMain'><div class='tooltipContent'><div class='lineDescription'></div>In <span class='year'></span>,<div class='mainWord'></div>was most related to:<div class='wait'>(crunching numbers,<br>please stand by&nbsp;...)</div><ul class='suggestions'><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li></ul></div></div><div class='tooltipPointer'></div></div>";
 
     return tooltip;
 }
