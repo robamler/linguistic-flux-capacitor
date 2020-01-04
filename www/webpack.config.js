@@ -6,7 +6,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.html$/,
+        test: /\.html$/i,
         use: [{
           loader: 'html-loader',
           options: {
@@ -17,6 +17,10 @@ module.exports = {
       {
         test: /\.css$/i,
         use: ['style-loader', 'css-loader'],
+      },
+      {
+        test: /\/assets\//,
+        use: 'file-loader'
       },
     ]
   },
