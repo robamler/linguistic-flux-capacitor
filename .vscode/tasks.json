@@ -12,6 +12,19 @@
             "label": "wasm-pack build",
             "type": "shell",
             "command": "wasm-pack build"
+        },
+        {
+            "type": "cargo",
+            "subcommand": "build",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "cargo bench",
+            "type": "shell",
+            "command": "cargo bench",
         }
     ]
 }
