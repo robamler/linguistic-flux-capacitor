@@ -1,4 +1,5 @@
 pub mod ans;
+pub mod embedding_file;
 mod utils;
 pub mod wasm_buffer;
 use wasm_bindgen::prelude::*;
