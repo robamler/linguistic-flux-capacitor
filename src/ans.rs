@@ -89,8 +89,8 @@ impl DistributionU8 {
             // Invariant at this point: `buf >= 0x0100_0000`
             let cdf = self.cdf[*symbol as usize];
             let next_cdf = unsafe {
-                // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
-                // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
+                // This is always safe because `self.cdf` has type `[u8; 257]` and `*symbol`
+                // has type `u8`, so `*symbol as usize + 1` is guaranteed to be within bounds.
                 // Unfortunately, the compiler doesn't realize this automatically.
                 self.cdf.get_unchecked(*symbol as usize + 1)
             };
@@ -123,14 +123,11 @@ impl DistributionU8 {
         compressed
     }
 
-    /// # Safety
-    ///
-    /// TODO
-    pub unsafe fn decode_u32_8_unchecked(&self, compressed: &[u8], uncompressed: &mut [u8]) {
-        let mut buf = (*compressed.get_unchecked(0) as u32) << 24
-            | (*compressed.get_unchecked(1) as u32) << 16
-            | (*compressed.get_unchecked(2) as u32) << 8
-            | *compressed.get_unchecked(3) as u32;
+    pub fn decode_u32_8(&self, compressed: &[u8], uncompressed: &mut [u8]) -> Result<(), ()> {
+        let mut buf = (*compressed.get(0).ok_or(())? as u32) << 24
+            | (*compressed.get(1).ok_or(())? as u32) << 16
+            | (*compressed.get(2).ok_or(())? as u32) << 8
+            | *compressed.get(3).ok_or(())? as u32;
 
         let mut cursor_compressed = 4;
 
@@ -141,19 +138,25 @@ impl DistributionU8 {
             *dest = symbol;
 
             let cdf = self.cdf[symbol as usize];
-            let frequency = self
-                .cdf
-                .get_unchecked(symbol as usize + 1)
-                .wrapping_sub(cdf);
+            let next_cdf = unsafe {
+                // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
+                // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
+                // Unfortunately, the compiler doesn't realize this automatically.
+                self.cdf.get_unchecked(symbol as usize + 1)
+            };
+            let frequency = next_cdf.wrapping_sub(cdf);
+
             buf = frequency as u32 * (buf >> 8) + suffix - cdf as u32;
 
             // Refill `buf` if necessary.
             // (This branch could be replaced by bit masks but it seems to hurt performance.)
             if buf < 0x0100_0000 {
-                buf = (buf << 8) | *compressed.get_unchecked(cursor_compressed) as u32;
+                buf = (buf << 8) | *compressed.get(cursor_compressed).ok_or(())? as u32;
                 cursor_compressed += 1;
             }
         }
+
+        Ok(())
     }
 
     pub fn encode_u32_16(&self, uncompressed: &[u8]) -> Vec<u16> {
@@ -164,8 +167,8 @@ impl DistributionU8 {
             // Invariant at this point: `buf >= 0x0001_0000`
             let cdf = self.cdf[*symbol as usize];
             let next_cdf = unsafe {
-                // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
-                // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
+                // This is always safe because `self.cdf` has type `[u8; 257]` and `*symbol`
+                // has type `u8`, so `*symbol as usize + 1` is guaranteed to be within bounds.
                 // Unfortunately, the compiler doesn't realize this automatically.
                 self.cdf.get_unchecked(*symbol as usize + 1)
             };
@@ -198,12 +201,9 @@ impl DistributionU8 {
         compressed
     }
 
-    /// # Safety
-    ///
-    /// TODO
-    pub unsafe fn decode_u32_16_unchecked(&self, compressed: &[u16], uncompressed: &mut [u8]) {
+    pub fn decode_u32_16(&self, compressed: &[u16], uncompressed: &mut [u8]) -> Result<(), ()> {
         let mut buf =
-            (*compressed.get_unchecked(0) as u32) << 16 | *compressed.get_unchecked(1) as u32;
+            (*compressed.get(0).ok_or(())? as u32) << 16 | *compressed.get(1).ok_or(())? as u32;
 
         let mut cursor_compressed = 2;
 
@@ -214,21 +214,27 @@ impl DistributionU8 {
             *dest = symbol;
 
             let cdf = self.cdf[symbol as usize];
-            let frequency = self
-                .cdf
-                .get_unchecked(symbol as usize + 1)
-                .wrapping_sub(cdf);
+            let next_cdf = unsafe {
+                // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
+                // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
+                // Unfortunately, the compiler doesn't realize this automatically.
+                self.cdf.get_unchecked(symbol as usize + 1)
+            };
+            let frequency = next_cdf.wrapping_sub(cdf);
+
             buf = frequency as u32 * (buf >> 8) + suffix - cdf as u32;
 
             // Refill `buf` if necessary.
             if buf < 0x0001_0000 {
-                buf = (buf << 16) | *compressed.get_unchecked(cursor_compressed) as u32;
+                buf = (buf << 16) | *compressed.get(cursor_compressed).ok_or(())? as u32;
                 cursor_compressed += 1;
             }
         }
 
         debug_assert_eq!(cursor_compressed, compressed.len());
         debug_assert_eq!(buf, 0x0001_0000);
+
+        Ok(())
     }
 }
 
@@ -274,9 +280,9 @@ mod test {
         dbg!(uncompressed.len() as f32 * distribution.entropy() / 8.0);
 
         let mut decompressed = vec![0u8; uncompressed_len];
-        unsafe {
-            distribution.decode_u32_8_unchecked(&compressed, &mut decompressed);
-        }
+        distribution
+            .decode_u32_8(&compressed, &mut decompressed)
+            .unwrap();
 
         assert_eq!(&uncompressed, &decompressed);
     }
@@ -302,9 +308,9 @@ mod test {
         dbg!(uncompressed.len() as f32 * distribution.entropy() / 8.0);
 
         let mut decompressed = vec![0u8; uncompressed_len];
-        unsafe {
-            distribution.decode_u32_16_unchecked(&compressed, &mut decompressed);
-        }
+        distribution
+            .decode_u32_16(&compressed, &mut decompressed)
+            .unwrap();
 
         assert_eq!(&uncompressed, &decompressed);
     }

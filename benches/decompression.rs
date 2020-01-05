@@ -17,9 +17,9 @@ fn decompress_u32_8(c: &mut Criterion) {
         let compressed = distribution.encode_u32_8(&uncompressed);
 
         b.iter(|| {
-            unsafe {
-                distribution.decode_u32_8_unchecked(black_box(&compressed), &mut decompressed);
-            }
+            distribution
+                .decode_u32_8(black_box(&compressed), &mut decompressed)
+                .unwrap();
             black_box(&mut decompressed);
         })
     });
@@ -36,9 +36,9 @@ fn decompress_u32_16(c: &mut Criterion) {
         let compressed = distribution.encode_u32_16(&uncompressed);
 
         b.iter(|| {
-            unsafe {
-                distribution.decode_u32_16_unchecked(black_box(&compressed), &mut decompressed);
-            }
+            distribution
+                .decode_u32_16(black_box(&compressed), &mut decompressed)
+                .unwrap();
             black_box(&mut decompressed);
         })
     });
