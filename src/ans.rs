@@ -81,84 +81,6 @@ impl DistributionU8 {
             .collect()
     }
 
-    pub fn encode_u32_8(&self, uncompressed: &[u8]) -> Vec<u8> {
-        let mut compressed = Vec::new();
-        let mut buf: u32 = 0x0100_0000;
-
-        for symbol in uncompressed.iter().rev() {
-            // Invariant at this point: `buf >= 0x0100_0000`
-            let cdf = self.cdf[*symbol as usize];
-            let next_cdf = unsafe {
-                // This is always safe because `self.cdf` has type `[u8; 257]` and `*symbol`
-                // has type `u8`, so `*symbol as usize + 1` is guaranteed to be within bounds.
-                // Unfortunately, the compiler doesn't realize this automatically.
-                self.cdf.get_unchecked(*symbol as usize + 1)
-            };
-            let frequency = next_cdf.wrapping_sub(cdf);
-
-            // If emitting a byte and then pushing `symbol` on `buf` results in
-            // `buf >= 0x0100_0000`, then do it. If not, then just pushing `symbol`
-            // on `buf` is guaranteed not to overflow.
-            if buf >= (frequency as u32) << 24 {
-                compressed.push((buf & 0xff) as u8);
-                buf >>= 8;
-                // This is the only time where `buf < 0x0100_0000`. Thus, the decoder,
-                // which operates in the opposite order, can use a check for
-                // `buf < 0x0100_0000` to see if it has to read the next byte.
-            }
-
-            // Push `symbol` on buf.
-            // This panics if `frequency` is zero, which may actually be a good thing.
-            let prefix = buf / frequency as u32;
-            let suffix = (buf % frequency as u32) + cdf as u32;
-            buf = (prefix << 8) | suffix;
-        }
-
-        for _ in 0..4 {
-            compressed.push((buf & 0xff) as u8);
-            buf >>= 8;
-        }
-
-        compressed.reverse();
-        compressed
-    }
-
-    pub fn decode_u32_8(&self, compressed: &[u8], uncompressed: &mut [u8]) -> Result<(), ()> {
-        let mut buf = (*compressed.get(0).ok_or(())? as u32) << 24
-            | (*compressed.get(1).ok_or(())? as u32) << 16
-            | (*compressed.get(2).ok_or(())? as u32) << 8
-            | *compressed.get(3).ok_or(())? as u32;
-
-        let mut cursor_compressed = 4;
-
-        for dest in uncompressed.iter_mut() {
-            // Pop `symbol` off `buf`.
-            let suffix = buf & 0xff;
-            let symbol = self.inverse_cdf[suffix as usize];
-            *dest = symbol;
-
-            let cdf = self.cdf[symbol as usize];
-            let next_cdf = unsafe {
-                // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
-                // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
-                // Unfortunately, the compiler doesn't realize this automatically.
-                self.cdf.get_unchecked(symbol as usize + 1)
-            };
-            let frequency = next_cdf.wrapping_sub(cdf);
-
-            buf = frequency as u32 * (buf >> 8) + suffix - cdf as u32;
-
-            // Refill `buf` if necessary.
-            // (This branch could be replaced by bit masks but it seems to hurt performance.)
-            if buf < 0x0100_0000 {
-                buf = (buf << 8) | *compressed.get(cursor_compressed).ok_or(())? as u32;
-                cursor_compressed += 1;
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn encode_u32_16(&self, uncompressed: &[u8]) -> Vec<u16> {
         let mut compressed = Vec::new();
         let mut buf: u32 = 0x0001_0000;
@@ -268,34 +190,6 @@ mod test {
 
     fn make_distribution() -> DistributionU8 {
         DistributionU8::new(100, &[10, 1, 15, 0, 0, 7, 100, 110, 13])
-    }
-
-    fn test_single_roundtrip_u32_8(uncompressed_len: usize, seed: u64) {
-        let distribution = make_distribution();
-        let mut rng = StdRng::seed_from_u64(seed);
-        let uncompressed = distribution.generate_samples(uncompressed_len, &mut rng);
-
-        let compressed = distribution.encode_u32_8(&uncompressed);
-        dbg!(compressed.len());
-        dbg!(uncompressed.len() as f32 * distribution.entropy() / 8.0);
-
-        let mut decompressed = vec![0u8; uncompressed_len];
-        distribution
-            .decode_u32_8(&compressed, &mut decompressed)
-            .unwrap();
-
-        assert_eq!(&uncompressed, &decompressed);
-    }
-
-    #[test]
-    fn roundtrip_u32_8() {
-        let mut rng = StdRng::seed_from_u64(1234);
-        for uncompressed_len in 0..128 {
-            test_single_roundtrip_u32_8(uncompressed_len, rng.next_u64());
-        }
-        for uncompressed_len in &[1000, 3000, 5000, 10_000, 100_000, 1_000_000] {
-            test_single_roundtrip_u32_8(*uncompressed_len, rng.next_u64());
-        }
     }
 
     fn test_single_roundtrip_u32_16(uncompressed_len: usize, seed: u64) {
