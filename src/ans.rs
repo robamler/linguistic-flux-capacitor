@@ -81,7 +81,9 @@ impl DistributionU8 {
             .collect()
     }
 
-    pub fn encode_u32_16(&self, uncompressed: &[u8]) -> Vec<u16> {
+    /// In contrast to decoding, encoding cannot be done in a streaming fashion
+    /// because the encoder has to process the data in reverse direction.
+    pub fn encode(&self, uncompressed: &[u8]) -> Vec<u16> {
         let mut compressed = Vec::new();
         let mut buf: u32 = 0x0001_0000;
 
@@ -123,40 +125,110 @@ impl DistributionU8 {
         compressed
     }
 
-    pub fn decode_u32_16(&self, compressed: &[u16], uncompressed: &mut [u8]) -> Result<(), ()> {
-        let mut buf =
+    pub fn decoder<'a, 'b>(&'a self, compressed: &'b [u16]) -> Result<Decoder<'a, 'b>, ()> {
+        Decoder::new(self, compressed)
+    }
+
+    pub fn decode_all_to(&self, compressed: &[u16], uncompressed: &mut [u8]) -> Result<(), ()> {
+        let mut decoder = self.decoder(compressed)?;
+        decoder.decode_to(uncompressed)?;
+        decoder.finish()
+    }
+}
+
+pub struct Decoder<'a, 'b> {
+    distribution: &'a DistributionU8,
+    state: u32,
+    cursor: usize,
+    compressed: &'b [u16],
+}
+
+impl<'a, 'b> Decoder<'a, 'b> {
+    fn new(distribution: &'a DistributionU8, compressed: &'b [u16]) -> Result<Self, ()> {
+        let state =
             (*compressed.get(0).ok_or(())? as u32) << 16 | *compressed.get(1).ok_or(())? as u32;
+        Ok(Self {
+            distribution,
+            compressed,
+            state,
+            cursor: 2,
+        })
+    }
 
-        let mut cursor_compressed = 2;
+    pub fn decode<I: Iterator>(
+        &mut self,
+        dest_iter: I,
+        mut callback: impl FnMut(u8, I::Item),
+    ) -> Result<(), ()> {
+        // Dereference all fields just once before we enter the hot loop, and then
+        // never dereference them in the loop. This turns out to improve
+        // performance.
+        let mut cursor = self.cursor;
+        let mut state = self.state;
+        let compressed = self.compressed;
+        let cdf = &self.distribution.cdf;
+        let inverse_cdf = &self.distribution.inverse_cdf;
 
-        for dest in uncompressed.iter_mut() {
-            // Pop `symbol` off `buf`.
-            let suffix = buf & 0xff;
-            let symbol = self.inverse_cdf[suffix as usize];
-            *dest = symbol;
+        for dest in dest_iter {
+            // Pop `symbol` off `state` and call `callback`.
+            let suffix = state & 0xff;
+            let symbol = inverse_cdf[suffix as usize];
+            callback(symbol, dest);
 
-            let cdf = self.cdf[symbol as usize];
-            let next_cdf = unsafe {
+            // Update `state`.
+            let cdf_value = cdf[symbol as usize];
+            let next_cdf_value = unsafe {
                 // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
                 // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
                 // Unfortunately, the compiler doesn't realize this automatically.
-                self.cdf.get_unchecked(symbol as usize + 1)
+                cdf.get_unchecked(symbol as usize + 1)
             };
-            let frequency = next_cdf.wrapping_sub(cdf);
+            let frequency = next_cdf_value.wrapping_sub(cdf_value);
+            state = frequency as u32 * (state >> 8) + suffix - cdf_value as u32;
 
-            buf = frequency as u32 * (buf >> 8) + suffix - cdf as u32;
-
-            // Refill `buf` if necessary.
-            if buf < 0x0001_0000 {
-                buf = (buf << 16) | *compressed.get(cursor_compressed).ok_or(())? as u32;
-                cursor_compressed += 1;
+            // Refill `state` from data source if necessary.
+            if state < 0x0001_0000 {
+                state = (state << 16) | *compressed.get(cursor).ok_or(())? as u32;
+                cursor += 1;
             }
         }
 
-        debug_assert_eq!(cursor_compressed, compressed.len());
-        debug_assert_eq!(buf, 0x0001_0000);
+        self.cursor = cursor;
+        self.state = state;
 
         Ok(())
+    }
+
+    pub fn decode_to(&mut self, dest: &mut [u8]) -> Result<(), ()> {
+        self.decode(dest.iter_mut(), |symbol, dest| *dest = symbol)
+    }
+
+    pub fn decode_wrapping_add(&mut self, dest: &mut [i8]) -> Result<(), ()> {
+        self.decode(dest.iter_mut(), |symbol, dest| {
+            *dest = dest.wrapping_add(symbol as i8)
+        })
+    }
+
+    pub fn skip(&mut self, amt: usize) -> Result<(), ()> {
+        self.decode(0..amt, |_, _| ())
+    }
+
+    /// Check if encoder is in a valid "end" state and then drop it.
+    ///
+    /// If you don't want to read a compressed stream to the end and want to stop
+    /// early instead, you can just drop the decoder using `std::mem::drop`. There
+    /// is no way to verify data integrity without reading to the end of the stream.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, `Err(())` if there is either data left or if the
+    /// decoder is not in the expected final state (indicating data corruption).
+    pub fn finish(self) -> Result<(), ()> {
+        if self.cursor == self.compressed.len() && self.state == 0x0001_0000 {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
 
@@ -192,31 +264,31 @@ mod test {
         DistributionU8::new(100, &[10, 1, 15, 0, 0, 7, 100, 110, 13])
     }
 
-    fn test_single_roundtrip_u32_16(uncompressed_len: usize, seed: u64) {
+    fn test_single_roundtrip(uncompressed_len: usize, seed: u64) {
         let distribution = make_distribution();
         let mut rng = StdRng::seed_from_u64(seed);
         let uncompressed = distribution.generate_samples(uncompressed_len, &mut rng);
 
-        let compressed = distribution.encode_u32_16(&uncompressed);
+        let compressed = distribution.encode(&uncompressed);
         dbg!(2 * compressed.len());
         dbg!(uncompressed.len() as f32 * distribution.entropy() / 8.0);
 
         let mut decompressed = vec![0u8; uncompressed_len];
         distribution
-            .decode_u32_16(&compressed, &mut decompressed)
+            .decode_all_to(&compressed, &mut decompressed)
             .unwrap();
 
         assert_eq!(&uncompressed, &decompressed);
     }
 
     #[test]
-    fn roundtrip_u32_16() {
+    fn roundtrip() {
         let mut rng = StdRng::seed_from_u64(1234);
         for uncompressed_len in 0..128 {
-            test_single_roundtrip_u32_16(uncompressed_len, rng.next_u64());
+            test_single_roundtrip(uncompressed_len, rng.next_u64());
         }
         for uncompressed_len in &[1000, 3000, 5000, 10_000, 100_000, 1_000_000] {
-            test_single_roundtrip_u32_16(*uncompressed_len, rng.next_u64());
+            test_single_roundtrip(*uncompressed_len, rng.next_u64());
         }
     }
 }
