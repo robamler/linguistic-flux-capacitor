@@ -14,7 +14,7 @@ fn decompress(c: &mut Criterion) {
     c.bench_function("decompress", |b| {
         let mut rng = StdRng::seed_from_u64(root_rng.next_u64());
         let uncompressed = distribution.generate_samples(decompressed.len(), &mut rng);
-        let compressed = distribution.encode(&uncompressed);
+        let compressed = distribution.encode(&uncompressed).unwrap();
 
         b.iter(|| {
             distribution

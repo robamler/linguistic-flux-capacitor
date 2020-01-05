@@ -81,9 +81,16 @@ impl DistributionU8 {
             .collect()
     }
 
+    /// Encode (compress) a sequence of symbols using ANS.
+    ///
     /// In contrast to decoding, encoding cannot be done in a streaming fashion
     /// because the encoder has to process the data in reverse direction.
-    pub fn encode(&self, uncompressed: &[u8]) -> Vec<u16> {
+    ///
+    /// # Returns
+    ///
+    /// A vector of the compressed message or an error if `uncompressed` contains a
+    /// symbol that should have zero frequency according to the distribution `self`.
+    pub fn encode(&self, uncompressed: &[u8]) -> Result<Vec<u16>, ()> {
         let mut compressed = Vec::new();
         let mut buf: u32 = 0x0001_0000;
 
@@ -94,6 +101,8 @@ impl DistributionU8 {
                 // This is always safe because `self.cdf` has type `[u8; 257]` and `*symbol`
                 // has type `u8`, so `*symbol as usize + 1` is guaranteed to be within bounds.
                 // Unfortunately, the compiler doesn't realize this automatically.
+                // Note: We could instead make `self.cdf` of length only `256` and wrap around
+                //       at the end but this turns out to hurt performance.
                 self.cdf.get_unchecked(*symbol as usize + 1)
             };
             let frequency = next_cdf.wrapping_sub(cdf);
@@ -110,9 +119,8 @@ impl DistributionU8 {
             }
 
             // Push `symbol` on buf.
-            // This panics if `frequency` is zero, which may actually be a good thing.
             let prefix = buf / frequency as u32;
-            let suffix = (buf % frequency as u32) + cdf as u32;
+            let suffix = buf.checked_rem(frequency as u32).ok_or(())? + cdf as u32;
             buf = (prefix << 8) | suffix;
         }
 
@@ -122,7 +130,7 @@ impl DistributionU8 {
         }
 
         compressed.reverse();
-        compressed
+        Ok(compressed)
     }
 
     pub fn decoder<'a, 'b>(&'a self, compressed: &'b [u16]) -> Result<Decoder<'a, 'b>, ()> {
@@ -181,6 +189,8 @@ impl<'a, 'b> Decoder<'a, 'b> {
                 // This is always safe because `self.cdf` has type `[u8; 257]` and `symbol`
                 // has type `u8`, so `symbol as usize + 1` is guaranteed to be within bounds.
                 // Unfortunately, the compiler doesn't realize this automatically.
+                // Note: We could instead make `cdf` of length only `256` and wrap around
+                //       at the end but this turns out to hurt performance.
                 cdf.get_unchecked(symbol as usize + 1)
             };
             let frequency = next_cdf_value.wrapping_sub(cdf_value);
@@ -269,7 +279,7 @@ mod test {
         let mut rng = StdRng::seed_from_u64(seed);
         let uncompressed = distribution.generate_samples(uncompressed_len, &mut rng);
 
-        let compressed = distribution.encode(&uncompressed);
+        let compressed = distribution.encode(&uncompressed).unwrap();
         dbg!(2 * compressed.len());
         dbg!(uncompressed.len() as f32 * distribution.entropy() / 8.0);
 
