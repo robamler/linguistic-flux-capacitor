@@ -1,5 +1,8 @@
 use rand::RngCore;
 
+const MIN_ENCODER_STATE: u32 = 0x0001_0000;
+const INITIAL_ENCODER_STATE: u32 = MIN_ENCODER_STATE;
+
 pub struct DistributionU8 {
     /// Last entry is always zero.
     cdf: [u8; 257],
@@ -92,10 +95,10 @@ impl DistributionU8 {
     /// symbol that should have zero frequency according to the distribution `self`.
     pub fn encode(&self, uncompressed: &[u8]) -> Result<Vec<u16>, ()> {
         let mut compressed = Vec::new();
-        let mut buf: u32 = 0x0001_0000;
+        let mut state: u32 = INITIAL_ENCODER_STATE;
 
         for symbol in uncompressed.iter().rev() {
-            // Invariant at this point: `buf >= 0x0001_0000`
+            // Invariant at this point: `state >= MIN_ENCODER_STATE`
             let cdf = self.cdf[*symbol as usize];
             let next_cdf = unsafe {
                 // This is always safe because `self.cdf` has type `[u8; 257]` and `*symbol`
@@ -107,26 +110,26 @@ impl DistributionU8 {
             };
             let frequency = next_cdf.wrapping_sub(cdf);
 
-            // If emitting two bytes and then pushing `symbol` on `buf` results in
-            // `buf >= 0x0001_0000`, then do it. If not, then just pushing `symbol`
-            // on `buf` is guaranteed not to overflow.
-            if buf >= (frequency as u32) << 24 {
-                compressed.push((buf & 0xffff) as u16);
-                buf >>= 16;
-                // This is the only time where `buf < 0x0100_0000`. Thus, the decoder,
-                // which operates in the opposite order, can use a check for
-                // `buf < 0x0100_0000` to see if it has to read the next byte.
+            // If emitting two bytes and then pushing `symbol` on `state` results in
+            // `state >= MIN_ENCODER_STATE`, then do it. If not, then just pushing
+            // `symbol` on `state` is guaranteed not to overflow.
+            if state >= (frequency as u32) << 24 {
+                compressed.push((state & 0xffff) as u16);
+                state >>= 16;
+                // This is the only time where `state < MIN_ENCODER_STATE`. Thus, the
+                // decoder, which operates in the reverse order, can use a check for
+                // `state < MIN_ENCODER_STATE` to see if it has to read the next byte.
             }
 
-            // Push `symbol` on buf.
-            let prefix = buf / frequency as u32;
-            let suffix = buf.checked_rem(frequency as u32).ok_or(())? + cdf as u32;
-            buf = (prefix << 8) | suffix;
+            // Push `symbol` on `state`.
+            let prefix = state / frequency as u32;
+            let suffix = state.checked_rem(frequency as u32).ok_or(())? + cdf as u32;
+            state = (prefix << 8) | suffix;
         }
 
         for _ in 0..2 {
-            compressed.push((buf & 0xffff) as u16);
-            buf >>= 16;
+            compressed.push((state & 0xffff) as u16);
+            state >>= 16;
         }
 
         compressed.reverse();
@@ -197,7 +200,7 @@ impl<'a, 'b> Decoder<'a, 'b> {
             state = frequency as u32 * (state >> 8) + suffix - cdf_value as u32;
 
             // Refill `state` from data source if necessary.
-            if state < 0x0001_0000 {
+            if state < MIN_ENCODER_STATE {
                 state = (state << 16) | *compressed.get(cursor).ok_or(())? as u32;
                 cursor += 1;
             }
@@ -234,11 +237,28 @@ impl<'a, 'b> Decoder<'a, 'b> {
     /// `Ok(())` on success, `Err(())` if there is either data left or if the
     /// decoder is not in the expected final state (indicating data corruption).
     pub fn finish(self) -> Result<(), ()> {
-        if self.cursor == self.compressed.len() && self.state == 0x0001_0000 {
+        if self.cursor == self.compressed.len() && self.state == MIN_ENCODER_STATE {
             Ok(())
         } else {
             Err(())
         }
+    }
+
+    /// Check if decoder state is consistent with EOF, regardless of whether there
+    /// is more uncompressed data available.
+    ///
+    /// This function is useful to verify data integrity after decoding in a
+    /// scenario where the byte slice that was used to create the encoder may
+    /// contain further unnecessary data at the end (e.g., if only the size of the
+    /// decoded data is known, or if the size of the compressed data is encoded in
+    /// the data itself). If the compressed data size is known at the time the
+    /// decoder is constructed, then use [`finish`](#method.finish) instead.
+    ///
+    /// A return value of `true` from this method is a necessary but not a
+    /// sufficient condition that the decoder has reached the end of a compressed
+    /// stream.
+    pub fn could_be_end(&self) -> bool {
+        self.state == INITIAL_ENCODER_STATE
     }
 }
 
