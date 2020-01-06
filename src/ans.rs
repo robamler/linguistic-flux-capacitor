@@ -36,17 +36,13 @@ impl std::fmt::Debug for DistributionU8 {
 
 impl DistributionU8 {
     pub fn new(min_symbol: u8, frequencies: &[u8]) -> Self {
-        assert!(min_symbol as usize + frequencies.len() <= 256);
+        assert!(frequencies.len() <= 256);
         let mut cdf = [0u8; 257];
         let mut inverse_cdf = [0u8; 256];
 
         let mut accum = 0u32;
-        for ((frequency, dest_cdf), symbol) in frequencies
-            .iter()
-            .zip(cdf[min_symbol as usize..].iter_mut())
-            .zip(min_symbol..)
-        {
-            *dest_cdf = accum as u8;
+        for (frequency, symbol) in frequencies.iter().zip(min_symbol as usize..) {
+            cdf[symbol & 0xff] = accum as u8;
             let new_accum = accum + *frequency as u32;
             for dest_inverse_cdf in &mut inverse_cdf[accum as usize..new_accum as usize] {
                 *dest_inverse_cdf = symbol as u8;
@@ -54,15 +50,24 @@ impl DistributionU8 {
             accum = new_accum;
         }
 
+        // This is an optimization. The encoder and decoder access `cdf` at positions
+        // `symbol` and `symbol + 1`, where `symbol` is a `u8`. The `cdf` logically
+        // wraps around after index `255` (i.e., after the 256th entry), so
+        // `cdf[symbol + 1]` should resolve to `cdf[0]` if `symbol == 255`. We could
+        // explicitly implement the wrapping on each lookup via
+        // `cdf[symbol.wrapping_add(1) as usize]` but this turns out to hurt
+        // performance, so we instead make `cdf` one entry longer and wrap it around
+        // explicitly.
+        cdf[256] = cdf[0];
+
         assert_eq!(accum, 256);
 
         Self { cdf, inverse_cdf }
     }
 
     pub fn entropy(&self) -> f32 {
-        let mut last_accum = 0;
-        let f_log2f = self
-            .cdf
+        let mut last_accum = self.cdf[0];
+        let f_log2f = self.cdf[1..]
             .iter()
             .map(|accum| {
                 let freq = accum.wrapping_sub(last_accum);
@@ -106,7 +111,7 @@ impl DistributionU8 {
                 // Unfortunately, the compiler doesn't realize this automatically.
                 // Note: We could instead make `self.cdf` of length only `256` and wrap around
                 //       at the end but this turns out to hurt performance.
-                self.cdf.get_unchecked(*symbol as usize + 1)
+                self.cdf.get_unchecked(symbol.wrapping_add(1) as usize)
             };
             let frequency = next_cdf.wrapping_sub(cdf);
 
@@ -268,30 +273,30 @@ mod test {
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
-    fn create_distribution() {
-        let min_symbol = 100;
+    fn distribution() {
+        let min_symbol = 250;
         let frequencies = [10, 1, 15, 0, 0, 7, 100, 110, 13];
         let distribution = DistributionU8::new(min_symbol, &frequencies);
 
         let mut counts = [0u8; 256];
         let mut last_symbol = min_symbol;
+        let mut num_decreases = 0;
         for symbol in distribution.inverse_cdf.iter() {
-            assert!(*symbol >= last_symbol);
-            assert!((*symbol as usize) < min_symbol as usize + frequencies.len());
+            if *symbol < last_symbol {
+                num_decreases += 1
+            }
             last_symbol = *symbol;
             counts[*symbol as usize] += 1;
         }
 
-        assert_eq!(
-            &counts[min_symbol as usize..min_symbol as usize + frequencies.len()],
-            &frequencies
-        );
-
+        assert!(num_decreases <= 1);
+        assert_eq!(&counts[250..], &frequencies[..6]);
+        assert_eq!(&counts[..3], &frequencies[6..]);
         assert!((distribution.entropy() - 1.867_519_4).abs() < 1e-6);
     }
 
     fn make_distribution() -> DistributionU8 {
-        DistributionU8::new(100, &[10, 1, 15, 0, 0, 7, 100, 110, 13])
+        DistributionU8::new(250, &[10, 1, 15, 0, 0, 7, 100, 110, 13])
     }
 
     fn test_single_roundtrip(uncompressed_len: usize, seed: u64) {
