@@ -51,10 +51,8 @@
             <li>All blocks are aligned to multiples of 4 bytes from the beginning of the file.</li>
             <li>The file size must be a multiple of 4 bytes.</li>
             <li>Essentially, we treat the file as an array of 32-bit integers.</li>
-            <li>When addressing a child block from a parent block, we provide its offset from the position just
-                after
-                the <a href="#Root-Block-(File-Header)">
-                    root block</a> in units of 4 bytes.</li>
+            <li>When addressing a child block from a parent block, we specify its start position measured from the
+                beginning of the file in units of 4 bytes.</li>
             <li>Except for the root block, which must start at the beginning of the file, the encoder may place all
                 other blocks at arbitrary (non-overlapping) positions in the file. The encoder <em>should</em>
                 choose
