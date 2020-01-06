@@ -3,14 +3,21 @@ use crate::ans::{Decoder, DistributionU8};
 use wasm_bindgen::prelude::*;
 
 use std::convert::TryInto;
+use std::num::NonZeroU32;
+use std::ops::Deref;
 
 #[wasm_bindgen]
-struct EmbeddingFile {
+pub struct EmbeddingFile {
     raw_data: Box<[u32]>,
 }
 
+#[repr(transparent)]
+pub struct EmbeddingData {
+    raw_data: [u32],
+}
+
 #[repr(C)]
-struct FileHeader {
+pub struct FileHeader {
     pub magic: u32,
     pub major_version: u32,
     pub minor_version: u32,
@@ -19,20 +26,25 @@ struct FileHeader {
     pub vocab_size: u32,
     pub embedding_dim: u32,
     pub chunk_size: u32,
+    pub scale_factor: f32,
 }
 
 #[repr(C)]
-struct Timestep<'a> {
+pub struct CompressedTimestep<'a> {
     distribution: DistributionU8,
     chunk_addresses: &'a [u32],
-    raw_data: &'a [u32],
+    embedding_data: &'a EmbeddingData,
+}
+
+#[repr(C)]
+pub struct UncompressedTimestep<'a> {
+    uncompressed: &'a [i8],
+    embedding_data: &'a EmbeddingData,
 }
 
 impl EmbeddingFile {
-    const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
-
     pub fn new(data: Box<[u32]>) -> Result<Self, ()> {
-        if data.len() < Self::HEADER_SIZE {
+        if data.len() < EmbeddingData::HEADER_SIZE {
             return Err(());
         }
 
@@ -51,7 +63,7 @@ impl EmbeddingFile {
             return Err(());
         }
 
-        let first_embeddings_offset = Self::HEADER_SIZE as u32 + header.num_timesteps - 2;
+        let first_embeddings_offset = EmbeddingData::HEADER_SIZE as u32 + header.num_timesteps - 2;
         let last_embeddings_offset = first_embeddings_offset + embeddings_size / 4;
         let payload_offset = last_embeddings_offset + embeddings_size / 4;
 
@@ -61,6 +73,27 @@ impl EmbeddingFile {
 
         Ok(file)
     }
+
+    pub fn into_inner(self) -> Box<[u32]> {
+        self.raw_data
+    }
+}
+
+impl Deref for EmbeddingFile {
+    type Target = EmbeddingData;
+
+    fn deref(&self) -> &EmbeddingData {
+        let raw_data_slice: &[u32] = &self.raw_data;
+        unsafe {
+            // As far as I understand, this should be safe because `EmbeddingData` is
+            // declared as `#[repr(transparent)]`.
+            &*(raw_data_slice as *const [u32] as *const EmbeddingData)
+        }
+    }
+}
+
+impl EmbeddingData {
+    const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
 
     pub fn header(&self) -> &FileHeader {
         let header_slice = unsafe {
@@ -75,30 +108,23 @@ impl EmbeddingFile {
         }
     }
 
-    pub fn first_embeddings(&self) -> &[i8] {
-        let header = self.header();
-        let begin = Self::HEADER_SIZE as u32 + header.num_timesteps - 2;
-        let end = begin + header.vocab_size * header.embedding_dim / 4;
-
-        get_i8_slice(unsafe {
-            // This is safe because the constructor checks that `raw_data` is big enough.
-            &self.raw_data.get_unchecked(begin as usize..end as usize)
-        })
-    }
-
-    pub fn last_embeddings(&self) -> &[i8] {
+    pub fn margin_embeddings(&self, level: u32) -> UncompressedTimestep {
+        assert!(level < 2);
         let header = self.header();
         let embedding_size = header.vocab_size * header.embedding_dim / 4;
-        let begin = Self::HEADER_SIZE as u32 + header.num_timesteps - 2 + embedding_size;
+        let begin = Self::HEADER_SIZE as u32 + header.num_timesteps - 2 + level * embedding_size;
         let end = begin + embedding_size;
 
-        get_i8_slice(unsafe {
-            // This is safe because the constructor checks that `raw_data` is big enough.
-            &self.raw_data.get_unchecked(begin as usize..end as usize)
-        })
+        UncompressedTimestep {
+            uncompressed: get_i8_slice(unsafe {
+                // This is safe because the constructor checks that `raw_data` is big enough.
+                &self.raw_data.get_unchecked(begin as usize..end as usize)
+            }),
+            embedding_data: self,
+        }
     }
 
-    pub fn timestep(&self, t: u32) -> Result<Timestep, ()> {
+    pub fn timestep(&self, t: u32) -> Result<CompressedTimestep, ()> {
         if t == 0 || t > self.header().num_timesteps {
             Err(())
         } else {
@@ -113,18 +139,14 @@ impl EmbeddingFile {
             // `vocab_size` is guaranteed to be a multiple of `chunk_size`.
             let num_chunks = header.vocab_size / header.chunk_size;
 
-            Timestep::new(&self.raw_data, addr, num_chunks)
+            CompressedTimestep::new(&self, addr, num_chunks)
         }
-    }
-
-    pub fn into_inner(self) -> Box<[u32]> {
-        self.raw_data
     }
 }
 
-impl<'a> Timestep<'a> {
-    fn new(raw_data: &'a [u32], addr: u32, num_chunks: u32) -> Result<Self, ()> {
-        let byteslice = get_u8_slice(raw_data.get(addr as usize..).ok_or(())?);
+impl<'a> CompressedTimestep<'a> {
+    fn new(embedding_data: &'a EmbeddingData, addr: u32, num_chunks: u32) -> Result<Self, ()> {
+        let byteslice = get_u8_slice(embedding_data.raw_data.get(addr as usize..).ok_or(())?);
 
         let smallest_symbol = byteslice[0] as i8;
         let largest_symbol = byteslice[1] as i8;
@@ -141,21 +163,104 @@ impl<'a> Timestep<'a> {
         let distribution = DistributionU8::new(smallest_symbol as u8, frequencies);
 
         let start_addr = addr as usize + (frequencies_end + 3) / 4;
-        let chunk_addresses = raw_data
+        let chunk_addresses = embedding_data
+            .raw_data
             .get(start_addr..start_addr + num_chunks as usize)
             .ok_or(())?;
 
-        Ok(Timestep {
+        Ok(CompressedTimestep {
             distribution,
             chunk_addresses,
-            raw_data,
+            embedding_data,
         })
     }
 
-    pub fn chunk<'s>(&'s self, index: u32) -> Result<Decoder<'s, 'a>, ()> {
+    fn chunk<'s>(&'s self, index: u32) -> Result<Decoder<'s, 'a>, ()> {
         let addr = *self.chunk_addresses.get(index as usize).ok_or(())?;
-        let compressed_data = get_u16_slice(self.raw_data.get(addr as usize..).ok_or(())?);
+        let compressed_data = get_u16_slice(
+            self.embedding_data
+                .raw_data
+                .get(addr as usize..)
+                .ok_or(())?,
+        );
         self.distribution.decoder(compressed_data)
+    }
+
+    pub fn reader<'s>(&'s self) -> CompressedTimestepReader<'s, 'a> {
+        CompressedTimestepReader::new(self)
+    }
+}
+
+pub trait TimestepReader {
+    fn next_diff_vector_in_ascending_order<I: Iterator>(
+        &mut self,
+        index: u32,
+        dest_iter: I,
+        callback: impl FnMut(i8, I::Item),
+    ) -> Result<(), ()>;
+}
+
+pub struct CompressedTimestepReader<'a, 'b> {
+    timestep: &'a CompressedTimestep<'b>,
+    decoder_and_chunk_index: Option<(Decoder<'a, 'b>, u32)>,
+    offset: u32,
+}
+
+impl<'a, 'b> CompressedTimestepReader<'a, 'b> {
+    fn new(timestep: &'a CompressedTimestep<'b>) -> Self {
+        Self {
+            timestep,
+            decoder_and_chunk_index: None,
+            offset: 0,
+        }
+    }
+}
+
+impl TimestepReader for CompressedTimestepReader<'_, '_> {
+    fn next_diff_vector_in_ascending_order<I: Iterator>(
+        &mut self,
+        index: u32,
+        dest_iter: I,
+        mut callback: impl FnMut(i8, I::Item),
+    ) -> Result<(), ()> {
+        let header = self.timestep.embedding_data.header();
+        let chunk_index = index / header.chunk_size;
+        let offset = header.embedding_dim * (chunk_index % header.chunk_size);
+
+        // TODO: find out if the taking and resetting has an impact on performance
+        //       or whether it's just semantics.
+        let mut decoder = match self.decoder_and_chunk_index.take() {
+            Some((decoder, old_chunk_index)) if old_chunk_index == chunk_index => decoder,
+            _ => {
+                self.offset = 0;
+                self.timestep.chunk(chunk_index)?
+            }
+        };
+
+        assert!(offset >= self.offset);
+        decoder.skip((offset - self.offset) as usize)?;
+        decoder.decode(dest_iter, |byte, dest_item| callback(byte as i8, dest_item))?;
+
+        self.decoder_and_chunk_index = Some((decoder, chunk_index));
+
+        Ok(())
+    }
+}
+
+impl TimestepReader for UncompressedTimestep<'_> {
+    fn next_diff_vector_in_ascending_order<I: Iterator>(
+        &mut self,
+        index: u32,
+        dest_iter: I,
+        mut callback: impl FnMut(i8, I::Item),
+    ) -> Result<(), ()> {
+        let header = self.embedding_data.header();
+        let start = header.embedding_dim * index;
+        for (dest, source) in dest_iter.zip(self.uncompressed.get(start as usize..).ok_or(())?) {
+            callback(*source, dest);
+        }
+
+        Ok(())
     }
 }
 
@@ -193,18 +298,19 @@ mod test {
             255, // magic
             0,   // major_version
             0,   // minor_version
-            15,  // file_size
+            16,  // file_size
             3,   // num_timesteps
             4,   // vocab_size
             3,   // embedding_dim
             2,   // chunk_size
+            1,   // scale_factor (is logically an f32)
             10,  // pointer to the other time step
             1, 2, 3, // embedding vectors of first time step (4 at a time given as `u32`s)
             4, 5, 6, // embedding vectors of last time step (4 at a time given as `u32`s)
         ];
 
         let file = EmbeddingFile::new(data.into_boxed_slice()).unwrap();
-        assert_eq!(file.header().file_size, 15);
+        assert_eq!(file.header().file_size, 16);
 
         let mut data = file.into_inner();
         data[3] = 11; // Invalidate the file size field.
