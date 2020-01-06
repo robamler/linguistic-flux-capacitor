@@ -4,7 +4,7 @@ extern crate criterion;
 use criterion::{black_box, Criterion};
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 
-use word_history_explorer_backend::ans::DistributionU8;
+use word_history_explorer_backend::embeddings::compression::DistributionU8;
 
 fn decompress(c: &mut Criterion) {
     let mut decompressed = vec![0u8; 1024 * 1024]; // 1 MiB

@@ -1,4 +1,4 @@
-use crate::ans::{Decoder, DistributionU8};
+use super::compression::{Decoder, DistributionU8};
 
 use wasm_bindgen::prelude::*;
 

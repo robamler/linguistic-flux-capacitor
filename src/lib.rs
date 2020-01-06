@@ -1,5 +1,3 @@
-pub mod ans;
-pub mod embedding_file;
 pub mod embeddings;
 mod utils;
 pub mod wasm_buffer;
