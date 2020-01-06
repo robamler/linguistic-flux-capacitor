@@ -107,6 +107,10 @@ impl<T: Default> RankTwoTensor<T> {
             data: data.into(),
         }
     }
+
+    pub fn into_inner(self) -> Vec<T> {
+        self.data.into()
+    }
 }
 
 impl<T> RankTwoTensor<T> {
@@ -142,6 +146,10 @@ impl<'a, T> RankTwoTensorViewMut<'a, T> {
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data
+    }
+
+    pub fn downgrade(&self) -> RankTwoTensorView<T> {
+        RankTwoTensorView::from_raw_parts(self.stride0, self.data)
     }
 }
 
