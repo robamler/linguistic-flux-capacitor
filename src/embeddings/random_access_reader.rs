@@ -90,7 +90,9 @@ impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
             dest_iter
                 .zip(&mut self.left_parent_iter)
                 .zip(&mut self.right_parent_iter),
-            |diff, ((dest, left), right)| callback((left + right) / 2 + diff, dest),
+            |diff, ((dest, left), right)| {
+                callback((((*left as i32 + *right as i32) / 2) as i8) + diff, dest)
+            },
         )
     }
 }

@@ -1,9 +1,8 @@
 use super::super::compression::DistributionU8;
 use super::super::tensors::{RankThreeTensor, RankThreeTensorView, RankTwoTensor};
-use super::{EmbeddingFile, FileHeader};
+use super::FileHeader;
 
 use std::convert::TryInto;
-use std::io::Write;
 
 pub fn compress_quantized_tensor(
     uncompressed: RankThreeTensorView<i8>,
@@ -44,7 +43,7 @@ pub fn compress_quantized_tensor(
             TimeStepIR {
                 address: current_address,
                 smallest_symbol: smallest_symbol as u8,
-                largest_symbol: largest_symbol,
+                largest_symbol,
                 counts,
             }
         })
@@ -90,7 +89,7 @@ pub fn compress_quantized_tensor(
         0,
         num_timesteps as usize - 1,
         1,
-        &mut |t, level, left_t, left_level, right_t, right_level| {
+        &mut |t, _, _, _, _, _| {
             let ir = &timestep_ir[t - 1];
 
             let mut shifted_counts = [0u32; 256];
@@ -180,7 +179,7 @@ pub fn compress_quantized_tensor(
         header[0] = meta.smallest_symbol;
         header[1] = meta.largest_symbol;
         header[2..num_frequencies + 2].copy_from_slice(&meta.frequencies[..num_frequencies]);
-        assert!(meta.chunk_addresses.len() == (vocab_size / chunk_size) as usize);
+        debug_assert!(meta.chunk_addresses.len() == (vocab_size / chunk_size) as usize);
         let body = &mut compressed[header_end_u32..header_end_u32 + meta.chunk_addresses.len()];
         body.copy_from_slice(&meta.chunk_addresses);
     }
@@ -247,12 +246,12 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
         0,
         num_timesteps - 1,
         1,
-        &mut |t, level, left_t, left_level, right_t, right_level| {
+        &mut |t, _level, left_t, _left_level, right_t, _right_level| {
             let left_view = uncompressed.subview(left_t as usize);
             let right_view = uncompressed.subview(right_t as usize);
             let center_view = uncompressed.subview(t as usize);
             let mut target_view = diffs_view.subview_mut((t - 1) as usize);
-            let mut counts_subview = counts_view.subview_mut((t - 1) as usize);
+            let counts_subview = counts_view.subview_mut((t - 1) as usize);
 
             for (((target_val, left_val), right_val), center_val) in target_view
                 .as_mut_slice()
@@ -261,7 +260,10 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
                 .zip(right_view.as_slice())
                 .zip(center_view.as_slice())
             {
-                let diff = *center_val as i16 - (*left_val as i16 + *right_val as i16) / 2;
+                // We have to calculate the differences as signed integers because
+                // division by 2 is not the same for signed and unsigned integers.
+                // Also,
+                let diff = *center_val as i32 - (*left_val as i32 + *right_val as i32) / 2;
                 // Convert into `i8` and then interpret as `u8` for correct sign treatment.
                 let diff: i8 = diff.try_into().unwrap();
                 *target_val = diff as u8;
@@ -294,12 +296,12 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
 ///
 /// Panics if `counts` contains only zeros.
 fn find_optimal_nonzero_range(counts: &[u32]) -> (usize, usize) {
-    let first_zero = if let Some((first_zero, _)) = counts
+    let first_zero = if let Some((symbol, _count)) = counts
         .iter()
         .enumerate()
-        .find(|(symbol, &count)| count == 0)
+        .find(|(_symbol, &count)| count == 0)
     {
-        first_zero
+        symbol
     } else {
         return (0, 255);
     };
@@ -311,7 +313,7 @@ fn find_optimal_nonzero_range(counts: &[u32]) -> (usize, usize) {
             .iter()
             .enumerate()
             .rev()
-            .find(|(symbol, &count)| count != 0)
+            .find(|(_symbol, &count)| count != 0)
             .unwrap()
             .0
             + 1
@@ -353,12 +355,11 @@ fn quantized_frequencies(counts: &[u32], total_counts: u32) -> [u32; 256] {
     debug_assert_eq!(counts.iter().cloned().sum::<u32>(), total_counts);
 
     let mut frequencies = [0u32; 256];
-    let mut total_frequency = 257u32;
-
     let mut total_frequency = 0;
+
     for (freq, count) in frequencies.iter_mut().zip(counts) {
         if *count != 0 {
-            *freq = u32::max((*count * 256 + total_counts) / total_counts, 1);
+            *freq = u32::max((*count * 256 + total_counts - 1) / total_counts, 1);
             total_frequency += *freq;
         };
     }
@@ -410,52 +411,134 @@ fn get_u8_slice_mut(data: &mut [u32]) -> &mut [u8] {
 #[cfg(test)]
 mod test {
     use super::super::EmbeddingFile;
+    use super::super::TimestepReader;
     use super::*;
-
-    use byteorder::{LittleEndian, ReadBytesExt};
 
     use std::fs::File;
     use std::io::prelude::*;
 
     #[test]
     fn create_file() {
-        let num_timesteps = 6;
-        let vocab_size = 100;
-        let embedding_dim = 16;
+        const NUM_TIMESTEPS: u32 = 6;
+        const VOCAB_SIZE: u32 = 100;
+        const EMBEDDING_DIM: u32 = 16;
 
         let file_name = format!(
             "tests/fake_data_generation/random_{}_{}_{}",
-            num_timesteps, vocab_size, embedding_dim
+            NUM_TIMESTEPS, VOCAB_SIZE, EMBEDDING_DIM
         );
         dbg!(&file_name);
         let mut input_file = File::open(file_name).unwrap();
 
-        let mut buf = Vec::new();
-        input_file.read_to_end(&mut buf);
-        assert_eq!(buf.len(), num_timesteps * vocab_size * embedding_dim);
+        let mut input_buf = Vec::new();
+        input_file.read_to_end(&mut input_buf).unwrap();
+        assert_eq!(
+            input_buf.len(),
+            (NUM_TIMESTEPS * VOCAB_SIZE * EMBEDDING_DIM) as usize
+        );
 
         // Check that negative values are treated correctly.
         assert_eq!(
-            buf[3 * vocab_size * embedding_dim + 5 * embedding_dim + 10] as i8,
-            -7
+            input_buf[(3 * VOCAB_SIZE * EMBEDDING_DIM + 5 * EMBEDDING_DIM + 10) as usize] as i8,
+            -39
         );
 
         let uncompressed = RankThreeTensor::from_flattened(
-            u8_slice_to_i8_slice(&buf).to_vec(),
-            num_timesteps,
-            vocab_size,
-            embedding_dim,
+            u8_slice_to_i8_slice(&input_buf).to_vec(),
+            NUM_TIMESTEPS as usize,
+            VOCAB_SIZE as usize,
+            EMBEDDING_DIM as usize,
         );
 
         let chunk_size = 20;
         let scale_factor = 1.5f32;
         let compressed =
             compress_quantized_tensor(uncompressed.as_view(), chunk_size, scale_factor);
+        let compressed_len = compressed.len();
 
-        let decoded = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();
+        let file = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();
 
-        let header = decoded.header();
-        dbg!(header);
+        let header = file.header();
+        assert_eq!(
+            header,
+            &FileHeader {
+                magic: 0,
+                major_version: 0,
+                minor_version: 1,
+                file_size: compressed_len as u32,
+                num_timesteps: NUM_TIMESTEPS,
+                vocab_size: VOCAB_SIZE,
+                embedding_dim: EMBEDDING_DIM,
+                chunk_size,
+                scale_factor,
+            }
+        );
+
+        let first_timestep = file.margin_embeddings(0);
+        assert_eq!(
+            first_timestep.uncompressed.len(),
+            (VOCAB_SIZE * EMBEDDING_DIM) as usize
+        );
+        assert_eq!(
+            first_timestep.uncompressed[40 * EMBEDDING_DIM as usize + 8],
+            13
+        );
+        assert_eq!(
+            first_timestep.uncompressed[73 * EMBEDDING_DIM as usize + 15],
+            -32
+        );
+
+        let last_timestep = file.margin_embeddings(1);
+        assert_eq!(
+            last_timestep.uncompressed.len(),
+            (VOCAB_SIZE * EMBEDDING_DIM) as usize
+        );
+        assert_eq!(
+            last_timestep.uncompressed[20 * EMBEDDING_DIM as usize + 9],
+            -12
+        );
+        assert_eq!(last_timestep.uncompressed[13], 5);
+
+        let center_timestep = file.timestep((NUM_TIMESTEPS - 1) / 2).unwrap();
+        let mut buf = [0i8; EMBEDDING_DIM as usize];
+        let mut center_reader = center_timestep.reader();
+
+        center_reader
+            .next_diff_vector_in_ascending_order(0, buf.iter_mut(), |source, dest| {
+                *dest = source as i8;
+            })
+            .unwrap();
+        assert_eq!(
+            &buf[..],
+            [9, -23, 5, -11, -27, 29, 38, 11, -21, 2, 37, -10, 6, -25, 11, -8]
+        );
+        center_reader
+            .next_diff_vector_in_ascending_order(5, buf.iter_mut(), |source, dest| {
+                *dest = source as i8;
+            })
+            .unwrap();
+        assert_eq!(
+            &buf[..],
+            [2, -23, 14, 42, 3, 31, 6, -20, -23, 10, 21, 3, -19, 2, 34, -3]
+        );
+        center_reader
+            .next_diff_vector_in_ascending_order(8, buf.iter_mut(), |source, dest| {
+                *dest = source as i8;
+            })
+            .unwrap();
+        assert_eq!(
+            &buf[..],
+            [10, -9, 0, 20, 13, 26, 33, -21, 18, 14, -32, 13, 18, -5, -5, 4]
+        );
+        center_reader
+            .next_diff_vector_in_ascending_order(9, buf.iter_mut(), |source, dest| {
+                *dest = source as i8;
+            })
+            .unwrap();
+        assert_eq!(
+            &buf[..],
+            [-19, -22, 3, 29, 12, 2, -18, -18, -34, -24, 21, -24, 15, -31, -25, 13]
+        );
     }
 
     fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {

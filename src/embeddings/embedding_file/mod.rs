@@ -19,7 +19,7 @@ pub struct EmbeddingData {
     raw_data: [u32],
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[repr(C)]
 pub struct FileHeader {
     pub magic: u32,
@@ -131,10 +131,7 @@ impl EmbeddingData {
         let end = begin + embedding_size;
 
         UncompressedTimestep {
-            uncompressed: get_i8_slice(unsafe {
-                // This is safe because the constructor checks that `raw_data` is big enough.
-                &self.raw_data.get_unchecked(begin as usize..end as usize)
-            }),
+            uncompressed: get_i8_slice(&self.raw_data[begin as usize..end as usize]),
             embedding_data: self,
         }
     }
@@ -143,13 +140,7 @@ impl EmbeddingData {
         if t == 0 || t > self.header().num_timesteps {
             Err(())
         } else {
-            let addr = unsafe {
-                // This is safe because the constructor checks that `raw_data` is big enough.
-                *self
-                    .raw_data
-                    .get_unchecked(Self::HEADER_SIZE + (t - 1) as usize)
-            };
-
+            let addr = self.raw_data[Self::HEADER_SIZE + (t - 1) as usize];
             let header = self.header();
             // `vocab_size` is guaranteed to be a multiple of `chunk_size`.
             let num_chunks = header.vocab_size / header.chunk_size;
@@ -165,10 +156,7 @@ impl<'a> CompressedTimestep<'a> {
 
         let smallest_symbol = byteslice[0] as i8;
         let largest_symbol = byteslice[1] as i8;
-        if largest_symbol <= smallest_symbol {
-            return Err(());
-        }
-        let frequencies_end = 3 + (largest_symbol - smallest_symbol) as usize;
+        let frequencies_end = 3 + largest_symbol.wrapping_sub(smallest_symbol) as u8 as usize;
         let frequencies = &byteslice[2..frequencies_end];
 
         // The compression module operates on unsigned rather than on signed bytes so
@@ -240,7 +228,7 @@ impl TimestepReader for CompressedTimestepReader<'_, '_> {
     ) -> Result<(), ()> {
         let header = self.timestep.embedding_data.header();
         let chunk_index = index / header.chunk_size;
-        let offset = header.embedding_dim * (chunk_index % header.chunk_size);
+        let offset = header.embedding_dim * (index % header.chunk_size);
 
         // TODO: find out if the taking and resetting has an impact on performance
         //       or whether it's just semantics.
@@ -256,6 +244,7 @@ impl TimestepReader for CompressedTimestepReader<'_, '_> {
         decoder.skip((offset - self.offset) as usize)?;
         decoder.decode(dest_iter, |byte, dest_item| callback(byte as i8, dest_item))?;
 
+        self.offset = offset + header.embedding_dim;
         self.decoder_and_chunk_index = Some((decoder, chunk_index));
 
         Ok(())
@@ -303,7 +292,8 @@ fn get_u16_slice(data: &[u32]) -> &[u16] {
     unsafe {
         // Transmuting from `&[u32]` to `&[u16]` is always safe, see, e.g.:
         // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        data.align_to().1
+        let ptr = data.as_ptr();
+        std::slice::from_raw_parts(ptr as *const u16, 2 * data.len())
     }
 }
 
