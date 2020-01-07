@@ -6,7 +6,6 @@ use super::tensors::RankThreeTensorView;
 
 use wasm_bindgen::prelude::*;
 
-use std::convert::TryInto;
 use std::ops::Deref;
 
 #[wasm_bindgen]
@@ -152,12 +151,12 @@ impl EmbeddingData {
 
 impl<'a> CompressedTimestep<'a> {
     fn new(embedding_data: &'a EmbeddingData, addr: u32, num_chunks: u32) -> Result<Self, ()> {
-        let byteslice = get_u8_slice(embedding_data.raw_data.get(addr as usize..).ok_or(())?);
+        let byte_slice = get_u8_slice(embedding_data.raw_data.get(addr as usize..).ok_or(())?);
 
-        let smallest_symbol = byteslice[0] as i8;
-        let largest_symbol = byteslice[1] as i8;
+        let smallest_symbol = byte_slice[0] as i8;
+        let largest_symbol = byte_slice[1] as i8;
         let frequencies_end = 3 + largest_symbol.wrapping_sub(smallest_symbol) as u8 as usize;
-        let frequencies = &byteslice[2..frequencies_end];
+        let frequencies = &byte_slice[2..frequencies_end];
 
         // The compression module operates on unsigned rather than on signed bytes so
         // that it is not unnecessarily coupled to this specific application. We convert

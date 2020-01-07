@@ -54,14 +54,6 @@ pub struct RankThreeTensorView<'a, T> {
 }
 
 impl<'a, T> RankThreeTensorView<'a, T> {
-    fn from_raw_parts(stride0: usize, stride1: usize, data: &'a [T]) -> Self {
-        Self {
-            stride0,
-            stride1,
-            data,
-        }
-    }
-
     pub fn shape(&self) -> (usize, usize, usize) {
         (
             self.data.len() / self.stride0,
@@ -118,11 +110,6 @@ impl<'a, T> RankThreeTensorViewMut<'a, T> {
 
         unsafe {
             let ptr = self.data.as_mut_ptr();
-            // This now has three mutable references pointing at the same
-            // memory. `slice`, the rvalue ret.0, and the rvalue ret.1.
-            // `slice` is never used after `let ptr = ...`, and so one can
-            // treat it as "dead", and therefore, you only have two real
-            // mutable slices.
             (
                 RankTwoTensorView::from_raw_parts(
                     self.stride1,

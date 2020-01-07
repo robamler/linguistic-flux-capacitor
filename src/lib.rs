@@ -1,7 +1,6 @@
 pub mod embeddings;
-mod utils;
+pub mod utils;
 pub mod wasm_buffer;
-use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.

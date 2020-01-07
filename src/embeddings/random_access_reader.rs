@@ -1,14 +1,9 @@
-use super::tensors::{RankThreeTensor, RankTwoTensor, RankTwoTensorView, RankTwoTensorViewMut};
-
-use super::compression::Decoder;
-use super::embedding_file::{
-    CompressedTimestep, EmbeddingData, EmbeddingFile, FileHeader, TimestepReader,
-};
+use super::embedding_file::{EmbeddingData, EmbeddingFile, FileHeader, TimestepReader};
+use super::tensors::{RankThreeTensor, RankTwoTensor, RankTwoTensorView};
 
 use wasm_bindgen::prelude::*;
 
 use std::collections::BinaryHeap;
-use std::iter::once;
 
 #[wasm_bindgen]
 pub struct RandomAccessReader {
@@ -19,7 +14,7 @@ pub struct RandomAccessReader {
     tree_height: u32,
 }
 
-// #[wasm_bindgen]
+#[wasm_bindgen]
 impl RandomAccessReader {
     pub fn new(embedding_file: EmbeddingFile) -> Self {
         let num_timesteps = embedding_file.header().num_timesteps;
@@ -108,13 +103,13 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
     fn new(embeddings: &'a RandomAccessReader, task: T) -> Self {
         let header = &embeddings.file.header();
 
-        let mut buf = RankThreeTensor::<i8>::new(
+        let buf = RankThreeTensor::<i8>::new(
             (embeddings.tree_height + 2) as usize,
             task.output_size(),
             header.embedding_dim as usize,
         );
 
-        let mut output = RankTwoTensor::<T::Output>::new(
+        let output = RankTwoTensor::<T::Output>::new(
             header.num_timesteps as usize,
             header.embedding_dim as usize,
         );
