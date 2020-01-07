@@ -11,7 +11,7 @@ use std::collections::BinaryHeap;
 use std::iter::once;
 
 #[wasm_bindgen]
-struct DynamicEmbeddings {
+pub struct RandomAccessReader {
     file: EmbeddingFile,
 
     /// The height of the tree. The first and last time step each count as one
@@ -20,7 +20,7 @@ struct DynamicEmbeddings {
 }
 
 // #[wasm_bindgen]
-impl DynamicEmbeddings {
+impl RandomAccessReader {
     pub fn new(embedding_file: EmbeddingFile) -> Self {
         let num_timesteps = embedding_file.header().num_timesteps;
         let tree_height = if num_timesteps <= 2 {
@@ -103,7 +103,7 @@ struct TreeTraverser<'a, T: TraversalTask> {
 }
 
 impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
-    fn new(embeddings: &'a DynamicEmbeddings, task: T) -> Self {
+    fn new(embeddings: &'a RandomAccessReader, task: T) -> Self {
         let header = &embeddings.file.header();
 
         let mut buf = RankThreeTensor::<i8>::new(

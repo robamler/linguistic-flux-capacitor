@@ -18,12 +18,54 @@ impl<T: Default> RankThreeTensor<T> {
         }
     }
 
+    pub fn as_view(&self) -> RankThreeTensorView<T> {
+        RankThreeTensorView {
+            stride0: self.stride0,
+            stride1: self.stride1,
+            data: &self.data,
+        }
+    }
+
     pub fn as_view_mut(&mut self) -> RankThreeTensorViewMut<T> {
         RankThreeTensorViewMut {
             stride0: self.stride0,
             stride1: self.stride1,
             data: &mut self.data,
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct RankThreeTensorView<'a, T> {
+    stride0: usize,
+    stride1: usize,
+    data: &'a [T],
+}
+
+impl<'a, T> RankThreeTensorView<'a, T> {
+    fn from_raw_parts(stride0: usize, stride1: usize, data: &'a [T]) -> Self {
+        Self {
+            stride0,
+            stride1,
+            data,
+        }
+    }
+
+    pub fn shape(&self) -> (usize, usize, usize) {
+        (
+            self.data.len() / self.stride0,
+            self.stride0 / self.stride1,
+            self.stride1,
+        )
+    }
+    pub fn subview(&self, index0: usize) -> RankTwoTensorView<T> {
+        let start = index0 * self.stride0;
+        let end = start + self.stride0;
+        RankTwoTensorView::from_raw_parts(self.stride1, &self.data[start..end])
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        self.data
     }
 }
 
@@ -37,10 +79,7 @@ impl<'a, T> RankThreeTensorViewMut<'a, T> {
     pub fn subview_mut(&mut self, index0: usize) -> RankTwoTensorViewMut<T> {
         let start = index0 * self.stride0;
         let end = start + self.stride0;
-        RankTwoTensorViewMut {
-            stride0: self.stride1,
-            data: &mut self.data[start..end],
-        }
+        RankTwoTensorViewMut::from_raw_parts_mut(self.stride1, &mut self.data[start..end])
     }
 
     pub fn subviews_rrw(
@@ -114,11 +153,46 @@ impl<T: Default> RankTwoTensor<T> {
 }
 
 impl<T> RankTwoTensor<T> {
+    pub fn as_view(&self) -> RankTwoTensorView<T> {
+        RankTwoTensorView {
+            stride0: self.stride0,
+            data: &self.data,
+        }
+    }
+
     pub fn as_view_mut(&mut self) -> RankTwoTensorViewMut<T> {
         RankTwoTensorViewMut {
             stride0: self.stride0,
             data: &mut self.data,
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct RankTwoTensorView<'a, T> {
+    stride0: usize,
+    data: &'a [T],
+}
+
+impl<'a, T> RankTwoTensorView<'a, T> {
+    fn from_raw_parts(stride0: usize, data: &'a [T]) -> Self {
+        Self { stride0, data }
+    }
+
+    pub fn subview(&self, index0: usize) -> &[T] {
+        let start = index0 * self.stride0;
+        let end = start + self.stride0;
+        &self.data[start..end]
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        self.data
+    }
+
+    pub fn iter_subviews(&self) -> impl Iterator<Item = &[T]> {
+        (0..self.data.len())
+            .step_by(self.stride0)
+            .map(move |start| unsafe { self.data.get_unchecked(start..start + self.data.len()) })
     }
 }
 
@@ -150,26 +224,5 @@ impl<'a, T> RankTwoTensorViewMut<'a, T> {
 
     pub fn downgrade(&self) -> RankTwoTensorView<T> {
         RankTwoTensorView::from_raw_parts(self.stride0, self.data)
-    }
-}
-
-pub struct RankTwoTensorView<'a, T> {
-    stride0: usize,
-    data: &'a [T],
-}
-
-impl<'a, T> RankTwoTensorView<'a, T> {
-    fn from_raw_parts(stride0: usize, data: &'a [T]) -> Self {
-        Self { stride0, data }
-    }
-
-    pub fn subview(&self, index0: usize) -> &[T] {
-        let start = index0 * self.stride0;
-        let end = start + self.stride0;
-        &self.data[start..end]
-    }
-
-    pub fn as_slice(&self) -> &[T] {
-        self.data
     }
 }

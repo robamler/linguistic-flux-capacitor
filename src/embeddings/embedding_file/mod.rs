@@ -1,9 +1,12 @@
+mod builder;
+
 use super::compression::{Decoder, DistributionU8};
+use super::random_access_reader::RandomAccessReader;
+use super::tensors::RankThreeTensorView;
 
 use wasm_bindgen::prelude::*;
 
 use std::convert::TryInto;
-use std::num::NonZeroU32;
 use std::ops::Deref;
 
 #[wasm_bindgen]
@@ -72,6 +75,18 @@ impl EmbeddingFile {
         }
 
         Ok(file)
+    }
+
+    pub fn from_uncompressed_quantized(
+        uncompressed: RankThreeTensorView<i8>,
+        chunk_size: u32,
+        scale_factor: f32,
+    ) -> Result<Self, ()> {
+        Self::new(builder::compress_quantized_tensor(uncompressed, chunk_size, scale_factor).into())
+    }
+
+    pub fn into_random_access_reader(self) -> RandomAccessReader {
+        RandomAccessReader::new(self)
     }
 
     pub fn into_inner(self) -> Box<[u32]> {
@@ -264,19 +279,23 @@ impl TimestepReader for UncompressedTimestep<'_> {
     }
 }
 
+#[cfg(target_endian = "little")]
 fn get_i8_slice(data: &[u32]) -> &[i8] {
     unsafe {
         // Transmuting from `&[u32]` to `&[i8]` is always safe, see, e.g.:
         // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        data.align_to().1
+        let ptr = data.as_ptr();
+        std::slice::from_raw_parts(ptr as *const i8, 4 * data.len())
     }
 }
 
+#[cfg(target_endian = "little")]
 fn get_u8_slice(data: &[u32]) -> &[u8] {
     unsafe {
         // Transmuting from `&[u32]` to `&[u8]` is always safe, see, e.g.:
         // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        data.align_to().1
+        let ptr = data.as_ptr();
+        std::slice::from_raw_parts(ptr as *const u8, 4 * data.len())
     }
 }
 
