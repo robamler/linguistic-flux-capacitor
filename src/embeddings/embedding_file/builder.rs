@@ -17,15 +17,15 @@ pub fn compress_quantized_tensor(
 
     assert!(num_timesteps >= 2);
     assert_eq!(vocab_size % chunk_size, 0);
-    let uncompressed_timestep_size = vocab_size.checked_mul(embedding_dim).unwrap() / 4;
-    assert_eq!(uncompressed_timestep_size % 4, 0);
+    let uncompressed_timestep_byte_size = vocab_size.checked_mul(embedding_dim).unwrap();
+    assert_eq!(uncompressed_timestep_byte_size % 4, 0);
 
     let (diffs, counts) = get_diffs(uncompressed);
 
     let timestep_addrs_addr = std::mem::size_of::<FileHeader>() as u32 / 4;
     let first_timestep_offset = timestep_addrs_addr + num_timesteps - 2;
-    let last_timestep_offset = first_timestep_offset + uncompressed_timestep_size;
-    let root_block_size = last_timestep_offset + uncompressed_timestep_size;
+    let last_timestep_offset = first_timestep_offset + uncompressed_timestep_byte_size / 4;
+    let root_block_size = last_timestep_offset + uncompressed_timestep_byte_size / 4;
 
     let mut address = root_block_size;
     let counts_view = counts.as_view();
@@ -67,11 +67,15 @@ pub fn compress_quantized_tensor(
     let first_timestep_dest = get_i8_slice_mut(
         &mut compressed[first_timestep_offset as usize..last_timestep_offset as usize],
     );
-    first_timestep_dest.copy_from_slice(uncompressed.as_slice());
+    first_timestep_dest.copy_from_slice(uncompressed.subview(0).as_slice());
 
     let last_timestep_dest =
         get_i8_slice_mut(&mut compressed[last_timestep_offset as usize..root_block_size as usize]);
-    last_timestep_dest.copy_from_slice(uncompressed.as_slice());
+    last_timestep_dest.copy_from_slice(
+        uncompressed
+            .subview((num_timesteps - 1) as usize)
+            .as_slice(),
+    );
 
     // Skip over time step meta data since we don't know the chunk addresses yet.
     compressed.resize(address as usize, 0);
@@ -90,22 +94,33 @@ pub fn compress_quantized_tensor(
             let ir = &timestep_ir[t - 1];
 
             let mut shifted_counts = [0u32; 256];
-            let num_nonzero_counts = (ir.largest_symbol - ir.smallest_symbol + 1) as usize;
+            let num_nonzero_counts =
+                ir.largest_symbol.wrapping_sub(ir.smallest_symbol) as usize + 1;
             if ir.largest_symbol > ir.smallest_symbol {
-                shifted_counts[..num_nonzero_counts].copy_from_slice(
-                    &ir.counts[ir.smallest_symbol as usize..=ir.largest_symbol as usize],
-                );
+                for (dest, src) in shifted_counts[..num_nonzero_counts]
+                    .iter_mut()
+                    .zip(&ir.counts[ir.smallest_symbol as usize..=ir.largest_symbol as usize])
+                {
+                    *dest = (*src).try_into().unwrap()
+                }
             } else {
-                let len_part1 = 256 - ir.largest_symbol as usize;
-                let len_part2 = ir.smallest_symbol as usize + 1;
-                shifted_counts[..len_part1]
-                    .copy_from_slice(&ir.counts[ir.largest_symbol as usize..]);
-                shifted_counts[len_part1..len_part1 + len_part2]
-                    .copy_from_slice(&ir.counts[..=ir.smallest_symbol as usize]);
+                let len_part1 = 256 - ir.smallest_symbol as usize;
+                for (dest, src) in shifted_counts[..len_part1]
+                    .iter_mut()
+                    .zip(&ir.counts[ir.smallest_symbol as usize..])
+                {
+                    *dest = (*src).try_into().unwrap()
+                }
+                for (dest, src) in shifted_counts[len_part1..]
+                    .iter_mut()
+                    .zip(&ir.counts[..=ir.largest_symbol as usize])
+                {
+                    *dest = (*src).try_into().unwrap()
+                }
             }
             let shifted_counts = &shifted_counts[..num_nonzero_counts];
             let mut frequencies =
-                quantized_frequencies(&shifted_counts, uncompressed_timestep_size);
+                quantized_frequencies(&shifted_counts, uncompressed_timestep_byte_size);
 
             if frequencies[ir.smallest_symbol as usize] == 256 {
                 frequencies[ir.smallest_symbol as usize] = 255;
@@ -127,7 +142,7 @@ pub fn compress_quantized_tensor(
             chunk_addresses.reserve((vocab_size / chunk_size) as usize);
 
             let diffs_view = diffs.as_view();
-            let diffs_subview = diffs_view.subview(t);
+            let diffs_subview = diffs_view.subview(t - 1);
             let diffs = diffs_subview.as_slice();
             for uncompressed_chunk in diffs.chunks((chunk_size * embedding_dim) as usize) {
                 chunk_addresses.push(compressed.len().try_into().unwrap());
@@ -171,7 +186,7 @@ pub fn compress_quantized_tensor(
     }
 
     // Write file header.
-    let mut file_header = FileHeader {
+    let file_header = FileHeader {
         magic: 0, // TODO
         major_version: 0,
         minor_version: 1,
@@ -253,6 +268,11 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
 
                 counts_subview[diff as u8 as usize] += 1;
             }
+
+            debug_assert_eq!(
+                counts_subview.iter().cloned().sum::<u32>() as usize,
+                vocab_size * embedding_dim
+            );
         },
     );
 
@@ -330,19 +350,22 @@ fn find_optimal_nonzero_range(counts: &[u32]) -> (usize, usize) {
 ///
 /// This is a hacky heuristic. In reality, we should minimize the cross entropy here.
 fn quantized_frequencies(counts: &[u32], total_counts: u32) -> [u32; 256] {
+    debug_assert_eq!(counts.iter().cloned().sum::<u32>(), total_counts);
+
     let mut frequencies = [0u32; 256];
     let mut total_frequency = 257u32;
-    let mut bonus = total_counts;
+
+    let mut total_frequency = 0;
+    for (freq, count) in frequencies.iter_mut().zip(counts) {
+        if *count != 0 {
+            *freq = u32::max((*count * 256 + total_counts) / total_counts, 1);
+            total_frequency += *freq;
+        };
+    }
 
     while total_frequency > 256 {
-        bonus -= 1;
-        total_frequency = 0;
-        for (freq, count) in frequencies.iter_mut().zip(counts) {
-            if *count != 0 {
-                *freq = u32::max((*count * 256 + bonus) / total_counts, 1);
-                total_frequency += *freq;
-            };
-        }
+        *frequencies.iter_mut().max().unwrap() -= 1;
+        total_frequency -= 1;
     }
 
     frequencies
@@ -381,5 +404,64 @@ fn get_u8_slice_mut(data: &mut [u32]) -> &mut [u8] {
         // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
         let ptr = data.as_mut_ptr();
         std::slice::from_raw_parts_mut(ptr as *mut u8, 4 * data.len())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::EmbeddingFile;
+    use super::*;
+
+    use byteorder::{LittleEndian, ReadBytesExt};
+
+    use std::fs::File;
+    use std::io::prelude::*;
+
+    #[test]
+    fn create_file() {
+        let num_timesteps = 6;
+        let vocab_size = 100;
+        let embedding_dim = 16;
+
+        let file_name = format!(
+            "tests/fake_data_generation/random_{}_{}_{}",
+            num_timesteps, vocab_size, embedding_dim
+        );
+        dbg!(&file_name);
+        let mut input_file = File::open(file_name).unwrap();
+
+        let mut buf = Vec::new();
+        input_file.read_to_end(&mut buf);
+        assert_eq!(buf.len(), num_timesteps * vocab_size * embedding_dim);
+
+        // Check that negative values are treated correctly.
+        assert_eq!(
+            buf[3 * vocab_size * embedding_dim + 5 * embedding_dim + 10] as i8,
+            -7
+        );
+
+        let uncompressed = RankThreeTensor::from_flattened(
+            u8_slice_to_i8_slice(&buf).to_vec(),
+            num_timesteps,
+            vocab_size,
+            embedding_dim,
+        );
+
+        let chunk_size = 20;
+        let scale_factor = 1.5f32;
+        let compressed =
+            compress_quantized_tensor(uncompressed.as_view(), chunk_size, scale_factor);
+
+        let decoded = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();
+
+        let header = decoded.header();
+        dbg!(header);
+    }
+
+    fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {
+        unsafe {
+            let ptr = data.as_ptr();
+            std::slice::from_raw_parts_mut(ptr as *mut i8, data.len())
+        }
     }
 }

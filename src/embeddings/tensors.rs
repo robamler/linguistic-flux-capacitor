@@ -18,6 +18,17 @@ impl<T: Default> RankThreeTensor<T> {
         }
     }
 
+    pub fn from_flattened(data: Vec<T>, shape0: usize, shape1: usize, shape2: usize) -> Self {
+        let stride0 = shape1 * shape2;
+        assert_eq!(data.len(), shape0 * stride0);
+
+        Self {
+            stride0,
+            stride1: shape2,
+            data: data.into(),
+        }
+    }
+
     pub fn as_view(&self) -> RankThreeTensorView<T> {
         RankThreeTensorView {
             stride0: self.stride0,
@@ -192,7 +203,7 @@ impl<'a, T> RankTwoTensorView<'a, T> {
     pub fn iter_subviews(&self) -> impl Iterator<Item = &[T]> {
         (0..self.data.len())
             .step_by(self.stride0)
-            .map(move |start| unsafe { self.data.get_unchecked(start..start + self.data.len()) })
+            .map(move |start| unsafe { self.data.get_unchecked(start..start + self.stride0) })
     }
 }
 

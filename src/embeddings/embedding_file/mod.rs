@@ -19,6 +19,7 @@ pub struct EmbeddingData {
     raw_data: [u32],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct FileHeader {
     pub magic: u32,
@@ -111,15 +112,14 @@ impl EmbeddingData {
     const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
 
     pub fn header(&self) -> &FileHeader {
-        let header_slice = unsafe {
-            // This is safe because the constructor checks that `raw_data` is big enough.
-            self.raw_data.get_unchecked(0..Self::HEADER_SIZE)
-        };
-        let header_array: [u32; Self::HEADER_SIZE] = header_slice.try_into().unwrap();
         unsafe {
+            // This is safe because the constructor checks that `raw_data` is big enough.
+            let header_slice = self.raw_data.get_unchecked(0..Self::HEADER_SIZE);
+
             // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
-            // `[u32; HEADER_SIZE]
-            &*(&header_array as *const [u32; Self::HEADER_SIZE] as *const FileHeader)
+            // `[u32; HEADER_SIZE]`
+            let ptr = header_slice.as_ptr();
+            &*(ptr as *const FileHeader)
         }
     }
 
