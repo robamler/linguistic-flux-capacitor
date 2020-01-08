@@ -1,10 +1,13 @@
-mod builder;
+use std::io::{Read, Write};
+use std::ops::Deref;
+
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use super::compression::{Decoder, DistributionU8};
 use super::random_access_reader::RandomAccessReader;
 use super::tensors::RankThreeTensorView;
 
-use std::ops::Deref;
+mod builder;
 
 pub struct EmbeddingFile {
     raw_data: Box<[u32]>,
@@ -74,6 +77,30 @@ impl EmbeddingFile {
         Ok(file)
     }
 
+    pub fn from_reader(mut reader: impl Read) -> Result<EmbeddingFile, ()> {
+        let mut buf = Vec::new();
+        buf.resize(EmbeddingData::HEADER_SIZE, 0);
+        reader
+            .read_u32_into::<LittleEndian>(&mut buf[..])
+            .map_err(|_| ())?;
+
+        let only_header = Self {
+            raw_data: buf.into(),
+        };
+        // `only_header` isn't a valid `EmbeddingFile` at this point but we can
+        // dereference it to an (also invalid) `EmbeddingData` and then call
+        // `EmbeddingData::header()` on it to get the expected file size.
+        let header = EmbeddingData::header(&only_header);
+        let file_size = header.file_size;
+
+        let mut buf: Vec<u32> = only_header.raw_data.into();
+        buf.resize(file_size as usize, 0);
+        reader
+            .read_u32_into::<LittleEndian>(&mut buf[EmbeddingData::HEADER_SIZE..])
+            .map_err(|_| ())?;
+        Self::new(buf.into())
+    }
+
     pub fn from_uncompressed_quantized(
         uncompressed: RankThreeTensorView<i8>,
         chunk_size: u32,
@@ -117,6 +144,18 @@ impl EmbeddingData {
             let ptr = header_slice.as_ptr();
             &*(ptr as *const FileHeader)
         }
+    }
+
+    /// Writes the compressed data to a writer and flushes it.
+    ///
+    /// If the goal is to write the data to a file then a `std::io::BufWriter`
+    /// should be used as this function writes the data in lots of tiny chunks of
+    /// just four bytes.
+    pub fn write_to(&self, mut writer: impl Write) -> std::io::Result<()> {
+        for i in self.as_slice_u32() {
+            writer.write_u32::<LittleEndian>(*i)?;
+        }
+        writer.flush()
     }
 
     pub fn margin_embeddings(&self, level: u32) -> UncompressedTimestep {

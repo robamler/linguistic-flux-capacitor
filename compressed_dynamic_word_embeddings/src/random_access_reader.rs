@@ -26,15 +26,15 @@ impl RandomAccessReader {
         }
     }
 
-    pub fn pairwise_trajectories(&self, words1: Vec<u32>, words2: Vec<u32>) -> Vec<f32> {
+    pub fn pairwise_trajectories(&self, words1: Vec<u32>, words2: Vec<u32>) -> RankTwoTensor<f32> {
         if words1.is_empty() || words1.len() != words2.len() {
             // TODO: handle error if words1.len() != words2.len()
-            return Vec::new();
+            return RankTwoTensor::new(0, self.file.header().num_timesteps as usize);
         }
 
         let task = PairwiseTrajectories::new(&self.file.header(), words1, words2);
         let traverser = TreeTraverser::new(&self, task);
-        traverser.run().into_inner()
+        traverser.run()
     }
 }
 
@@ -291,27 +291,29 @@ mod test {
     fn pairwise_trajectories() {
         let reader = RandomAccessReader::new(create_sample_file());
 
-        let trajectories = reader.pairwise_trajectories(vec![3, 50, 1], vec![70, 3, 12]);
+        let trajectories = reader
+            .pairwise_trajectories(vec![3, 50, 1], vec![70, 3, 12])
+            .into_inner();
 
         const EXPECTED: [f32; 3 * 6] = [
-            0.47492099,
-            -0.53468378,
-            -1.49157004,
-            -1.54996942,
-            -1.03687296,
-            0.2576844,
-            0.57104136,
-            0.09180291,
-            1.60768709,
-            1.78947503,
-            0.37198357,
-            1.15662576,
-            0.41561268,
-            -0.10225572,
-            0.22655322,
-            0.67443326,
-            0.4528792,
-            -0.74646673,
+            0.474_921,
+            -0.534_683_76,
+            -1.491_57,
+            -1.549_969_4,
+            -1.036_873,
+            0.257_684_4,
+            0.571_041_35,
+            0.091_802_91,
+            1.607_687_1,
+            1.789_475_1,
+            0.371_983_56,
+            1.156_625_7,
+            0.415_612_67,
+            -0.102_255_72,
+            0.226_553_22,
+            0.674_433_23,
+            0.452_879_2,
+            -0.746_466_76,
         ];
 
         assert_eq!(trajectories.len(), EXPECTED.len());
