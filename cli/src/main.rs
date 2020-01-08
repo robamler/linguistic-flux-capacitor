@@ -3,10 +3,14 @@ use std::fs::{File, OpenOptions};
 use std::io::{prelude::*, BufWriter};
 use std::path::PathBuf;
 
+use byteorder::{LittleEndian, ReadBytesExt};
 use log::info;
 use structopt::StructOpt;
 
-use compressed_dynamic_word_embeddings::{embedding_file::EmbeddingFile, tensors::RankThreeTensor};
+use compressed_dynamic_word_embeddings::{
+    embedding_file::{EmbeddingData, EmbeddingFile},
+    tensors::RankThreeTensor,
+};
 
 #[derive(StructOpt)]
 #[structopt(about = r#"TODO"#)]
@@ -178,13 +182,13 @@ fn pairwise_trajectories(opt: PairwiseTrajectoriesOpt) -> Result<(), Box<dyn Err
 
 fn inspect(opt: InspectOpts) -> Result<(), Box<dyn Error>> {
     info!(
-        "Loading compressed dynamic embeddings from {} ...",
+        "Peeking into compressed dynamic embeddings at {} ...",
         opt.input.display()
     );
-    let file = File::open(opt.input)?;
-    let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
-
-    println!("{:#?}", embedding_file.header());
+    let mut file = File::open(opt.input)?;
+    let mut buf = [0u32; EmbeddingData::HEADER_SIZE];
+    file.read_u32_into::<LittleEndian>(&mut buf)?;
+    println!("{:#?}", EmbeddingData::header_from_raw(&buf).unwrap());
 
     Ok(())
 }

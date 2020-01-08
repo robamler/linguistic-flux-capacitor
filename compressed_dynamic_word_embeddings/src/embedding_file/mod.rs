@@ -46,8 +46,10 @@ pub struct UncompressedTimestep<'a> {
 }
 
 impl EmbeddingFile {
+    pub const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
+
     pub fn new(data: Box<[u32]>) -> Result<Self, ()> {
-        if data.len() < EmbeddingData::HEADER_SIZE {
+        if data.len() < Self::HEADER_SIZE {
             return Err(());
         }
 
@@ -66,7 +68,7 @@ impl EmbeddingFile {
             return Err(());
         }
 
-        let first_embeddings_offset = EmbeddingData::HEADER_SIZE as u32 + header.num_timesteps - 2;
+        let first_embeddings_offset = Self::HEADER_SIZE as u32 + header.num_timesteps - 2;
         let last_embeddings_offset = first_embeddings_offset + embeddings_size / 4;
         let payload_offset = last_embeddings_offset + embeddings_size / 4;
 
@@ -79,24 +81,15 @@ impl EmbeddingFile {
 
     pub fn from_reader(mut reader: impl Read) -> Result<EmbeddingFile, ()> {
         let mut buf = Vec::new();
-        buf.resize(EmbeddingData::HEADER_SIZE, 0);
+        buf.resize(Self::HEADER_SIZE, 0);
         reader
             .read_u32_into::<LittleEndian>(&mut buf[..])
             .map_err(|_| ())?;
 
-        let only_header = Self {
-            raw_data: buf.into(),
-        };
-        // `only_header` isn't a valid `EmbeddingFile` at this point but we can
-        // dereference it to an (also invalid) `EmbeddingData` and then call
-        // `EmbeddingData::header()` on it to get the expected file size.
-        let header = EmbeddingData::header(&only_header);
-        let file_size = header.file_size;
-
-        let mut buf: Vec<u32> = only_header.raw_data.into();
+        let file_size = EmbeddingData::header_from_raw(&buf[..])?.file_size;
         buf.resize(file_size as usize, 0);
         reader
-            .read_u32_into::<LittleEndian>(&mut buf[EmbeddingData::HEADER_SIZE..])
+            .read_u32_into::<LittleEndian>(&mut buf[Self::HEADER_SIZE..])
             .map_err(|_| ())?;
         Self::new(buf.into())
     }
@@ -132,8 +125,9 @@ impl Deref for EmbeddingFile {
 }
 
 impl EmbeddingData {
-    const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
+    pub const HEADER_SIZE: usize = EmbeddingFile::HEADER_SIZE;
 
+    #[inline(always)]
     pub fn header(&self) -> &FileHeader {
         unsafe {
             // This is safe because the constructor checks that `raw_data` is big enough.
@@ -143,6 +137,20 @@ impl EmbeddingData {
             // `[u32; HEADER_SIZE]`
             let ptr = header_slice.as_ptr();
             &*(ptr as *const FileHeader)
+        }
+    }
+
+    #[inline(always)]
+    pub fn header_from_raw(header: &[u32]) -> Result<&FileHeader, ()> {
+        if header.len() < Self::HEADER_SIZE {
+            Err(())
+        } else {
+            unsafe {
+                // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
+                // `[u32; HEADER_SIZE]`
+                let ptr = header.as_ptr();
+                Ok(&*(ptr as *const FileHeader))
+            }
         }
     }
 

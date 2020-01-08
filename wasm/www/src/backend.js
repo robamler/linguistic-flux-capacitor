@@ -1,24 +1,44 @@
 import * as wasm from "word-history-explorer-backend";
 import { memory } from "word-history-explorer-backend/word_history_explorer_backend_bg";
 
-console.log(gzFile);
-import gzFile from "../assets/enwiki-4mb.txt.gz";
+// import file from "../assets/random_6_100_16.dwe";
+import file from "../assets/step34000_T209_V30000_K100.dwe";
+
+console.log(file);
 
 wasm.set_panic_hook();
 
-// run();
+export async function loadFile() {
+    const builder = wasm.EmbeddingFileBuilder.new();
 
-async function run() {
-    const buf = wasm.GzCompressedBuffer.new();
-    const bufPtr = buf.get_mut_ptr();
-    const capacity = buf.capacity();
-    let bufArray = new Uint8Array(memory.buffer, bufPtr, capacity);
-    let writeHead = 0;
-
-    let response = await fetch(gzFile);
-    let total_size = response.headers.get("content-length");
-    let total_read = 0;
+    let response = await fetch(file);
+    let file_size_str = response.headers.get('content-length');
+    let pointerAndLen = undefined;
+    let total_written = 0;
     let reader = response.body.getReader();
+
+    while (typeof pointerAndLen === 'undefined') {
+        let { value, done } = await reader.read();
+        if (done) {
+            throw "Exited before header was read";
+        }
+
+        let ptr = builder.reserve(value.length);
+        let targetArray = new Uint8Array(memory.buffer, ptr, value.length);
+        targetArray.set(value, total_written);
+        total_written += value.length;
+        pointerAndLen = builder.avail(value.length);
+    }
+
+    if ((pointerAndLen.len != file_size_str)) {
+        throw "File size in HTTP header does not match file size in file header.";
+    }
+
+    if (total_written > pointerAndLen.len) {
+        throw "File larger than expected.";
+    }
+
+    let targetArray = new Uint8Array(memory.buffer, pointerAndLen.pointer, pointerAndLen.len);
 
     while (true) {
         let { value, done } = await reader.read();
@@ -26,25 +46,25 @@ async function run() {
             break;
         }
 
-        console.log('NEW CHUNK OF SIZE ' + value.length);
-
-        let readHead = 0;
-        while (readHead < value.length) {
-            if (bufArray.length === 0) {
-                // `bufArray` got detached because a preceding call
-                // to `buf.avail()` grew the wasm memory.
-                bufArray = new Uint8Array(memory.buffer, bufPtr, capacity);
-            }
-
-            let numBytes = Math.min(value.length - readHead, capacity - writeHead);
-            bufArray.set(value.subarray(readHead, readHead + numBytes), writeHead);
-            writeHead = buf.avail(numBytes);
-            readHead += numBytes;
-            total_read += numBytes;
-            console.log('Wrote ' + numBytes + ' (' + total_read + ' of ' + total_size + ')');
+        if (total_written + value.length > pointerAndLen.len) {
+            throw "File larger than expected.";
         }
+
+        if (targetArray.length === 0) {
+            // `targetArray` got detached because the wasm memory grew for some reason, 
+            // so we have to reattach it (`pointerAndLen.pointer` is still valid, though).
+            targetArray = new Uint8Array(memory.buffer, pointerAndLen.pointer, file_size);
+        }
+
+        targetArray.set(value, total_written);
+        total_written += value.length;
     }
 
-    console.log('Done writing.');
-    console.log(buf.finish_and_peek());
+    if (total_written != pointerAndLen.len) {
+        throw "File smaller than expected.";
+    }
+
+    let handle = builder.finish();
+
+    return handle;
 }
