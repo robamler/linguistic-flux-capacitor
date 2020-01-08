@@ -4,7 +4,7 @@ use super::FileHeader;
 
 use std::convert::TryInto;
 
-pub fn compress_quantized_tensor(
+pub fn build_file(
     uncompressed: RankThreeTensorView<i8>,
     chunk_size: u32,
     scale_factor: f32,
@@ -66,14 +66,14 @@ pub fn compress_quantized_tensor(
     let first_timestep_dest = get_i8_slice_mut(
         &mut compressed[first_timestep_offset as usize..last_timestep_offset as usize],
     );
-    first_timestep_dest.copy_from_slice(uncompressed.subview(0).as_slice());
+    first_timestep_dest.copy_from_slice(uncompressed.subview(0).slice());
 
     let last_timestep_dest =
         get_i8_slice_mut(&mut compressed[last_timestep_offset as usize..root_block_size as usize]);
     last_timestep_dest.copy_from_slice(
         uncompressed
             .subview((num_timesteps - 1) as usize)
-            .as_slice(),
+            .slice(),
     );
 
     // Skip over time step meta data since we don't know the chunk addresses yet.
@@ -142,7 +142,7 @@ pub fn compress_quantized_tensor(
 
             let diffs_view = diffs.as_view();
             let diffs_subview = diffs_view.subview(t - 1);
-            let diffs = diffs_subview.as_slice();
+            let diffs = diffs_subview.slice();
             for uncompressed_chunk in diffs.chunks((chunk_size * embedding_dim) as usize) {
                 chunk_addresses.push(compressed.len().try_into().unwrap());
 
@@ -256,13 +256,12 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
             for (((target_val, left_val), right_val), center_val) in target_view
                 .as_mut_slice()
                 .iter_mut()
-                .zip(left_view.as_slice())
-                .zip(right_view.as_slice())
-                .zip(center_view.as_slice())
+                .zip(left_view.slice())
+                .zip(right_view.slice())
+                .zip(center_view.slice())
             {
                 // We have to calculate the differences as signed integers because
                 // division by 2 is not the same for signed and unsigned integers.
-                // Also,
                 let diff = *center_val as i32 - (*left_val as i32 + *right_val as i32) / 2;
                 // Convert into `i8` and then interpret as `u8` for correct sign treatment.
                 let diff: i8 = diff.try_into().unwrap();
@@ -427,7 +426,6 @@ mod test {
             "tests/fake_data_generation/random_{}_{}_{}",
             NUM_TIMESTEPS, VOCAB_SIZE, EMBEDDING_DIM
         );
-        dbg!(&file_name);
         let mut input_file = File::open(file_name).unwrap();
 
         let mut input_buf = Vec::new();
@@ -452,8 +450,7 @@ mod test {
 
         let chunk_size = 20;
         let scale_factor = 1.5f32;
-        let compressed =
-            compress_quantized_tensor(uncompressed.as_view(), chunk_size, scale_factor);
+        let compressed = build_file(uncompressed.as_view(), chunk_size, scale_factor);
         let compressed_len = compressed.len();
 
         let file = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();

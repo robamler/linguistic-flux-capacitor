@@ -82,7 +82,7 @@ impl EmbeddingFile {
         chunk_size: u32,
         scale_factor: f32,
     ) -> Result<Self, ()> {
-        Self::new(builder::compress_quantized_tensor(uncompressed, chunk_size, scale_factor).into())
+        Self::new(builder::build_file(uncompressed, chunk_size, scale_factor).into())
     }
 
     pub fn into_random_access_reader(self) -> RandomAccessReader {
@@ -259,7 +259,18 @@ impl TimestepReader for UncompressedTimestep<'_> {
     ) -> Result<(), ()> {
         let header = self.embedding_data.header();
         let start = header.embedding_dim * index;
-        for (dest, source) in dest_iter.zip(self.uncompressed.get(start as usize..).ok_or(())?) {
+        let end = start + header.embedding_dim;
+
+        // The order in which we zip the iterators is important here since `zip` is
+        // short-circuiting. We want to allow callers to continue to use `dest_iter`
+        // after this method terminates.
+        for (source, dest) in self
+            .uncompressed
+            .get(start as usize..end as usize)
+            .ok_or(())?
+            .iter()
+            .zip(dest_iter)
+        {
             callback(*source, dest);
         }
 

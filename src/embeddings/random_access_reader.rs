@@ -43,7 +43,9 @@ impl RandomAccessReader {
 }
 
 trait TraversalTask {
-    type Output: Default;
+    type Output: Default + Clone;
+
+    fn scratch_size(&self) -> usize;
 
     fn output_size(&self) -> usize;
 
@@ -61,14 +63,21 @@ struct AccumulatingReader<'a, R: TimestepReader> {
     inner: R,
     left_parent_iter: std::slice::Iter<'a, i8>,
     right_parent_iter: std::slice::Iter<'a, i8>,
+    embedding_dim: u32,
 }
 
 impl<'a, R: TimestepReader> AccumulatingReader<'a, R> {
-    fn new(inner: R, left_parent_buf: &'a [i8], right_parent_buf: &'a [i8]) -> Self {
+    fn new(
+        inner: R,
+        left_parent_buf: &'a [i8],
+        right_parent_buf: &'a [i8],
+        embedding_dim: u32,
+    ) -> Self {
         Self {
             inner,
             left_parent_iter: left_parent_buf.iter(),
             right_parent_iter: right_parent_buf.iter(),
+            embedding_dim,
         }
     }
 }
@@ -84,9 +93,11 @@ impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
             index,
             dest_iter
                 .zip(&mut self.left_parent_iter)
-                .zip(&mut self.right_parent_iter),
+                .zip(&mut self.right_parent_iter)
+                .take(self.embedding_dim as usize),
             |diff, ((dest, left), right)| {
-                callback((((*left as i32 + *right as i32) / 2) as i8) + diff, dest)
+                let prediction = ((*left as i32 + *right as i32) / 2) as i8;
+                callback(prediction.wrapping_add(diff), dest)
             },
         )
     }
@@ -104,15 +115,13 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
         let header = &embeddings.file.header();
 
         let buf = RankThreeTensor::<i8>::new(
-            (embeddings.tree_height + 2) as usize,
-            task.output_size(),
+            embeddings.tree_height as usize,
+            task.scratch_size(),
             header.embedding_dim as usize,
         );
 
-        let output = RankTwoTensor::<T::Output>::new(
-            header.num_timesteps as usize,
-            header.embedding_dim as usize,
-        );
+        let output =
+            RankTwoTensor::<T::Output>::new(header.num_timesteps as usize, task.output_size());
 
         Self {
             buf,
@@ -127,7 +136,7 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
         let mut buf_view = self.buf.as_view_mut();
         let mut output_view = self.output.as_view_mut();
 
-        for (t, level) in &[(0, 0), (1, header.num_timesteps - 1)] {
+        for (t, level) in &[(0, 0), (header.num_timesteps - 1, 1)] {
             let mut buf_subview = buf_view.subview_mut(*level as usize);
             let mut reader = self.data.margin_embeddings(*level);
             let mut buf_iter_mut = buf_subview.as_mut_slice().iter_mut();
@@ -147,7 +156,7 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
 
         self.traverse_subtree(2, 0, 0, header.num_timesteps - 1, 1);
 
-        self.output
+        self.output.as_view().to_transposed()
     }
 
     #[allow(dead_code)] // TODO: remove
@@ -169,8 +178,9 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
             let timestep = self.data.timestep(t).unwrap();
             let mut reader = AccumulatingReader::new(
                 timestep.reader(),
-                left_parent_view.as_slice(),
-                right_parent_view.as_slice(),
+                left_parent_view.slice(),
+                right_parent_view.slice(),
+                self.data.header().embedding_dim,
             );
 
             let mut output_view = self.output.as_view_mut();
@@ -236,8 +246,12 @@ impl PairwiseTrajectories {
 impl TraversalTask for PairwiseTrajectories {
     type Output = f32;
 
-    fn output_size(&self) -> usize {
+    fn scratch_size(&self) -> usize {
         self.unique_words.len()
+    }
+
+    fn output_size(&self) -> usize {
+        self.words1.len()
     }
 
     fn iter_words(&mut self, mut callback: impl FnMut(u32)) {
@@ -266,6 +280,98 @@ impl TraversalTask for PairwiseTrajectories {
                 .map(|(x1, x2)| *x1 as i32 * *x2 as i32)
                 .sum();
             *dest = self.scale_factor * dot_product as f32;
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::fs::File;
+    use std::io::Read;
+
+    #[test]
+    fn pairwise_trajectories() {
+        let reader = RandomAccessReader::new(create_sample_file());
+
+        let trajectories = reader.pairwise_trajectories(vec![3, 50, 1], vec![70, 3, 12]);
+
+        const EXPECTED: [f32; 3 * 6] = [
+            0.47492099,
+            -0.53468378,
+            -1.49157004,
+            -1.54996942,
+            -1.03687296,
+            0.2576844,
+            0.57104136,
+            0.09180291,
+            1.60768709,
+            1.78947503,
+            0.37198357,
+            1.15662576,
+            0.41561268,
+            -0.10225572,
+            0.22655322,
+            0.67443326,
+            0.4528792,
+            -0.74646673,
+        ];
+
+        assert_eq!(trajectories.len(), EXPECTED.len());
+        for (found, expected) in trajectories.iter().zip(&EXPECTED) {
+            assert!(
+                f32::abs(found - expected) < 1e-6,
+                "expected {} but found {}",
+                expected,
+                found
+            );
+        }
+    }
+
+    /// TODO: replace this by a function that loads a precompressed file from disk.
+    fn create_sample_file() -> EmbeddingFile {
+        const NUM_TIMESTEPS: u32 = 6;
+        const VOCAB_SIZE: u32 = 100;
+        const EMBEDDING_DIM: u32 = 16;
+
+        let file_name = format!(
+            "tests/fake_data_generation/random_{}_{}_{}",
+            NUM_TIMESTEPS, VOCAB_SIZE, EMBEDDING_DIM
+        );
+        let mut input_file = File::open(file_name).unwrap();
+
+        let mut input_buf = Vec::new();
+        input_file.read_to_end(&mut input_buf).unwrap();
+        assert_eq!(
+            input_buf.len(),
+            (NUM_TIMESTEPS * VOCAB_SIZE * EMBEDDING_DIM) as usize
+        );
+
+        // Check that negative values are treated correctly.
+        assert_eq!(
+            input_buf[(3 * VOCAB_SIZE * EMBEDDING_DIM + 5 * EMBEDDING_DIM + 10) as usize] as i8,
+            -39
+        );
+
+        let uncompressed = RankThreeTensor::from_flattened(
+            u8_slice_to_i8_slice(&input_buf).to_vec(),
+            NUM_TIMESTEPS as usize,
+            VOCAB_SIZE as usize,
+            EMBEDDING_DIM as usize,
+        );
+
+        let chunk_size = 20;
+        let scale_factor = 0.000_227_234_92;
+
+        EmbeddingFile::from_uncompressed_quantized(uncompressed.as_view(), chunk_size, scale_factor)
+            .unwrap()
+    }
+
+    fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {
+        unsafe {
+            let ptr = data.as_ptr();
+            std::slice::from_raw_parts_mut(ptr as *mut i8, data.len())
         }
     }
 }

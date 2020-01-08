@@ -54,20 +54,20 @@ pub struct RankThreeTensorView<'a, T> {
 }
 
 impl<'a, T> RankThreeTensorView<'a, T> {
-    pub fn shape(&self) -> (usize, usize, usize) {
+    pub fn shape(self) -> (usize, usize, usize) {
         (
             self.data.len() / self.stride0,
             self.stride0 / self.stride1,
             self.stride1,
         )
     }
-    pub fn subview(&self, index0: usize) -> RankTwoTensorView<T> {
+    pub fn subview(self, index0: usize) -> RankTwoTensorView<'a, T> {
         let start = index0 * self.stride0;
         let end = start + self.stride0;
         RankTwoTensorView::from_raw_parts(self.stride1, &self.data[start..end])
     }
 
-    pub fn as_slice(&self) -> &[T] {
+    pub fn slice(self) -> &'a [T] {
         self.data
     }
 }
@@ -117,11 +117,11 @@ impl<'a, T> RankThreeTensorViewMut<'a, T> {
                 ),
                 RankTwoTensorView::from_raw_parts(
                     self.stride1,
-                    std::slice::from_raw_parts(ptr.add(read1_start), self.stride0),
+                    std::slice::from_raw_parts(ptr.add(read2_start), self.stride0),
                 ),
                 RankTwoTensorViewMut::from_raw_parts_mut(
                     self.stride1,
-                    std::slice::from_raw_parts_mut(ptr.add(read1_start), self.stride0),
+                    std::slice::from_raw_parts_mut(ptr.add(write_start), self.stride0),
                 ),
             )
         }
@@ -177,13 +177,13 @@ impl<'a, T> RankTwoTensorView<'a, T> {
         Self { stride0, data }
     }
 
-    pub fn subview(&self, index0: usize) -> &[T] {
+    pub fn subview(self, index0: usize) -> &'a [T] {
         let start = index0 * self.stride0;
         let end = start + self.stride0;
         &self.data[start..end]
     }
 
-    pub fn as_slice(&self) -> &[T] {
+    pub fn slice(self) -> &'a [T] {
         self.data
     }
 
@@ -191,6 +191,38 @@ impl<'a, T> RankTwoTensorView<'a, T> {
         (0..self.data.len())
             .step_by(self.stride0)
             .map(move |start| unsafe { self.data.get_unchecked(start..start + self.stride0) })
+    }
+}
+
+impl<'a, T: Default + Clone> RankTwoTensorView<'a, T> {
+    pub fn to_transposed(&self) -> RankTwoTensor<T> {
+        let data = &self.data;
+        let len = data.len();
+        let stride0 = self.stride0;
+        let new_stride0 = len / stride0;
+
+        // TODO: use MaybeUninit here instead
+        let mut new_data = Vec::new();
+        new_data.resize_with(len, Default::default);
+
+        // Iterate over source rows (times stride) and target columns
+        for (src_row, dest_col) in (0..).step_by(self.stride0).zip(0..new_stride0) {
+            // Iterate over source columns destination rows (times new stride)
+            for (src_index, dest_index) in
+                (src_row..src_row + stride0).zip((dest_col..).step_by(new_stride0))
+            {
+                unsafe {
+                    let source = data.get_unchecked(src_index).clone();
+                    let dest = new_data.get_unchecked_mut(dest_index);
+                    *dest = source;
+                }
+            }
+        }
+
+        RankTwoTensor {
+            stride0: new_stride0,
+            data: new_data.into(),
+        }
     }
 }
 
