@@ -4,11 +4,8 @@ use super::compression::{Decoder, DistributionU8};
 use super::random_access_reader::RandomAccessReader;
 use super::tensors::RankThreeTensorView;
 
-use wasm_bindgen::prelude::*;
-
 use std::ops::Deref;
 
-#[wasm_bindgen]
 pub struct EmbeddingFile {
     raw_data: Box<[u32]>,
 }

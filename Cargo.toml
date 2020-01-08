@@ -1,5 +1,10 @@
 [workspace]
 
 members = [
+    "compressed_dynamic_word_embeddings",
     "wasm",
 ]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"

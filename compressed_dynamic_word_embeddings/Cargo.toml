@@ -1,0 +1,17 @@
+[package]
+name = "compressed_dynamic_word_embeddings"
+version = "0.0.1"
+authors = ["Robert Bamler <robert.bamler@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.7.2"
+flate2 = "1.0.13"
+byteorder="1.3.2"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "decompression"
+harness = false

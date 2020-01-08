@@ -1,11 +1,8 @@
 use super::embedding_file::{EmbeddingData, EmbeddingFile, FileHeader, TimestepReader};
 use super::tensors::{RankThreeTensor, RankTwoTensor, RankTwoTensorView};
 
-use wasm_bindgen::prelude::*;
-
 use std::collections::BinaryHeap;
 
-#[wasm_bindgen]
 pub struct RandomAccessReader {
     file: EmbeddingFile,
 
@@ -14,7 +11,6 @@ pub struct RandomAccessReader {
     tree_height: u32,
 }
 
-#[wasm_bindgen]
 impl RandomAccessReader {
     pub fn new(embedding_file: EmbeddingFile) -> Self {
         let num_timesteps = embedding_file.header().num_timesteps;

@@ -1,4 +1,3 @@
-pub mod embeddings;
 pub mod utils;
 pub mod wasm_buffer;
 
