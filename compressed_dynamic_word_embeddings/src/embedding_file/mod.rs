@@ -144,6 +144,10 @@ impl EmbeddingData {
             CompressedTimestep::new(&self, addr, num_chunks)
         }
     }
+
+    pub fn as_slice_u32(&self) -> &[u32] {
+        &self.raw_data
+    }
 }
 
 impl<'a> CompressedTimestep<'a> {

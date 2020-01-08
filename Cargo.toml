@@ -3,6 +3,7 @@
 members = [
     "compressed_dynamic_word_embeddings",
     "wasm",
+    "cli",
 ]
 
 [profile.release]
