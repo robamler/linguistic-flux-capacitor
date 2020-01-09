@@ -1,5 +1,7 @@
 import './styles.css';
 
+import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000";
+
 // Wasm modules must be imported asynchronously.
 let backendPromise = import("./backend.js");
 
@@ -25,57 +27,101 @@ let backendPromise = import("./backend.js");
         pointsY2.push(0.2 * Math.sin(0.2 * year) + 0.002 * (year - 1900));
     }
 
+
+    let updateTooltip = (function () {
+        let tooltip = document.getElementById('tooltipTemplate');
+        let yearPlaceholder = tooltip.querySelector('.year');
+        let word1Placeholder = tooltip.querySelector('.word1');
+        let word2Placeholder = tooltip.querySelector('.word2');
+        let relatedPlaceholders = [];
+        let relatedTimeout = null;
+        let relatedCache = {};
+        tooltip.querySelectorAll('.suggestion.left>a').forEach(el => {
+            relatedPlaceholders.push(el);
+            el.addEventListener('click', ev => {
+                ev.preventDefault();
+                el.blur();
+                addPairwiseTrajectory(el.innerText, word1Placeholder.innerText);
+            });
+        });
+        tooltip.querySelectorAll('.suggestion.right>a').forEach(el => {
+            relatedPlaceholders.push(el);
+            el.addEventListener('click', ev => {
+                ev.preventDefault();
+                el.blur();
+                addPairwiseTrajectory(el.innerText, word2Placeholder.innerText);
+            });
+        });
+
+        return function (tooltip, line, indexX) {
+            clearTimeout(relatedTimeout);
+            let payload = line.payload;
+            yearPlaceholder.innerText = years[indexX];
+            word1Placeholder.innerText = payload.word1;
+            word2Placeholder.innerText = payload.word2;
+
+            let cacheKey = payload.word1Id + '-' + payload.word2Id + '-' + indexX;
+            let cached = relatedCache[cacheKey];
+            if (typeof (cached) !== 'undefined') {
+                cached.forEach((r, i) => {
+                    relatedPlaceholders[i].innerText = metaData.vocab[r];
+                });
+            } else {
+                relatedPlaceholders.forEach(e => e.innerText = ' ');
+                relatedPlaceholders[0].innerText = '[calculating ...]';
+
+                // TODO: look up word1 and word2 in cache independently.
+                relatedTimeout = setTimeout(() => {
+                    let related = handle.most_related_to_at_t([payload.word1Id, payload.word2Id], indexX, 7);
+                    relatedCache[cacheKey] = related;
+                    related.forEach((r, i) => {
+                        relatedPlaceholders[i].innerText = metaData.vocab[r];
+                    });
+                },
+                    0);
+            }
+        };
+    }());
+
     const mainPlot = Plotter.createPlot(
-        document.getElementById('mainPlot'), years, ticksX, updateTooltip);
+        document.getElementById('mainPlot'), years, ticksX, updateTooltip,
+        document.getElementById('tooltipTemplate'));
 
     let backend = await backendPromise;
     let handle = await backend.loadFile();
+    let metaData = await (await fetch(metaDataFile)).json();
+    let inverseVocab = {};
+    metaData.vocab.forEach((word, index) => inverseVocab[word] = index);
+    let colorIndex = 0;
+
     document.getElementById('demo').onclick = function () {
-        let trajectories = handle.pairwise_trajectories(
-            [13431, 13431, 13431, 13431, 13431, 13431, 13431,],
-            [4722, 6710, 23815, 12995, 19844, 14661, 8848]
-        );
+        let word1 = document.getElementById('word1').value;
+        let word2 = document.getElementById('word2').value;
+        addPairwiseTrajectory(word1, word2);
+    };
 
-        let metaData = [
-            { mainWord: 'broadcast', otherWord: 'radio', colorIndex: 0, },
-            { mainWord: 'broadcast', otherWord: 'television', colorIndex: 1, },
-            { mainWord: 'broadcast', otherWord: 'harvested', colorIndex: 2, },
-            { mainWord: 'broadcast', otherWord: 'propagated', colorIndex: 3, },
-            { mainWord: 'broadcast', otherWord: 'strewn', colorIndex: 4, },
-            { mainWord: 'broadcast', otherWord: 'sowing', colorIndex: 5, },
-        ];
+    function addPairwiseTrajectory(word1, word2) {
+        let word1Id = inverseVocab[word1];
+        let word2Id = inverseVocab[word2];
 
-        for (let i = 0; i < metaData.length; i += 1) {
-            let { mainWord, otherWord, colorIndex } = metaData[i];
-            let values = trajectories.subarray(i * 209, (i + 1) * 209);
+        if (typeof word1Id !== 'undefined' && typeof word2Id !== 'undefined') {
+            let trajectory = handle.pairwise_trajectories([word1Id], [word2Id]);
+
             mainPlot.plotLine(
-                values,
+                trajectory,
                 colorIndex,
                 0,
                 {
-                    mainWord,
-                    description: mainWord + ' : ' + otherWord
-                }
+                    word1,
+                    word2,
+                    word1Id,
+                    word2Id,
+                    description: word1 + ' : ' + word2
+                },
+                true
             );
+
+            colorIndex = (colorIndex + 1) % 7;
         }
-    }
-
-    let suggestions = document.getElementsByClassName('suggestion');
-    for (let i = 0; i < suggestions.length; i += 1) {
-        suggestions[i].addEventListener('click', e => {
-            e.target.classList.toggle('active');
-        });
-    }
-
-    function updateTooltip(tooltip, line, indexX) {
-        tooltip.classList.add('waiting');
-        tooltip.querySelector('.year').innerText = years[indexX];
-        tooltip.querySelector('.lineDescription').innerText = line.payload.description;
-        tooltip.querySelector('.mainWord').innerText = line.payload.mainWord;
-
-        // TODO: defer (setTimeout(..., 0)) calculation of nearest neighbors;
-        // when done and not canceled, write them to tooltip.
-        // (Unless results are cached, in which case we immediately display
-        // them without setting a timeout.)
     }
 }())

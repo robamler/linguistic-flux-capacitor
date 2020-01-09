@@ -1,7 +1,7 @@
 import './default.css';
 
 export function createPlot(
-    containerElement, pointsX, ticksX, updateTooltipContents
+    containerElement, pointsX, ticksX, updateTooltipContents, tooltipTemplate
 ) {
     const BORDERS_MIN_X = 54;
     const BORDERS_MAX_X = 639;
@@ -16,6 +16,7 @@ export function createPlot(
     const SVG_WIDTH = 640;
     const SVG_HEIGHT = 360;
 
+    let cursorTooltip = createTooltip(tooltipTemplate);
     let coordsX = [];
     let scaleX = null;
     let tenTimesMinYValue = null;
@@ -34,7 +35,6 @@ export function createPlot(
     return { plotLine, setMainLine };
 
     function _initialize() {
-        const cursorTooltip = createTooltip();
 
         const svg = createSvgElement('svg');
         svg.classList.add('plot');
@@ -150,10 +150,10 @@ export function createPlot(
         // events when the user moves from the cursor to the tooltip.
         hoverCursorContainer.appendChild(
             createSvgElement('rect', ['invisible', 'noCaptureZone'], {
-                x: -15,
-                y: -35,
-                width: 30,
-                height: 37,
+                x: -40,
+                y: -45,
+                width: 80,
+                height: 47,
             })
         );
 
@@ -198,9 +198,6 @@ export function createPlot(
             hideCursorTimeout = setTimeout(() => {
                 hoverCursorContainer.classList.add('hidden');
                 cursorTooltip.classList.add('hidden');
-                if (typeof tooltipHandle !== 'undefined') {
-                    hideTooltip();
-                }
             }, 400);
         };
 
@@ -223,6 +220,9 @@ export function createPlot(
         isMainLine = !!isMainLine || lines.length === 0;
         const cur10MinYValue = 10 * Math.min(...valuesY);
         const cur10MaxYValue = 10 * Math.max(...valuesY);
+
+        hoverCursorContainer.classList.add('hidden');
+        cursorTooltip.classList.add('hidden');
 
         if (scaleY === null
             || cur10MinYValue < tenTimesMinYValue
@@ -407,14 +407,14 @@ function createSvgElement(tagName, classNames, attributes) {
     return element;
 }
 
-function createTooltip() {
+function createTooltip(template) {
     const tooltip = document.createElement('div');
     tooltip.setAttribute('data-color-index', '0');
     tooltip.classList.add('plot');
     tooltip.classList.add('tooltip');
     tooltip.classList.add('hidden');
     tooltip.classList.add('color0');
-    tooltip.innerHTML = "<div class='tooltipInnerContainer'><div class='tooltipMain'><div class='tooltipContent'><div class='lineDescription'></div>In <span class='year'></span>,<div class='mainWord'></div>was most related to:<div class='wait'>(crunching numbers,<br>please stand by&nbsp;...)</div><ul class='suggestions'><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li><li class='suggestion'></li></ul></div></div><div class='tooltipPointer'></div></div>";
+    tooltip.appendChild(template);
 
     return tooltip;
 }

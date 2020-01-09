@@ -4,6 +4,7 @@
     right: 0;
     top: 0;
     bottom: 0;
+    padding: 2em;
 }
 
 .plotContainer {
@@ -13,4 +14,43 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+}
+
+.tooltipContent .explanation {
+    font-size: 90%;
+}
+
+.tooltipContent th {
+    font-size: 120%;
+}
+
+.tooltipContent th, .tooltipContent td {
+    vertical-align: baseline;
+    padding: 0 0.3em;
+}
+
+.tooltipContent .year {
+    font-size: 140%;
+    font-weight: bold;
+}
+
+.tooltipContent .interleave {
+    padding: 0.7em 0
+}
+
+.tooltipContent .suggestion {
+    padding: 0.1em 0;
+}
+
+.tooltipContent .suggestion.left {
+    text-align: left;
+}
+
+.tooltipContent .suggestion.right {
+    text-align: right;
+}
+
+.tooltipContent .suggestion>a {
+    text-decoration: none;
+    color: #152d74;
 }

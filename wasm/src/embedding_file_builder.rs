@@ -138,4 +138,8 @@ impl EmbeddingHandle {
             .pairwise_trajectories(words1, words2)
             .into_inner()
     }
+
+    pub fn most_related_to_at_t(&self, words: Vec<u32>, t: u32, amt: u32) -> Vec<u32> {
+        self.reader.most_related_to_at_t(words, t, amt).into_inner()
+    }
 }
