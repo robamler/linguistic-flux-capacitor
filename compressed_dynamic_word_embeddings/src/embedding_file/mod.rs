@@ -41,7 +41,7 @@ pub struct CompressedTimestep<'a> {
 
 #[repr(C)]
 pub struct UncompressedTimestep<'a> {
-    uncompressed: &'a [i8],
+    pub uncompressed: &'a [i8],
     embedding_data: &'a EmbeddingData,
 }
 
@@ -225,7 +225,7 @@ impl<'a> CompressedTimestep<'a> {
         })
     }
 
-    fn chunk<'s>(&'s self, index: u32) -> Result<Decoder<'s, 'a>, ()> {
+    pub fn chunk<'s>(&'s self, index: u32) -> Result<Decoder<'s, 'a>, ()> {
         let addr = *self.chunk_addresses.get(index as usize).ok_or(())?;
         let compressed_data = get_u16_slice(
             self.embedding_data
