@@ -188,9 +188,7 @@ impl<'a, T> RankTwoTensorView<'a, T> {
     }
 
     pub fn iter_subviews(&self) -> impl Iterator<Item = &[T]> {
-        (0..self.data.len())
-            .step_by(self.stride0)
-            .map(move |start| unsafe { self.data.get_unchecked(start..start + self.stride0) })
+        self.data.chunks_exact(self.stride0)
     }
 }
 
@@ -250,6 +248,10 @@ impl<'a, T> RankTwoTensorViewMut<'a, T> {
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data
+    }
+
+    pub fn iter_mut_subviews(&mut self) -> impl Iterator<Item = &mut [T]> {
+        self.data.chunks_exact_mut(self.stride0)
     }
 
     pub fn downgrade(&self) -> RankTwoTensorView<T> {
