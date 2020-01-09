@@ -173,6 +173,11 @@ pub struct RankTwoTensorView<'a, T> {
 }
 
 impl<'a, T> RankTwoTensorView<'a, T> {
+    pub fn from_flattened(shape0: u32, shape1: u32, data: &'a [T]) -> Self {
+        assert_eq!((shape0 * shape1) as usize, data.len());
+        Self::from_raw_parts(shape1 as usize, data)
+    }
+
     fn from_raw_parts(stride0: usize, data: &'a [T]) -> Self {
         Self { stride0, data }
     }

@@ -1,5 +1,6 @@
 use std::cmp::Ordering::*;
 use std::collections::BinaryHeap;
+use std::ops::Range;
 
 use super::embedding_file::{EmbeddingData, EmbeddingFile, FileHeader, TimestepReader};
 use super::tensors::{RankThreeTensor, RankTwoTensor, RankTwoTensorView};
@@ -40,53 +41,138 @@ impl RandomAccessReader {
 
     pub fn most_related_to_at_t(
         &self,
-        mut target_words: Vec<u32>,
+        target_words: Vec<u32>,
         t: u32,
         amt: u32,
     ) -> RankTwoTensor<u32> {
-        let mut unique_words = target_words
-            .iter()
-            .cloned()
-            .collect::<BinaryHeap<u32>>()
-            .into_sorted_vec();
-        unique_words.dedup();
-        // Replace entries of `target_words` with their indices into `unique_words`.
-        for word in target_words.iter_mut() {
-            *word = unique_words.binary_search(word).unwrap() as u32;
+        MostRelatedToAtT::new(target_words, amt).run(t, &self)
+    }
+}
+
+#[derive(Copy, Clone)]
+struct FrontRunnerCandidate {
+    word: u32,
+    dot_product: i32,
+}
+
+impl Default for FrontRunnerCandidate {
+    fn default() -> Self {
+        Self {
+            word: std::u32::MAX,
+            dot_product: std::i32::MIN,
         }
+    }
+}
 
-        let mut front_runners =
-            RankTwoTensor::<FrontRunnerCandidate>::new(unique_words.len(), amt as usize);
+trait TraversalTask {
+    type Output: Default + Clone;
 
-        let header = self.file.header();
-        assert!(t < header.num_timesteps);
+    /// Returns the number of embedding vectors needed in some scratch space.
+    fn scratch_size(&self) -> usize;
+
+    /// Returns the number of `Self::Output` values calculated per time step.
+    fn output_size(&self) -> usize;
+
+    /// Called once per time step. Expects `callback` to be called exactly
+    /// `scratch_size` times per time step with arguments (word indices) in strictly
+    /// ascending order. The order of words must be the same on each time step.
+    fn iter_words(&mut self, callback: impl FnMut(u32));
+
+    /// Called once per time step, after `iter_words`. Provides the embedding
+    /// vectors of the words used in calls to `callback` of the `iter_words` method,
+    /// in the same order. The slice `output` is of size `self.output_size()` and is
+    /// intended to be used to write out results for this time step.
+    fn finalize_timestep(
+        &mut self,
+        t: u32,
+        embeddings: RankTwoTensorView<i8>,
+        output: &mut [Self::Output],
+    );
+}
+
+trait SingleTimestepTask: Sized {
+    type Output;
+
+    /// Returns the number of embedding vectors needed in some scratch space.
+    fn scratch_size(&self) -> usize;
+
+    /// Called once for each node on the path from the root of the tree to the time
+    /// step of interest. Expects `callback` to be called exactly `scratch_size`
+    /// times per node step with arguments (word indices) in strictly ascending
+    /// order. The order of words must be the same on each time step.
+    /// This is a workaround for the absence of GAT. With GAT, we would just have
+    /// a method `scratch_words_iterator` that returns an iterator. But this is not
+    /// possible at the moment because the returned iterator would have to have a
+    /// use defined type with a lifetime parameter.
+    fn iter_scratch_words<I: Iterator>(&self, driver: I, callback: impl FnMut(I::Item, u32));
+
+    /// Called once for each chunk in the time step of interest. Only called after
+    /// all calls to `prepare` are done. `embeddings` holds the entire chunk, and
+    /// `scratch` holds the embeddings extracted in the `prepare` calls.
+    fn process_chunk(
+        &mut self,
+        word_range: Range<u32>,
+        embeddings: RankTwoTensorView<i8>,
+        scratch: RankTwoTensorView<i8>,
+    );
+
+    fn finalize(self) -> Self::Output;
+
+    fn run(mut self, t: u32, rar: &RandomAccessReader) -> Self::Output {
+        let header = rar.file.header();
+        let mut center_scratch =
+            RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
 
         if t == 0 || t == header.num_timesteps - 1 {
-            todo!()
-        } else {
-            let first_timestep_data = self.file.margin_embeddings(0).uncompressed;
-            let mut left_embeddings =
-                RankTwoTensor::new(unique_words.len(), header.embedding_dim as usize);
-            let mut left_embeddings_view_mut = left_embeddings.as_view_mut();
+            let level = if t == 0 { 0 } else { 1 };
+            let mut center_scratch_view_mut = center_scratch.as_view_mut();
+            let full_timestep_data = rar.file.margin_embeddings(level).uncompressed;
+            self.iter_scratch_words(
+                center_scratch_view_mut.iter_mut_subviews(),
+                |center_emb, word| {
+                    let start = word * header.embedding_dim;
+                    let end = start + header.embedding_dim;
+                    center_emb.copy_from_slice(&full_timestep_data[start as usize..end as usize]);
+                },
+            );
 
-            let last_timestep_data = self.file.margin_embeddings(1).uncompressed;
-            let mut right_embeddings =
-                RankTwoTensor::new(unique_words.len(), header.embedding_dim as usize);
-            let mut right_embeddings_view_mut = right_embeddings.as_view_mut();
-
-            for ((word, left_emb), right_emb) in unique_words
-                .iter()
-                .zip(left_embeddings_view_mut.iter_mut_subviews())
-                .zip(right_embeddings_view_mut.iter_mut_subviews())
+            let center_scratch_view = center_scratch_view_mut.downgrade();
+            let total_chunk_size = header.chunk_size * header.embedding_dim;
+            for (start_word, embeddings) in (0..)
+                .step_by(header.chunk_size as usize)
+                .zip(full_timestep_data.chunks_exact(total_chunk_size as usize))
             {
-                let start = word * header.embedding_dim;
-                let end = start + header.embedding_dim;
-                left_emb.copy_from_slice(&first_timestep_data[start as usize..end as usize]);
-                right_emb.copy_from_slice(&last_timestep_data[start as usize..end as usize]);
+                let embeddings = RankTwoTensorView::from_flattened(
+                    header.chunk_size,
+                    header.embedding_dim,
+                    embeddings,
+                );
+                let word_range = start_word..start_word + header.chunk_size;
+                self.process_chunk(word_range, embeddings, center_scratch_view);
             }
+        } else {
+            let first_timestep_data = rar.file.margin_embeddings(0).uncompressed;
+            let mut left_scratch =
+                RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
+            let mut left_scratch_view_mut = left_scratch.as_view_mut();
 
-            let mut center_embeddings =
-                RankTwoTensor::new(unique_words.len(), header.embedding_dim as usize);
+            let last_timestep_data = rar.file.margin_embeddings(1).uncompressed;
+            let mut right_scratch =
+                RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
+            let mut right_scratch_view_mut = right_scratch.as_view_mut();
+
+            self.iter_scratch_words(
+                left_scratch_view_mut
+                    .iter_mut_subviews()
+                    .zip(right_scratch_view_mut.iter_mut_subviews()),
+                |(left_emb, right_emb), word| {
+                    let start = word * header.embedding_dim;
+                    let end = start + header.embedding_dim;
+                    left_emb.copy_from_slice(&first_timestep_data[start as usize..end as usize]);
+                    right_emb.copy_from_slice(&last_timestep_data[start as usize..end as usize]);
+                },
+            );
+
             let mut path_from_root = Vec::new();
             traverse_subtree(
                 2,
@@ -95,11 +181,11 @@ impl RandomAccessReader {
                 header.num_timesteps - 1,
                 1,
                 &mut |current_t, _level, _left_t, _left_level, _right_t, _right_level| {
-                    let left_embeddings_view = left_embeddings.as_view();
-                    let right_embeddings_view = right_embeddings.as_view();
-                    let mut center_embeddings_view_mut = center_embeddings.as_view_mut();
+                    let left_embeddings_view = left_scratch.as_view();
+                    let right_embeddings_view = right_scratch.as_view();
+                    let mut center_scratch_view_mut = center_scratch.as_view_mut();
 
-                    let timestep = self.file.timestep(t).unwrap();
+                    let timestep = rar.file.timestep(current_t).unwrap();
                     let diff_reader = timestep.reader();
                     let mut reader = AccumulatingReader::new(
                         diff_reader,
@@ -108,28 +194,30 @@ impl RandomAccessReader {
                         header.embedding_dim,
                     );
 
-                    let mut dest_iter = center_embeddings_view_mut.as_mut_slice().iter_mut();
-                    for word in unique_words.iter() {
-                        reader
-                            .next_diff_vector_in_ascending_order(
-                                *word,
-                                &mut dest_iter,
-                                |src, dest| *dest = src,
-                            )
-                            .unwrap();
-                    }
+                    self.iter_scratch_words(
+                        center_scratch_view_mut.iter_mut_subviews(),
+                        |dest, word| {
+                            reader
+                                .next_diff_vector_in_ascending_order(
+                                    word,
+                                    dest.iter_mut(),
+                                    |src, dest| *dest = src,
+                                )
+                                .unwrap();
+                        },
+                    );
                     path_from_root.push((timestep, current_t));
 
                     match current_t.cmp(&t) {
                         Less => {
                             // Continue to the right half of the interval.
-                            std::mem::swap(&mut center_embeddings, &mut left_embeddings);
+                            std::mem::swap(&mut center_scratch, &mut left_scratch);
                             (false, true)
                         }
                         Greater => {
                             // Continue to the left half of the interval.
-                            std::mem::swap(&mut center_embeddings, &mut right_embeddings);
-                            (false, true)
+                            std::mem::swap(&mut center_scratch, &mut right_scratch);
+                            (true, false)
                         }
                         Equal => {
                             // Found the node of interest. Stop iteration.
@@ -163,16 +251,16 @@ impl RandomAccessReader {
                     .copy_from_slice(&last_timestep_data[chunk_begin..chunk_end]);
 
                 for (timestep, current_t) in path_from_root.iter() {
-                    let mut left_buf_view_mut = left_buf.as_view_mut();
-                    let mut right_buf_view_mut = right_buf.as_view_mut();
+                    let left_buf_view = left_buf.as_view();
+                    let right_buf_view = right_buf.as_view();
                     let mut center_buf_view_mut = center_buf.as_view_mut();
 
                     let mut diff_chunk = timestep.chunk(chunk_index).unwrap();
                     let dest_iter = center_buf_view_mut
                         .as_mut_slice()
                         .iter_mut()
-                        .zip(left_buf_view_mut.as_mut_slice().iter())
-                        .zip(right_buf_view_mut.as_mut_slice().iter());
+                        .zip(left_buf_view.slice().iter())
+                        .zip(right_buf_view.slice().iter());
                     diff_chunk
                         .decode(dest_iter, |diff, ((dest, left), right)| {
                             let prediction = ((*left as i32 + *right as i32) / 2) as i8;
@@ -190,40 +278,102 @@ impl RandomAccessReader {
 
                 let word_range =
                     chunk_index * header.chunk_size..(chunk_index + 1) * header.chunk_size;
-                for (word, word_emb) in word_range.zip(center_buf.as_view().iter_subviews()) {
-                    for ((main_word, main_emb), front_runners) in unique_words
-                        .iter()
-                        .zip(center_embeddings.as_view().iter_subviews())
-                        .zip(front_runners.as_view_mut().iter_mut_subviews())
-                    {
-                        if *main_word != word {
-                            let dot_product = main_emb
-                                .iter()
-                                .zip(word_emb)
-                                .map(|(a, b)| *a as i32 * *b as i32)
-                                .sum::<i32>();
+                self.process_chunk(word_range, center_buf.as_view(), center_scratch.as_view());
+            }
+        }
 
-                            let last_better = front_runners
-                                .iter()
-                                .enumerate()
-                                .rev()
-                                .find(|(_index, fr)| fr.dot_product >= dot_product);
-                            let first_worse = last_better.map_or(0, |(index, _)| index + 1);
-                            let mut insert_fr = FrontRunnerCandidate { word, dot_product };
-                            for dest in front_runners[first_worse..].iter_mut() {
-                                std::mem::swap(dest, &mut insert_fr);
-                            }
-                        }
+        self.finalize()
+    }
+}
+
+struct MostRelatedToAtT {
+    unique_words: Vec<u32>,
+    target_word_indices: Vec<u32>,
+    amt: u32,
+    front_runners: RankTwoTensor<FrontRunnerCandidate>,
+}
+
+impl MostRelatedToAtT {
+    fn new(target_words: Vec<u32>, amt: u32) -> Self {
+        let mut unique_words = target_words
+            .iter()
+            .cloned()
+            .collect::<BinaryHeap<u32>>()
+            .into_sorted_vec();
+        unique_words.dedup();
+
+        let mut target_word_indices = target_words;
+        for word in target_word_indices.iter_mut() {
+            *word = unique_words.binary_search(word).unwrap() as u32;
+        }
+
+        let front_runners = RankTwoTensor::new(unique_words.len(), amt as usize);
+
+        Self {
+            unique_words,
+            target_word_indices,
+            amt,
+            front_runners,
+        }
+    }
+}
+
+impl SingleTimestepTask for MostRelatedToAtT {
+    type Output = RankTwoTensor<u32>;
+
+    fn scratch_size(&self) -> usize {
+        self.unique_words.len()
+    }
+
+    fn iter_scratch_words<I: Iterator>(&self, driver: I, mut callback: impl FnMut(I::Item, u32)) {
+        for (i, word) in driver.zip(self.unique_words.iter()) {
+            callback(i, *word);
+        }
+    }
+
+    fn process_chunk(
+        &mut self,
+        word_range: Range<u32>,
+        embeddings: RankTwoTensorView<i8>,
+        scratch: RankTwoTensorView<i8>,
+    ) {
+        for (word, word_emb) in word_range.zip(embeddings.iter_subviews()) {
+            for ((main_word, main_emb), front_runners) in self
+                .unique_words
+                .iter()
+                .zip(scratch.iter_subviews())
+                .zip(self.front_runners.as_view_mut().iter_mut_subviews())
+            {
+                if *main_word != word {
+                    let dot_product = main_emb
+                        .iter()
+                        .zip(word_emb)
+                        .map(|(a, b)| *a as i32 * *b as i32)
+                        .sum::<i32>();
+
+                    let last_better = front_runners
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .find(|(_index, fr)| fr.dot_product >= dot_product);
+                    let first_worse = last_better.map_or(0, |(index, _)| index + 1);
+                    let mut insert_fr = FrontRunnerCandidate { word, dot_product };
+                    for dest in front_runners[first_worse..].iter_mut() {
+                        std::mem::swap(dest, &mut insert_fr);
                     }
                 }
             }
         }
+    }
 
-        let mut reordered_top_k = RankTwoTensor::new(target_words.len(), amt as usize);
+    fn finalize(self) -> RankTwoTensor<u32> {
+        let mut reordered_top_k =
+            RankTwoTensor::new(self.target_word_indices.len(), self.amt as usize);
         let mut reordered_top_k_view_mut = reordered_top_k.as_view_mut();
-        let front_runners_view = front_runners.as_view();
+        let front_runners_view = self.front_runners.as_view();
 
-        for (word_index, dest) in target_words
+        for (word_index, dest) in self
+            .target_word_indices
             .iter()
             .zip(reordered_top_k_view_mut.iter_mut_subviews())
         {
@@ -237,38 +387,6 @@ impl RandomAccessReader {
 
         reordered_top_k
     }
-}
-
-#[derive(Copy, Clone)]
-struct FrontRunnerCandidate {
-    word: u32,
-    dot_product: i32,
-}
-
-impl Default for FrontRunnerCandidate {
-    fn default() -> Self {
-        Self {
-            word: std::u32::MAX,
-            dot_product: std::i32::MIN,
-        }
-    }
-}
-
-trait TraversalTask {
-    type Output: Default + Clone;
-
-    fn scratch_size(&self) -> usize;
-
-    fn output_size(&self) -> usize;
-
-    fn iter_words(&mut self, callback: impl FnMut(u32));
-
-    fn finalize_timestep(
-        &mut self,
-        t: u32,
-        embeddings: RankTwoTensorView<i8>,
-        output: &mut [Self::Output],
-    );
 }
 
 struct AccumulatingReader<'a, R: TimestepReader> {
@@ -556,16 +674,40 @@ mod test {
     fn most_related_to_at_t() {
         let reader = RandomAccessReader::new(create_sample_file());
 
-        let related_words = reader
-            .most_related_to_at_t(vec![3, 34, 4], 2, 10)
-            .into_inner();
-
-        const EXPECTED: [u32; 30] = [
-            11, 96, 13, 47, 50, 24, 32, 99, 18, 65, 72, 90, 13, 5, 96, 80, 19, 3, 43, 71, 55, 46,
-            68, 26, 66, 12, 90, 76, 23, 9,
+        const EXPECTED: [[u32; 3 * 10]; 6] = [
+            [
+                42, 64, 47, 32, 22, 79, 39, 24, 2, 85, 85, 5, 35, 72, 57, 36, 21, 44, 83, 65, 48,
+                6, 54, 67, 60, 21, 77, 90, 78, 46,
+            ],
+            [
+                24, 47, 2, 20, 79, 34, 99, 42, 64, 85, 5, 72, 36, 24, 3, 25, 83, 41, 85, 64, 90, 5,
+                12, 28, 10, 9, 58, 21, 27, 0,
+            ],
+            [
+                11, 96, 13, 47, 50, 24, 32, 99, 18, 65, 72, 90, 13, 5, 96, 80, 19, 3, 43, 71, 55,
+                46, 68, 26, 66, 12, 90, 76, 23, 9,
+            ],
+            [
+                18, 71, 98, 50, 13, 32, 62, 42, 11, 96, 80, 90, 79, 76, 72, 13, 42, 96, 68, 43, 12,
+                55, 23, 25, 57, 70, 63, 66, 40, 45,
+            ],
+            [
+                93, 32, 11, 42, 31, 62, 87, 96, 67, 29, 13, 90, 63, 2, 85, 43, 22, 76, 67, 19, 9,
+                6, 46, 23, 30, 49, 57, 36, 68, 66,
+            ],
+            [
+                29, 67, 34, 69, 42, 50, 96, 41, 93, 31, 42, 2, 67, 29, 22, 49, 43, 3, 93, 69, 9,
+                46, 39, 99, 0, 36, 56, 30, 54, 15,
+            ],
         ];
 
-        assert_eq!(related_words, EXPECTED);
+        for t in 0..6 {
+            let related_words = reader
+                .most_related_to_at_t(vec![3, 34, 4], t, 10)
+                .into_inner();
+
+            assert_eq!(related_words, EXPECTED[t as usize]);
+        }
     }
 
     /// TODO: replace this by a function that loads a precompressed file from disk.
