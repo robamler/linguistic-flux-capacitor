@@ -86,7 +86,7 @@ export function createPlot(
                 x: BORDERS_MIN_X,
                 y: BORDERS_MIN_Y,
                 width: BORDERS_MAX_X - BORDERS_MIN_X,
-                height: BORDERS_MAX_Y - BORDERS_MIN_Y,
+                height: BORDERS_MAX_Y - BORDERS_MIN_Y + 20,
                 'data-index': '',
             })
         )
@@ -107,7 +107,7 @@ export function createPlot(
                     x: mid_left,
                     y: BORDERS_MIN_Y,
                     width: mid_right - mid_left,
-                    height: BORDERS_MAX_Y - BORDERS_MIN_Y,
+                    height: BORDERS_MAX_Y - BORDERS_MIN_Y + 20,
                     'data-index': i,
                 })
             );
@@ -354,7 +354,6 @@ export function createPlot(
         // Set `display: none` on tooltip once it's faded out so that it doesn't users
         // can access page elements underneath it.
         setTimeout(() => cursorTooltip.classList.add('undisplayed'), 300);
-
     }
 
     function hoverOut() {

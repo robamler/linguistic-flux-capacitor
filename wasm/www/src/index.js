@@ -26,6 +26,7 @@ let backendPromise = import("./backend.js");
         pointsY1.push(0.3 * Math.sin(0.1 * year));
         pointsY2.push(0.2 * Math.sin(0.2 * year) + 0.002 * (year - 1900));
     }
+    let currentWord = null;
 
 
     let updateTooltip = (function () {
@@ -33,7 +34,7 @@ let backendPromise = import("./backend.js");
         let tooltipContent = tooltip.querySelector('.tooltipContent');
         let yearPlaceholder = tooltip.querySelector('.year');
         let word1Placeholder = tooltip.querySelector('.word1');
-        let word2Placeholder = tooltip.querySelector('.word2');
+        let word2Placeholder = tooltip.querySelector('.word2>a');
         let relatedPlaceholders = [];
         let relatedTimeout = null;
         let relatedCache = {};
@@ -53,6 +54,12 @@ let backendPromise = import("./backend.js");
                 exploreWord(el.innerText);
             });
         });
+        word2Placeholder.addEventListener('click', ev => {
+            ev.preventDefault();
+            word2Placeholder.blur();
+            exploreWord(word2Placeholder.innerText);
+        });
+
 
         return function (tooltip, line, indexX) {
             clearTimeout(relatedTimeout);
@@ -93,40 +100,55 @@ let backendPromise = import("./backend.js");
     let metaData = await (await fetch(metaDataFile)).json();
     let inverseVocab = {};
     metaData.vocab.forEach((word, index) => inverseVocab[word] = index);
-    let colorIndex = 0;
 
-    document.getElementById('demo').onclick = function () {
-        let word = document.getElementById('word').value;
-        exploreWord(word);
-    };
+    let wordInput = document.querySelector('.wordInput');
+    wordInput.onkeydown = wordChanged;
+    wordInput.onkeypress = wordChanged;
+    wordInput.onchange = wordChanged;
+
+    wordChanged();
+    wordInput.focus();
+
+    function wordChanged() {
+        // Wait for next turn in JS executor to let change take effect.
+        setTimeout(() => exploreWord(wordInput.value), 0);
+    }
 
     function exploreWord(word) {
-        let wordId = inverseVocab[word];
+        if (word !== currentWord) {
+            currentWord = word;
 
-        if (typeof wordId !== 'undefined') {
-            mainPlot.clear();
-            let otherWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
-            let wordIdRepeated = Array(6).fill(wordId);
-            let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
-            let trajectoryLength = concatenatedTrajectories.length / 6;
+            let wordId = inverseVocab[word];
+            if (typeof wordId === 'undefined') {
+                wordInput.classList.add('invalid');
+            } else {
+                wordInput.classList.remove('invalid');
+                if (wordInput.value !== word) {
+                    wordInput.value = word;
+                }
+                mainPlot.clear();
+                let otherWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
+                let wordIdRepeated = Array(6).fill(wordId);
+                let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
+                let trajectoryLength = concatenatedTrajectories.length / 6;
 
-            otherWords.forEach((otherWordId, index) => {
-                let otherWord = metaData.vocab[otherWordId];
-                mainPlot.plotLine(
-                    concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
-                    index,
-                    0,
-                    {
-                        word1: word,
-                        word2: otherWord,
-                        word1Id: wordId,
-                        word2Id: otherWordId,
-                        description: word + ' : ' + otherWord
-                    },
-                    true
-                );
-            });
-
+                otherWords.forEach((otherWordId, index) => {
+                    let otherWord = metaData.vocab[otherWordId];
+                    mainPlot.plotLine(
+                        concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
+                        index,
+                        0,
+                        {
+                            word1: word,
+                            word2: otherWord,
+                            word1Id: wordId,
+                            word2Id: otherWordId,
+                            description: word + ' : ' + otherWord
+                        },
+                        false
+                    );
+                });
+            }
         }
     }
 }())

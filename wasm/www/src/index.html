@@ -3,14 +3,17 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Word History Explorer Alpha</title>
+    <title>The Linguistic Time Capsule</title>
     <meta name="description" content="Explore how word meanings change over centuries in an interactive web app.">
     <meta name="author" content="Robert Bamler">
+    <link href="https://fonts.googleapis.com/css?family=DM+Serif+Display&display=swap" rel="stylesheet">
 </head>
 
 <body>
     <div class='pageContainer'>
-        Explore word: <input id='word' type='text'> <button id='demo'>Go</button>
+        <h1>The Linguistic Time Capsule</h1>
+        <h2>Explore words related to:</h2>
+        <div class='centered'><input class='wordInput' type='text'></div>
         <div id='mainPlot' class='plotContainer'>
             <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
                 <div id='tooltipTemplate' class='tooltipInnerContainer'>
@@ -21,7 +24,7 @@
                                 <tr>
                                     <th class='word1 left'>broadcast</th>
                                     <td>and</td>
-                                    <th class='word2 right'>radio</th>
+                                    <th class='word2 right'><a href='#'>radio</a></th>
                                 </tr>
                             </table>
                             <div class='explanation interleave'>were most related to:
