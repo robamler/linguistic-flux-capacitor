@@ -213,6 +213,10 @@ svg.plot .hoverCursor.color7 {
     transition: opacity 0.2s;
 }
 
+.plot.tooltip.undisplayed {
+    display: none;
+}
+
 .plot.tooltip>.tooltipInnerContainer {
     position: absolute;
     transition: transform 0.2s ease;
@@ -327,18 +331,6 @@ svg.plot .hoverCursor.color7 {
 
 .plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
     background-color: #888888;
-}
-
-.plot.tooltip .wait {
-    display: none;
-    white-space: normal;
-    opacity: 0.7;
-    font-size: 90%;
-    padding-top: 0.8em;
-}
-
-.plot.tooltip.waiting .wait {
-    display: block;
 }
 
 .plot.tooltip .lineDescription {

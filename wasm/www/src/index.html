@@ -10,57 +10,60 @@
 
 <body>
     <div class='pageContainer'>
-        Compare word <input id='word1' type='text'> to <input id='word2' type='text'>
-        <button id='demo'>Go</button>
+        Explore word: <input id='word' type='text'> <button id='demo'>Go</button>
         <div id='mainPlot' class='plotContainer'>
-            <!-- <div class='plot tooltip color0 waiting' style='top:10em;left:10em'> -->
-            <div id='tooltipTemplate' class='tooltipInnerContainer'>
-                <div class='tooltipMain'>
-                    <div class='tooltipContent'>
-                        <div class='explanation'>In <span class='year'>1804</span>,</div class='explanation'>
-                        <table>
-                            <tr>
-                                <th class='word1'>broadcast</th>
-                                <td colspan=2 class='explanation'>and</td>
-                                <th class='word2'>radio</th>
-                            </tr>
-                            <tr>
-                                <td colspan='4' class='explanation interleave'>were most related to:</td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word1a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word1b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word2a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word2b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word3a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word3b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word4a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word4b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word5a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word5b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word6a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word6b</a></td>
-                            </tr>
-                            <tr>
-                                <td colspan='2' class='suggestion left'><a href='#'>word7a</a></td>
-                                <td colspan='2' class='suggestion right'><a href='#'>word7b</a></td>
-                            </tr>
-                        </table>
+            <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
+                <div id='tooltipTemplate' class='tooltipInnerContainer'>
+                    <div class='tooltipMain'>
+                        <div class='tooltipContent'>
+                            <div class='explanation'>In <span class='year'>1804</span>,</div class='explanation'>
+                            <table>
+                                <tr>
+                                    <th class='word1 left'>broadcast</th>
+                                    <td>and</td>
+                                    <th class='word2 right'>radio</th>
+                                </tr>
+                            </table>
+                            <div class='explanation interleave'>were most related to:
+                                <div class='hint'>(click on a word to explore it)</div>
+                            </div>
+                            <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]</div>
+                            <table class='suggestionsTable'>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word1a</a></td>
+                                    <td class='suggestion right'><a href='#'>word1b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word2a</a></td>
+                                    <td class='suggestion right'><a href='#'>word2b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word3a</a></td>
+                                    <td class='suggestion right'><a href='#'>word3b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word4a</a></td>
+                                    <td class='suggestion right'><a href='#'>word4b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word5a</a></td>
+                                    <td class='suggestion right'><a href='#'>word5b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word6a</a></td>
+                                    <td class='suggestion right'><a href='#'>word6b</a></td>
+                                </tr>
+                                <tr>
+                                    <td class='suggestion left'><a href='#'>word7a</a></td>
+                                    <td class='suggestion right'><a href='#'>word7b</a></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class='tooltipPointer'>
                     </div>
                 </div>
-                <div class='tooltipPointer'></div>
             </div>
-            <!-- </div> -->
         </div>
     </div>
 </body>

@@ -26,7 +26,14 @@
 
 .tooltipContent th, .tooltipContent td {
     vertical-align: baseline;
-    padding: 0 0.3em;
+}
+
+.tooltipContent th.left, .tooltipContent td.left {
+    padding-right: 0.3em;
+}
+
+.tooltipContent th.right, .tooltipContent td.right {
+    padding-left: 0.3em;
 }
 
 .tooltipContent .year {
@@ -35,18 +42,50 @@
 }
 
 .tooltipContent .interleave {
-    padding: 0.7em 0
+    padding: 0.3em 0
+}
+
+.tooltipContent .hint {
+    opacity: 0.7;
+    font-size: 80%;
+}
+
+.tooltipContent table {
+    width: 100%;
+}
+
+.tooltipContent .wait {
+    display: none;
+    position: absolute;
+    text-align: center;
+    width: 10em;
+    white-space: normal;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.tooltipContent.waiting .wait {
+    display: block;
+}
+
+.tooltipContent .suggestionsTable {
+    visibility: visible;
+}
+
+.tooltipContent.waiting .suggestionsTable {
+    visibility: hidden;
 }
 
 .tooltipContent .suggestion {
     padding: 0.1em 0;
 }
 
-.tooltipContent .suggestion.left {
+.tooltipContent .left {
     text-align: left;
 }
 
-.tooltipContent .suggestion.right {
+.tooltipContent .right {
     text-align: right;
 }
 

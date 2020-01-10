@@ -11,7 +11,11 @@
         {
             "label": "wasm-pack build",
             "type": "shell",
-            "command": "wasm-pack build"
+            "command": "wasm-pack build",
+            "options": {
+                "cwd": "wasm"
+            },
+            "problemMatcher": []
         },
         {
             "type": "cargo",
@@ -24,7 +28,16 @@
         {
             "label": "cargo bench",
             "type": "shell",
-            "command": "cargo bench",
+            "command": "cargo bench"
+        },
+        {
+            "type": "npm",
+            "script": "serve",
+            "path": "wasm/www/",
+            "options": {
+                "cwd": "wasm/www"
+            },
+            "problemMatcher": []
         }
     ]
 }

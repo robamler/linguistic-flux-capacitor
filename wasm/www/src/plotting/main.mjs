@@ -32,7 +32,7 @@ export function createPlot(
     let hoverCursorContainer = null;
 
     _initialize()
-    return { plotLine, setMainLine };
+    return { plotLine, setMainLine, clear };
 
     function _initialize() {
 
@@ -194,13 +194,6 @@ export function createPlot(
             }
         };
 
-        let hoverOut = event => {
-            hideCursorTimeout = setTimeout(() => {
-                hoverCursorContainer.classList.add('hidden');
-                cursorTooltip.classList.add('hidden');
-            }, 400);
-        };
-
         hoverCursorContainer.addEventListener('mouseover', hoverOver);
         cursorTooltip.querySelector('.tooltipMain').addEventListener('mouseover', hoverOver);
         cursorTooltip.querySelector('.tooltipPointer').addEventListener('mouseover', hoverOver);
@@ -221,8 +214,7 @@ export function createPlot(
         const cur10MinYValue = 10 * Math.min(...valuesY);
         const cur10MaxYValue = 10 * Math.max(...valuesY);
 
-        hoverCursorContainer.classList.add('hidden');
-        cursorTooltip.classList.add('hidden');
+        hideTooltip();
 
         if (scaleY === null
             || cur10MinYValue < tenTimesMinYValue
@@ -342,6 +334,33 @@ export function createPlot(
         }
     }
 
+    function clear() {
+        hideTooltip();
+        tenTimesMinYValue = null;
+        tenTimesMaxYValue = null;
+        scaleY = null;
+        offsetY = null;
+        lines = [];
+        mainLineIndex = null;
+
+        while (plotPane.childNodes.length != 0) {
+            plotPane.childNodes.forEach(el => el.remove());
+        }
+    }
+
+    function hideTooltip() {
+        hoverCursorContainer.classList.add('hidden');
+        cursorTooltip.classList.add('hidden');
+        // Set `display: none` on tooltip once it's faded out so that it doesn't users
+        // can access page elements underneath it.
+        setTimeout(() => cursorTooltip.classList.add('undisplayed'), 300);
+
+    }
+
+    function hoverOut() {
+        hideCursorTimeout = setTimeout(hideTooltip, 400);
+    }
+
     function setMainLine(lineIndex) {
         for (let otherLine of lines) {
             otherLine.lineGroup.classList.remove('main');
@@ -380,6 +399,7 @@ export function createPlot(
         }
 
         tooltip.classList.remove('hidden');
+        tooltip.classList.remove('undisplayed');
     }
 }
 
@@ -413,6 +433,7 @@ function createTooltip(template) {
     tooltip.classList.add('plot');
     tooltip.classList.add('tooltip');
     tooltip.classList.add('hidden');
+    tooltip.classList.add('undisplayed');
     tooltip.classList.add('color0');
     tooltip.appendChild(template);
 

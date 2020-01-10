@@ -47,19 +47,118 @@ impl RandomAccessReader {
     ) -> RankTwoTensor<u32> {
         MostRelatedToAtT::new(target_words, amt).run(t, &self)
     }
+
+    pub fn largest_changes_wrt(
+        &self,
+        target_word: u32,
+        amt: u32,
+        min_increasing: u32,
+        min_decreasing: u32,
+    ) -> Vec<u32> {
+        let first_timestep_data = self.file.margin_embeddings(0).uncompressed;
+        let last_timestep_data = self.file.margin_embeddings(1).uncompressed;
+
+        let header = self.file.header();
+        let emb_dim = header.embedding_dim;
+
+        let first_target = &first_timestep_data
+            [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
+        let last_target = &last_timestep_data
+            [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
+
+        let mut increasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        increasing_front_runners.resize_with(amt as usize, Default::default);
+
+        let mut decreasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        decreasing_front_runners.resize_with(amt as usize, Default::default);
+
+        for (word, (first_emb, last_emb)) in first_timestep_data
+            .chunks_exact(emb_dim as usize)
+            .zip(last_timestep_data.chunks_exact(emb_dim as usize))
+            .enumerate()
+        {
+            if word as u32 != target_word {
+                let first_dot_product = first_target
+                    .iter()
+                    .zip(first_emb)
+                    .map(|(a, b)| *a as i32 * *b as i32)
+                    .sum::<i32>();
+                let last_dot_product = last_target
+                    .iter()
+                    .zip(last_emb)
+                    .map(|(a, b)| *a as i32 * *b as i32)
+                    .sum::<i32>();
+
+                let diff = last_dot_product - first_dot_product;
+
+                let increasing_last_better = increasing_front_runners
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find(|(_index, fr)| fr.value >= diff);
+                let increasing_first_worse =
+                    increasing_last_better.map_or(0, |(index, _)| index + 1);
+                let mut insert_fr = FrontRunnerCandidate {
+                    word: word as u32,
+                    value: diff,
+                };
+                for dest in increasing_front_runners[increasing_first_worse..].iter_mut() {
+                    std::mem::swap(dest, &mut insert_fr);
+                }
+
+                let neg_diff = -diff;
+                let decreasing_last_better = decreasing_front_runners
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find(|(_index, fr)| fr.value >= neg_diff);
+                let decreasing_first_worse =
+                    decreasing_last_better.map_or(0, |(index, _)| index + 1);
+                let mut insert_fr = FrontRunnerCandidate {
+                    word: word as u32,
+                    value: neg_diff,
+                };
+                for dest in decreasing_front_runners[decreasing_first_worse..].iter_mut() {
+                    std::mem::swap(dest, &mut insert_fr);
+                }
+            }
+        }
+
+        let mut combined = Vec::with_capacity((2 * amt) as usize);
+
+        // Put the required words (`min_increasing` and `min_decrasing`) first.
+        combined.extend_from_slice(&increasing_front_runners[..min_increasing as usize]);
+        combined.extend_from_slice(&decreasing_front_runners[..min_decreasing as usize]);
+
+        // Then put the remaining items and sort them.
+        combined.extend_from_slice(&increasing_front_runners[min_increasing as usize..]);
+        combined.extend_from_slice(&decreasing_front_runners[min_decreasing as usize..]);
+
+        // We will keep on only the first half of the list. Sort it as well by magnitude
+        // of the change, so that in particular the first result (which a viewer may
+        // highlight by default) is the one with the largest change in magnitude.
+        combined[..amt as usize].sort_by_key(|fr| -fr.value);
+
+        // Retain only the `word` part of the first half of the list.
+        combined
+            .into_iter()
+            .take(amt as usize)
+            .map(|fr| fr.word)
+            .collect()
+    }
 }
 
 #[derive(Copy, Clone)]
 struct FrontRunnerCandidate {
     word: u32,
-    dot_product: i32,
+    value: i32,
 }
 
 impl Default for FrontRunnerCandidate {
     fn default() -> Self {
         Self {
             word: std::u32::MAX,
-            dot_product: std::i32::MIN,
+            value: std::i32::MIN,
         }
     }
 }
@@ -355,9 +454,12 @@ impl SingleTimestepTask for MostRelatedToAtT {
                         .iter()
                         .enumerate()
                         .rev()
-                        .find(|(_index, fr)| fr.dot_product >= dot_product);
+                        .find(|(_index, fr)| fr.value >= dot_product);
                     let first_worse = last_better.map_or(0, |(index, _)| index + 1);
-                    let mut insert_fr = FrontRunnerCandidate { word, dot_product };
+                    let mut insert_fr = FrontRunnerCandidate {
+                        word,
+                        value: dot_product,
+                    };
                     for dest in front_runners[first_worse..].iter_mut() {
                         std::mem::swap(dest, &mut insert_fr);
                     }

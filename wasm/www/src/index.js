@@ -30,6 +30,7 @@ let backendPromise = import("./backend.js");
 
     let updateTooltip = (function () {
         let tooltip = document.getElementById('tooltipTemplate');
+        let tooltipContent = tooltip.querySelector('.tooltipContent');
         let yearPlaceholder = tooltip.querySelector('.year');
         let word1Placeholder = tooltip.querySelector('.word1');
         let word2Placeholder = tooltip.querySelector('.word2');
@@ -41,7 +42,7 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                addPairwiseTrajectory(el.innerText, word1Placeholder.innerText);
+                exploreWord(el.innerText);
             });
         });
         tooltip.querySelectorAll('.suggestion.right>a').forEach(el => {
@@ -49,7 +50,7 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                addPairwiseTrajectory(el.innerText, word2Placeholder.innerText);
+                exploreWord(el.innerText);
             });
         });
 
@@ -60,25 +61,25 @@ let backendPromise = import("./backend.js");
             word1Placeholder.innerText = payload.word1;
             word2Placeholder.innerText = payload.word2;
 
+            // TODO: look up word1 and word2 in cache independently.
+            // TODO: clear old entries from cache at some point.
             let cacheKey = payload.word1Id + '-' + payload.word2Id + '-' + indexX;
             let cached = relatedCache[cacheKey];
             if (typeof (cached) !== 'undefined') {
                 cached.forEach((r, i) => {
                     relatedPlaceholders[i].innerText = metaData.vocab[r];
                 });
+                tooltipContent.classList.remove('waiting');
             } else {
-                relatedPlaceholders.forEach(e => e.innerText = ' ');
-                relatedPlaceholders[0].innerText = '[calculating ...]';
-
-                // TODO: look up word1 and word2 in cache independently.
+                tooltipContent.classList.add('waiting');
                 relatedTimeout = setTimeout(() => {
+                    tooltipContent.classList.remove('waiting');
                     let related = handle.most_related_to_at_t([payload.word1Id, payload.word2Id], indexX, 7);
                     relatedCache[cacheKey] = related;
                     related.forEach((r, i) => {
                         relatedPlaceholders[i].innerText = metaData.vocab[r];
                     });
-                },
-                    0);
+                }, 0);
             }
         };
     }());
@@ -95,33 +96,37 @@ let backendPromise = import("./backend.js");
     let colorIndex = 0;
 
     document.getElementById('demo').onclick = function () {
-        let word1 = document.getElementById('word1').value;
-        let word2 = document.getElementById('word2').value;
-        addPairwiseTrajectory(word1, word2);
+        let word = document.getElementById('word').value;
+        exploreWord(word);
     };
 
-    function addPairwiseTrajectory(word1, word2) {
-        let word1Id = inverseVocab[word1];
-        let word2Id = inverseVocab[word2];
+    function exploreWord(word) {
+        let wordId = inverseVocab[word];
 
-        if (typeof word1Id !== 'undefined' && typeof word2Id !== 'undefined') {
-            let trajectory = handle.pairwise_trajectories([word1Id], [word2Id]);
+        if (typeof wordId !== 'undefined') {
+            mainPlot.clear();
+            let otherWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
+            let wordIdRepeated = Array(6).fill(wordId);
+            let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
+            let trajectoryLength = concatenatedTrajectories.length / 6;
 
-            mainPlot.plotLine(
-                trajectory,
-                colorIndex,
-                0,
-                {
-                    word1,
-                    word2,
-                    word1Id,
-                    word2Id,
-                    description: word1 + ' : ' + word2
-                },
-                true
-            );
+            otherWords.forEach((otherWordId, index) => {
+                let otherWord = metaData.vocab[otherWordId];
+                mainPlot.plotLine(
+                    concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
+                    index,
+                    0,
+                    {
+                        word1: word,
+                        word2: otherWord,
+                        word1Id: wordId,
+                        word2Id: otherWordId,
+                        description: word + ' : ' + otherWord
+                    },
+                    true
+                );
+            });
 
-            colorIndex = (colorIndex + 1) % 7;
         }
     }
 }())

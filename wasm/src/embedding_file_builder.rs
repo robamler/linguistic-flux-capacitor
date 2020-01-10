@@ -142,4 +142,15 @@ impl EmbeddingHandle {
     pub fn most_related_to_at_t(&self, words: Vec<u32>, t: u32, amt: u32) -> Vec<u32> {
         self.reader.most_related_to_at_t(words, t, amt).into_inner()
     }
+
+    pub fn largest_changes_wrt(
+        &self,
+        target_word: u32,
+        amt: u32,
+        min_increasing: u32,
+        min_decreasing: u32,
+    ) -> Vec<u32> {
+        self.reader
+            .largest_changes_wrt(target_word, amt, min_increasing, min_decreasing)
+    }
 }
