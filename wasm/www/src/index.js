@@ -95,6 +95,21 @@ let backendPromise = import("./backend.js");
         document.getElementById('mainPlot'), years, ticksX, updateTooltip,
         document.getElementById('tooltipTemplate'));
 
+    const mainLegend = document.getElementById('mainLegend');
+    const mainLegendItems = mainLegend.querySelectorAll('li');
+
+    mainLegendItems.forEach((element, index) => {
+        element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
+        element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
+
+        const legendLink = element.querySelector('a');
+        legendLink.addEventListener('click', ev => {
+            ev.preventDefault();
+            legendLink.blur();
+            exploreWord(legendLink.innerText);
+        });
+    });
+
     let backend = await backendPromise;
     let handle = await backend.loadFile();
     let metaData = await (await fetch(metaDataFile)).json();
@@ -142,12 +157,17 @@ let backendPromise = import("./backend.js");
                             word1: word,
                             word2: otherWord,
                             word1Id: wordId,
-                            word2Id: otherWordId,
-                            description: word + ' : ' + otherWord
+                            word2Id: otherWordId
                         },
                         false
                     );
+
+                    const legendWordLabel = mainLegendItems[index].firstElementChild;
+                    legendWordLabel.textContent = word;
+                    legendWordLabel.nextElementSibling.textContent = otherWord;
                 });
+
+                mainLegend.style.visibility = 'visible';
             }
         }
     }

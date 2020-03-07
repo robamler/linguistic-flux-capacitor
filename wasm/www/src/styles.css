@@ -11,7 +11,7 @@ body {
     width: 48em;
     position: absolute;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-70%);
 }
 
 h1 {
@@ -30,8 +30,14 @@ h2 {
     margin: 0.4em 0
 }
 
+.plotAndLegend {
+    position: relative
+}
+
 .plotContainer {
-    transform: translateX(-4%);
+    position: absolute;
+    left: -2em;
+    width: 48em;
 }
 
 .centered {
@@ -136,4 +142,76 @@ h2 {
 .tooltipContent a {
     text-decoration: none;
     color: #152d74;
+}
+
+.legend {
+    visibility: hidden;
+    display: table-caption;
+    background-color: #e8e8e8;
+    border-radius: 0.5em;
+    padding: 0.7em 0.9em;
+    width: auto;
+    position: absolute;
+    left: 47em;
+    top: 0;
+    min-width: 10em;
+}
+
+.legendText {
+    color: #333333;
+}
+
+.legend>ul {
+    list-style-type: none;
+    margin: 0 0 0.8em 0;
+    padding: 0;
+    font-size: 120%;
+}
+
+.legend>ul>li {
+    margin-bottom: 0.4em;
+    white-space: nowrap;
+}
+
+.legend>ul>li>a {
+    text-decoration: none;
+    color: #152d74;
+}
+
+.legend>ul>li::before {
+    content: "⸺";
+    margin-right: 0.5em;
+    font-weight: bold;
+}
+
+.legend>ul>li.color0::before {
+    color: #f94a01;
+}
+
+.legend>ul>li.color1::before {
+    color: #6b42b6;
+}
+
+.legend>ul>li.color2::before {
+    color: #11a854;
+}
+
+.legend>ul>li.color3::before {
+    color: #128db2;
+}
+
+.legend>ul>li.color4::before {
+    color: #e12fbc;
+}
+
+.legend>ul>li.color5::before {
+    color: #e6ab02;
+}
+
+.legend>ul>li.color6::before {
+    color: #9ed034;
+}
+
+.legend>ul>li.color7::before {
+    color: #666666;
 }

@@ -32,7 +32,7 @@ export function createPlot(
     let hoverCursorContainer = null;
 
     _initialize()
-    return { plotLine, setMainLine, clear };
+    return { plotLine, setMainLine, clear, hoverLine, unhoverLine };
 
     function _initialize() {
 
@@ -75,7 +75,7 @@ export function createPlot(
                 transform: 'rotate(-90)',
             })
         ).appendChild(
-            document.createTextNode('cosine similarity')
+            document.createTextNode('word similarity')
         );
 
         let hoverAreasGroup = svg.appendChild(
@@ -204,7 +204,7 @@ export function createPlot(
         cursorTooltip.querySelector('.tooltipPointer').addEventListener('mouseout', hoverOut);
         hoverAreasGroup.addEventListener('mouseout', hoverOut);
 
-        containerElement.style.position = 'relative';
+        // containerElement.style.position = 'relative';
         containerElement.appendChild(cursorTooltip);
         containerElement.appendChild(svg);
     }
@@ -331,6 +331,20 @@ export function createPlot(
 
         if (isMainLine) {
             setMainLine(lines.length - 1);
+        }
+    }
+
+    function hoverLine(index) {
+        if (mainLineIndex !== null) {
+            lines[mainLineIndex].lineGroup.classList.remove('main');
+        }
+        lines[index].lineGroup.classList.add('hovering');
+    }
+
+    function unhoverLine(index) {
+        lines[index].lineGroup.classList.remove('hovering');
+        if (mainLineIndex !== null) {
+            lines[mainLineIndex].lineGroup.classList.add('main');
         }
     }
 

@@ -89,17 +89,17 @@ svg.plot .lineGroup.main>.line {
     opacity: 1;
 }
 
-svg.plot .lineGroup:hover>.line {
+svg.plot .lineGroup:hover>.line, svg.plot .lineGroup.hovering>.line {
     animation: lineHover 0.5s cubic-bezier(.5, 0, .6, 1) infinite alternate;
     opacity: 1;
 }
 
 @keyframes lineHover {
     from {
-        stroke-width: 2.5;
+        stroke-width: 3.5;
     }
     to {
-        stroke-width: 3.5;
+        stroke-width: 5;
     }
 }
 
