@@ -28,6 +28,8 @@ let backendPromise = import("./backend.js");
     }
     let currentWord = null;
 
+    const mainLegend = document.getElementById('mainLegend');
+    const mainLegendItems = mainLegend.querySelectorAll('li');
 
     let updateTooltip = (function () {
         let tooltip = document.getElementById('tooltipTemplate');
@@ -91,12 +93,17 @@ let backendPromise = import("./backend.js");
         };
     }());
 
+    let lineMouseover = function (lineId) {
+        mainLegendItems[lineId].classList.add('hovering');
+    };
+
+    let lineMouseout = function (lineId) {
+        mainLegendItems[lineId].classList.remove('hovering');
+    };
+
     const mainPlot = Plotter.createPlot(
         document.getElementById('mainPlot'), years, ticksX, updateTooltip,
-        document.getElementById('tooltipTemplate'));
-
-    const mainLegend = document.getElementById('mainLegend');
-    const mainLegendItems = mainLegend.querySelectorAll('li');
+        document.getElementById('tooltipTemplate'), lineMouseover, lineMouseout);
 
     mainLegendItems.forEach((element, index) => {
         element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
@@ -132,6 +139,8 @@ let backendPromise = import("./backend.js");
     function exploreWord(word) {
         if (word !== currentWord) {
             currentWord = word;
+
+            mainLegendItems.forEach(el => el.classList.remove('hovering'));
 
             let wordId = inverseVocab[word];
             if (typeof wordId === 'undefined') {

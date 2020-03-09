@@ -1,7 +1,8 @@
 import './default.css';
 
 export function createPlot(
-    containerElement, pointsX, ticksX, updateTooltipContents, tooltipTemplate
+    containerElement, pointsX, ticksX, updateTooltipContents, tooltipTemplate, lineMouseover,
+    lineMouseout
 ) {
     const BORDERS_MIN_X = 54;
     const BORDERS_MAX_X = 639;
@@ -327,6 +328,8 @@ export function createPlot(
         };
 
         lineGroup.addEventListener('click', () => setMainLine(lines.indexOf(line)));
+        lineGroup.addEventListener('mouseover', () => lineMouseover(lines.indexOf(line)));
+        lineGroup.addEventListener('mouseout', () => lineMouseout(lines.indexOf(line)));
         lines.push(line);
 
         if (isMainLine) {
@@ -375,6 +378,8 @@ export function createPlot(
     }
 
     function setMainLine(lineIndex) {
+        lineMouseout(lineIndex);
+
         for (let otherLine of lines) {
             otherLine.lineGroup.classList.remove('main');
         }
