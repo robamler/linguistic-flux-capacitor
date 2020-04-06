@@ -15,7 +15,7 @@ The codebase is divided in a frontend and a backend part.
 
 - The **frontend** controls the user interface: input fields, the plotting pane, hover events, etc.
   This functionality is implemented in standard web technologies (HTML, CSS, SVG, JavaScript).
-  It uses [Webpack](https://webpack.js.org/) for minification and transpiling.
+  It uses [Webpack](https://webpack.js.org/) for transpiling/minification/bundling.
 - The **backend** is concerned with performance critical tasks like decoding the compressed word embeddings and certain linear algebra operations.
   Although we call it "backend", this code runs entirely on the client side.
   For performance reasons, this functionality is implemented in [Rust](https://www.rust-lang.org/) and compiled into a [WebAssembly module](https://webassembly.org/).
@@ -72,7 +72,7 @@ The following steps need to be done only once in order to set up the project.
    This may take up to a few minutes when run for the first time because it has to compile all the dependencies.
    Subsequent compilations will be much faster because compiled dependencies will be cached.
    - If you use VS Code and open it in the directory `linguistic-time-capsule` then this command should be available as the task "wasm-pack build" (use `Ctrl+Shift+P` → "Run Task" → "wasm-pack build").
-4. (Locally) install dependencies of the backend (such as Webpack).
+4. (Locally) install dependencies of the frontend (such as Webpack).
    From within the directory `linguistic-time-capsule/wasm`, run
    ```bash
    cd www
