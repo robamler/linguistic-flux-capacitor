@@ -27,6 +27,7 @@ let backendPromise = import("./backend.js");
         pointsY2.push(0.2 * Math.sin(0.2 * year) + 0.002 * (year - 1900));
     }
     let currentWord = null;
+    let currentMustIncludedWord = null;
 
     const mainLegend = document.getElementById('mainLegend');
     const mainLegendItems = mainLegend.querySelectorAll('li');
@@ -38,6 +39,7 @@ let backendPromise = import("./backend.js");
         let word1Placeholder = tooltip.querySelector('.word1');
         let word2Placeholder = tooltip.querySelector('.word2>a');
         let relatedPlaceholders = [];
+        let relatedRemoveButtons = [];
         let relatedTimeout = null;
         let relatedCache = {};
         tooltip.querySelectorAll('.suggestion.left>a').forEach(el => {
@@ -56,12 +58,20 @@ let backendPromise = import("./backend.js");
                 exploreWord(el.innerText);
             });
         });
+        document.querySelectorAll('.removeWordButton').forEach(el => {
+            relatedRemoveButtons.push(el);
+            el.setAttribute("name","defaultRemoval");
+            el.addEventListener('click', ev => {
+                ev.preventDefault();
+                el.blur();
+                removeWordButtonCallback(el);
+            });
+        });
         word2Placeholder.addEventListener('click', ev => {
             ev.preventDefault();
             word2Placeholder.blur();
             exploreWord(word2Placeholder.innerText);
         });
-
 
         return function (tooltip, line, indexX) {
             clearTimeout(relatedTimeout);
@@ -123,23 +133,51 @@ let backendPromise = import("./backend.js");
     let inverseVocab = {};
     metaData.vocab.forEach((word, index) => inverseVocab[word] = index);
 
+
     let wordInput = document.querySelector('.wordInput');
     wordInput.onkeydown = wordChanged;
     wordInput.onkeypress = wordChanged;
     wordInput.onchange = wordChanged;
 
+    let mustIncludeInput = document.querySelector('.mustIncludeInput');
+    mustIncludeInput.onkeydown = mustIncludeChanged;
+    mustIncludeInput.onkeypress = mustIncludeChanged;
+    mustIncludeInput.onchange = mustIncludeChanged;
+
+    let pinWordButton = document.getElementById('pinWordButton');
+    pinWordButton.onclick = pinWord;
+
     wordChanged();
     wordInput.focus();
 
+
+    
     function wordChanged() {
+        //console.log("function wordChanged at index.js");
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => exploreWord(wordInput.value), 0);
+        setTimeout(() => exploreWord(wordInput.value, currentMustIncludedWord), 0);
     }
 
-    function exploreWord(word) {
-        if (word !== currentWord) {
-            currentWord = word;
 
+    function mustIncludeChanged() {
+        //console.log("function mustIncludeChanged at index.js");
+        //console.log("word pushed to mustInclude: ".concat(mustIncludeInput.value));
+        // Wait for next turn in JS executor to let change take effect.
+        setTimeout(() => exploreWord(wordInput.value, mustIncludeInput.value), 0);
+    }
+
+
+    function removeWordButtonCallback(removeWordButton)
+    {
+        console.log("//TODO: remove word ".concat(removeWordButton.getAttribute("name")));
+    }
+
+    function exploreWord(word, mustInclude) {
+        console.log("function explorWord at index.js");
+        if (word !== currentWord || mustInclude != currentMustIncludedWord) {
+            currentWord = word;
+            currentMustIncludedWord = mustInclude;
+            //console.log("function explorWord: exploring ".concat(currentWord).concat(" mustInclude ").concat(mustInclude));
             mainLegendItems.forEach(el => el.classList.remove('hovering'));
 
             let wordId = inverseVocab[word];
@@ -151,7 +189,15 @@ let backendPromise = import("./backend.js");
                     wordInput.value = word;
                 }
                 mainPlot.clear();
+
+                //other words contains the most interesting words, returned by handle
                 let otherWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
+                if (mustInclude != null)
+                {
+                    otherWords.set([inverseVocab[mustInclude]],5); 
+                }
+                //console.log(otherWords);
+                //to handle pair wise traj, a repetition is created; since handle.pairwise_trjectories must use array operation
                 let wordIdRepeated = Array(6).fill(wordId);
                 let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
                 let trajectoryLength = concatenatedTrajectories.length / 6;
@@ -174,10 +220,17 @@ let backendPromise = import("./backend.js");
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
                     legendWordLabel.textContent = word;
                     legendWordLabel.nextElementSibling.textContent = otherWord;
+                    legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
                 });
 
                 mainLegend.style.visibility = 'visible';
             }
         }
+    }
+
+    function pinWord()
+    {
+        var word = mustIncludeInput.value;
+        console.log('pin this word : ', word);
     }
 }())

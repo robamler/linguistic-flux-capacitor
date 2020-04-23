@@ -53,6 +53,15 @@ h2 {
     padding: 0.2em;
 }
 
+.mustIncludeInput {
+    margin: 0 0 1em 0;
+    font-size: 150%;
+    width: 60%;
+    text-align: center;
+    border: solid 0.05em #ccc;
+    padding: 0.2em;
+}
+
 .wordInput:focus {
     border-color: #86bdf0;
     outline: none;
@@ -138,7 +147,11 @@ h2 {
 .tooltipContent .right {
     text-align: right;
 }
-
+.tooltipContent .removeWordButton{
+  background-color: #BCB8AE; /*Mindful Gray*/
+  color: white;
+  font-size: 16px;  
+}
 .tooltipContent a {
     text-decoration: none;
     color: #152d74;
@@ -221,4 +234,14 @@ h2 {
 
 .legend>ul>li.color7::before {
     color: #666666;
+}
+.pinWordButton {
+  background-color: #BCB8AE; /*Mindful Gray*/
+  border: none;
+  color: white;
+  padding: 10px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
 }
