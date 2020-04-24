@@ -31,6 +31,7 @@ let backendPromise = import("./backend.js");
     let currentMustIncludedWord = null;
     let mustIncludeWordList = [];
     let currentMustIncludedWordList = [];
+    let mustIncludeListUpdated = false;
 
     let mainLegend = document.getElementById('mainLegend');
     let mainLegendItems = mainLegend.querySelectorAll('li');
@@ -165,30 +166,48 @@ let backendPromise = import("./backend.js");
         // this function is binded to change in must include input box
         // uncomment next line for real-time update of plot
         //setTimeout(() => exploreWord(wordInput.value, mustIncludeInput.value), 0);
+        mustIncludeListUpdated = true;
     }
 
     function pinWord(){
     	//this function is called when the pin word button is called
         var word = mustIncludeInput.value;
-        console.log('pin this word : ', word);
+        //console.log('pin this word : ', word);
         mustIncludeWordList.push(word);
-        console.log(mustIncludeWordList);
-        exploreWord(wordInput.value, word);
+        //console.log(mustIncludeWordList);
+        exploreWord(wordInput.value, mustIncludeWordList);
         mustIncludeInput.value = '';
     }
 
     function removeWordButtonCallback(removeWordButton){
         console.log("//TODO: remove word ".concat(removeWordButton.getAttribute("name")));
+        var word2Remove = removeWordButton.getAttribute("name");
+        //remove word from must included list
+        mustIncludeWordList = mustIncludeWordList.filter(e => e !== word2Remove);
+        //notify that must included list changed
+        mustIncludeListUpdated = true;
+        exploreWord(wordInput.value, mustIncludeWordList);
     }
 
     function assembleMainLegendDOM(){
     	/*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
-    	var html = '<li id=\'color6\' class=\'color6\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
+    	var id = 'dynamicLiObj';
+    	var html = '<li id=\'dynamicLiObj\' class=\'color6\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
     	var template = document.createElement('template');
     	template.innerHTML = html;
     	var el = template.content.firstChild;
+    	el.querySelectorAll('.removeWordButton').forEach(el => {
+            //relatedRemoveButtons.push(el);
+            el.setAttribute("name","defaultRemoval");
+            el.addEventListener('click', ev => {
+                ev.preventDefault();
+                el.blur();
+                removeWordButtonCallback(el);
+            });
+        });
     	return el;
     }
+
     function addSlotToMainLegend(){
     	/*add a new empty DOM li to main legend ul, the content is set in exploreword*/
     	var ul = document.getElementById("plotUL");
@@ -199,24 +218,52 @@ let backendPromise = import("./backend.js");
     	mainLegendItems = mainLegend.querySelectorAll('li');
     }
 
-    function exploreWord(word, mustInclude) {
-    	var totalWordNum = 6;
-    	if (mustInclude != null)
+    function removeSlotFromMainLegend(){
+    	/*in case other operations is needed in the future*/
+    	mainLegendItems.pop();
+    }
+
+    function cleanMainLegend(){
+    	/*remove all dynamically added slot from main legend*/
+    	console.log("cleanMainLegend ");
+    	var numToRm = mainLegendItems.length - 6;
+
+    	for (let i = numToRm; i>0; i--)
     	{
-    		totalWordNum = 7;
-    		var slot2Add = totalWordNum - mainLegendItems.length;
-    		for (let i=slot2Add; i>0; i--)
+    		var victim = mainLegendItems[i-1];
+    		victim.parentNode.removeChild(victim);
+    	}
+    	//force refresh main plot;
+    	mainLegend = document.getElementById('mainLegend');
+    	mainLegendItems = mainLegend.querySelectorAll('li');
+    }
+
+    function exploreWord(word, mustIncludeList) {
+    	var totalWordNum = 6;
+    	//if (mustIncludeList != null&&mustIncludeList.length != 0)
+    	if(mustIncludeListUpdated)
+    	{
+    		cleanMainLegend();
+    		totalWordNum += mustIncludeList.length;
+    		var currentLegendLength = mainLegendItems.length;
+    		// this is to show how many slot are different
+    		var slotNumDiff = mustIncludeList.length-(currentLegendLength-6);
+    		
+    		if (slotNumDiff>0)//we less entry slot in legend then needed
     		{
-    			addSlotToMainLegend();
-    			console.log(mainLegendItems.length);
+    			console.log("adding legend items");
+    			for (let i=slotNumDiff; i>0; i--)
+    			{
+    				addSlotToMainLegend();
+    				console.log(mainLegendItems.length);
+    			}
     		}
     	}
 
-        console.log("function explorWord at index.js");
-        if (word !== currentWord || mustInclude != currentMustIncludedWord) {
+        console.log("function explorWord at index.js, must include word list is ", mustIncludeList);
+        if (word !== currentWord||mustIncludeListUpdated == true) {
             currentWord = word;
-            currentMustIncludedWord = mustInclude;
-            //console.log("function explorWord: exploring ".concat(currentWord).concat(" mustInclude ").concat(mustInclude));
+            mustIncludeListUpdated = false;
             mainLegendItems.forEach(el => el.classList.remove('hovering'));
 
             let wordId = inverseVocab[word];
@@ -231,15 +278,24 @@ let backendPromise = import("./backend.js");
 
                 //other words contains the most interesting words, returned by handle
                 let otherWords = handle.largest_changes_wrt(wordId, totalWordNum, 2, 2);
-                if (mustInclude != null)
+                //replace last k interesting word to must included words
+                if (mustIncludeList != null && mustIncludeList.length != 0)
                 {
-                    otherWords.set([inverseVocab[mustInclude]],totalWordNum-1); 
+                	let i = totalWordNum;
+                	let j = mustIncludeList.length;
+                	for (let iter = j; iter>0; iter--)
+                	{
+                		otherWords.set([inverseVocab[mustIncludeWordList[j-1]]],i-1); 
+                		i--;
+                		j--;
+                	} 
                 }
+                //console.log("MI list ",mustIncludeList);
                 //to handle pair wise traj, a repetition is created; since handle.pairwise_trjectories must use array operation
                 let wordIdRepeated = Array(totalWordNum).fill(wordId);
                 let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
                 let trajectoryLength = concatenatedTrajectories.length / totalWordNum;
-                
+                //console.log("otherWords", otherWords);
                 otherWords.forEach((otherWordId, index) => {
                     let otherWord = metaData.vocab[otherWordId];
                     mainPlot.plotLine(
@@ -254,12 +310,14 @@ let backendPromise = import("./backend.js");
                         },
                         false
                     );
-                    console.log("first elem child called");
+                    //console.log("first elem child called");
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
                     legendWordLabel.textContent = word;
+                    //console.log("otherword ", otherWord);
                     legendWordLabel.nextElementSibling.textContent = otherWord;
                     legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
                 });
+                //console.log(mainLegendItems);
                 mainLegend.style.visibility = 'visible';
             }
         }
