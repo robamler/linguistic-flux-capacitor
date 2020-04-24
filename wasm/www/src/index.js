@@ -26,11 +26,14 @@ let backendPromise = import("./backend.js");
         pointsY1.push(0.3 * Math.sin(0.1 * year));
         pointsY2.push(0.2 * Math.sin(0.2 * year) + 0.002 * (year - 1900));
     }
+
     let currentWord = null;
     let currentMustIncludedWord = null;
+    let mustIncludeWordList = [];
+    let currentMustIncludedWordList = [];
 
-    const mainLegend = document.getElementById('mainLegend');
-    const mainLegendItems = mainLegend.querySelectorAll('li');
+    let mainLegend = document.getElementById('mainLegend');
+    let mainLegendItems = mainLegend.querySelectorAll('li');
 
     let updateTooltip = (function () {
         let tooltip = document.getElementById('tooltipTemplate');
@@ -153,26 +156,62 @@ let backendPromise = import("./backend.js");
 
     
     function wordChanged() {
-        //console.log("function wordChanged at index.js");
         // Wait for next turn in JS executor to let change take effect.
         setTimeout(() => exploreWord(wordInput.value, currentMustIncludedWord), 0);
     }
 
 
     function mustIncludeChanged() {
-        //console.log("function mustIncludeChanged at index.js");
-        //console.log("word pushed to mustInclude: ".concat(mustIncludeInput.value));
-        // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => exploreWord(wordInput.value, mustIncludeInput.value), 0);
+        // this function is binded to change in must include input box
+        // uncomment next line for real-time update of plot
+        //setTimeout(() => exploreWord(wordInput.value, mustIncludeInput.value), 0);
     }
 
+    function pinWord(){
+    	//this function is called when the pin word button is called
+        var word = mustIncludeInput.value;
+        console.log('pin this word : ', word);
+        mustIncludeWordList.push(word);
+        console.log(mustIncludeWordList);
+        exploreWord(wordInput.value, word);
+        mustIncludeInput.value = '';
+    }
 
-    function removeWordButtonCallback(removeWordButton)
-    {
+    function removeWordButtonCallback(removeWordButton){
         console.log("//TODO: remove word ".concat(removeWordButton.getAttribute("name")));
     }
 
+    function assembleMainLegendDOM(){
+    	/*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
+    	var html = '<li id=\'color6\' class=\'color6\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
+    	var template = document.createElement('template');
+    	template.innerHTML = html;
+    	var el = template.content.firstChild;
+    	return el;
+    }
+    function addSlotToMainLegend(){
+    	/*add a new empty DOM li to main legend ul, the content is set in exploreword*/
+    	var ul = document.getElementById("plotUL");
+    	var el = assembleMainLegendDOM();
+    	ul.append(el);
+    	//force refresh main plot;
+    	mainLegend = document.getElementById('mainLegend');
+    	mainLegendItems = mainLegend.querySelectorAll('li');
+    }
+
     function exploreWord(word, mustInclude) {
+    	var totalWordNum = 6;
+    	if (mustInclude != null)
+    	{
+    		totalWordNum = 7;
+    		var slot2Add = totalWordNum - mainLegendItems.length;
+    		for (let i=slot2Add; i>0; i--)
+    		{
+    			addSlotToMainLegend();
+    			console.log(mainLegendItems.length);
+    		}
+    	}
+
         console.log("function explorWord at index.js");
         if (word !== currentWord || mustInclude != currentMustIncludedWord) {
             currentWord = word;
@@ -191,17 +230,16 @@ let backendPromise = import("./backend.js");
                 mainPlot.clear();
 
                 //other words contains the most interesting words, returned by handle
-                let otherWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
+                let otherWords = handle.largest_changes_wrt(wordId, totalWordNum, 2, 2);
                 if (mustInclude != null)
                 {
-                    otherWords.set([inverseVocab[mustInclude]],5); 
+                    otherWords.set([inverseVocab[mustInclude]],totalWordNum-1); 
                 }
-                //console.log(otherWords);
                 //to handle pair wise traj, a repetition is created; since handle.pairwise_trjectories must use array operation
-                let wordIdRepeated = Array(6).fill(wordId);
+                let wordIdRepeated = Array(totalWordNum).fill(wordId);
                 let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
-                let trajectoryLength = concatenatedTrajectories.length / 6;
-
+                let trajectoryLength = concatenatedTrajectories.length / totalWordNum;
+                
                 otherWords.forEach((otherWordId, index) => {
                     let otherWord = metaData.vocab[otherWordId];
                     mainPlot.plotLine(
@@ -216,21 +254,15 @@ let backendPromise = import("./backend.js");
                         },
                         false
                     );
-
+                    console.log("first elem child called");
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
                     legendWordLabel.textContent = word;
                     legendWordLabel.nextElementSibling.textContent = otherWord;
                     legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
                 });
-
                 mainLegend.style.visibility = 'visible';
             }
         }
     }
 
-    function pinWord()
-    {
-        var word = mustIncludeInput.value;
-        console.log('pin this word : ', word);
-    }
 }())
