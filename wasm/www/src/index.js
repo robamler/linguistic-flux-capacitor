@@ -189,6 +189,7 @@ let backendPromise = import("./backend.js");
         exploreWord(wordInput.value, mustIncludeWordList);
     }
 
+
     function assembleMainLegendDOM(){
     	/*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
     	var id = 'dynamicLiObj';
@@ -324,3 +325,14 @@ let backendPromise = import("./backend.js");
     }
 
 }())
+
+
+/* TODO
+function interpretQuery(string)
+{
+	return mainWO
+}
+
+function deployWithWordList(mainWord, mustIncluide)
+
+*/
