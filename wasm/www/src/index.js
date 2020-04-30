@@ -62,6 +62,7 @@ let backendPromise = import("./backend.js");
                 exploreWord(el.innerText);
             });
         });
+        /* this code snippets handles remove word button for auto suggested words, if needed, uncomments this
         document.querySelectorAll('.removeWordButton').forEach(el => {
             relatedRemoveButtons.push(el);
             el.setAttribute("name","defaultRemoval");
@@ -71,6 +72,7 @@ let backendPromise = import("./backend.js");
                 removeWordButtonCallback(el);
             });
         });
+        */
         word2Placeholder.addEventListener('click', ev => {
             ev.preventDefault();
             word2Placeholder.blur();
@@ -180,7 +182,7 @@ let backendPromise = import("./backend.js");
     }
 
     function removeWordButtonCallback(removeWordButton){
-        console.log("//TODO: remove word ".concat(removeWordButton.getAttribute("name")));
+        //console.log("//TODO: remove word ".concat(removeWordButton.getAttribute("name")));
         var word2Remove = removeWordButton.getAttribute("name");
         //remove word from must included list
         mustIncludeWordList = mustIncludeWordList.filter(e => e !== word2Remove);
@@ -190,6 +192,7 @@ let backendPromise = import("./backend.js");
     }
 
 
+    
     function assembleMainLegendDOM(){
     	/*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
     	var id = 'dynamicLiObj';
@@ -209,11 +212,14 @@ let backendPromise = import("./backend.js");
     	return el;
     }
 
+    let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
+
     function addSlotToMainLegend(){
     	/*add a new empty DOM li to main legend ul, the content is set in exploreword*/
     	var ul = document.getElementById("plotUL");
     	var el = assembleMainLegendDOM();
     	ul.append(el);
+        dynamicMainLegendDOMs.push(el);
     	//force refresh main plot;
     	mainLegend = document.getElementById('mainLegend');
     	mainLegendItems = mainLegend.querySelectorAll('li');
@@ -226,17 +232,19 @@ let backendPromise = import("./backend.js");
 
     function cleanMainLegend(){
     	/*remove all dynamically added slot from main legend*/
-    	console.log("cleanMainLegend ");
-    	var numToRm = mainLegendItems.length - 6;
+    	//console.log("cleanMainLegend ");
+    	var numToIter = dynamicMainLegendDOMs.length;
 
-    	for (let i = numToRm; i>0; i--)
+    	for (let i = numToIter; i>0; i--)
     	{
-    		var victim = mainLegendItems[i-1];
+    		var victim = dynamicMainLegendDOMs[i-1];
     		victim.parentNode.removeChild(victim);
     	}
     	//force refresh main plot;
     	mainLegend = document.getElementById('mainLegend');
     	mainLegendItems = mainLegend.querySelectorAll('li');
+        //notify all dynamic objects are free now
+        dynamicMainLegendDOMs.length = 0;
     }
 
     function exploreWord(word, mustIncludeList) {
@@ -252,16 +260,16 @@ let backendPromise = import("./backend.js");
     		
     		if (slotNumDiff>0)//we less entry slot in legend then needed
     		{
-    			console.log("adding legend items");
+    			//console.log("adding legend items");
     			for (let i=slotNumDiff; i>0; i--)
     			{
     				addSlotToMainLegend();
-    				console.log(mainLegendItems.length);
+    				//console.log(mainLegendItems.length);
     			}
     		}
     	}
 
-        console.log("function explorWord at index.js, must include word list is ", mustIncludeList);
+        //console.log("function explorWord at index.js, must include word list is ", mustIncludeList);
         if (word !== currentWord||mustIncludeListUpdated == true) {
             currentWord = word;
             mustIncludeListUpdated = false;
@@ -279,6 +287,7 @@ let backendPromise = import("./backend.js");
 
                 //other words contains the most interesting words, returned by handle
                 let otherWords = handle.largest_changes_wrt(wordId, totalWordNum, 2, 2);
+                console.log("other words before force replacement: ", otherWords);
                 //replace last k interesting word to must included words
                 if (mustIncludeList != null && mustIncludeList.length != 0)
                 {
@@ -316,7 +325,10 @@ let backendPromise = import("./backend.js");
                     legendWordLabel.textContent = word;
                     //console.log("otherword ", otherWord);
                     legendWordLabel.nextElementSibling.textContent = otherWord;
-                    legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
+                    if (legendWordLabel.nextElementSibling.nextElementSibling != null)
+                    {
+                        legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
+                    }
                 });
                 //console.log(mainLegendItems);
                 mainLegend.style.visibility = 'visible';
