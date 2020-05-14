@@ -162,15 +162,15 @@ svg.plot .lineGroup.color6>.line {
 }
 
 svg.plot .lineGroup.color7>.line {
-    stroke: #666666;
+    stroke: #fabebe;
 }
 
 svg.plot .lineGroup.color8>.line {
-    stroke: #666666;
+    stroke: #ffd8b1;
 }
 
 svg.plot .lineGroup.color9>.line {
-    stroke: #666666;
+    stroke: #808000;
 }
 
 svg.plot .lineGroup.color10>.line {
@@ -207,14 +207,14 @@ svg.plot .hoverCursor.color6 {
 }
 
 svg.plot .hoverCursor.color7 {
-    fill: #666666;
+    fill: #fabebe;
 }
 
 svg.plot .hoverCursor.color8 {
-    fill: #666666;
+    fill: #ffd8b1;
 }
 svg.plot .hoverCursor.color9 {
-    fill: #666666;
+    fill: #808000;
 }
 svg.plot .hoverCursor.color10 {
     fill: #666666;
@@ -348,28 +348,28 @@ svg.plot .hoverCursor.color10 {
 }
 
 .plot.tooltip.color7>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #888888;
+    background-color: #fabebe;
 }
 
 .plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #888888;
+    background-color: #fabebe;
 }
 
 .plot.tooltip.color8>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #888888;
+    background-color: #ffd8b1;
 }
 
 .plot.tooltip.color8>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #888888;
+    background-color: #ffd8b1;
 }
 
 
 .plot.tooltip.color9>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #888888;
+    background-color: #808000;
 }
 
 .plot.tooltip.color9>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #888888;
+    background-color: #808000;
 }
 
 

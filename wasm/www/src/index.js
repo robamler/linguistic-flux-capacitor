@@ -142,10 +142,35 @@ let backendPromise = import("./backend.js");
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
-    
+    /*
     window.addEventListener('popstate', (event) => {
         console.log("handle url: ", window.location.href);
-        });
+        let cropped = window.location.href.toString().split('/');
+        let configs = cropped[cropped.length-1].split('_@_');
+        console.log("decision loop");
+        if (configs.length == 0)
+        {
+            console.log("empty");
+            
+        }
+        else if (configs.length == 1)
+        {
+            console.log("configs len 1");
+            let mw = configs[0];
+            console.log(mw);
+            restoreState(mw, []);
+        }
+        else
+        {
+            console.log("configs len else");
+            let mw = configs[0];
+            let mi = configs[1].split('&');
+            console.log(mw,mi);
+            console.log(mw,mi);
+            restoreState(mw, mi);
+        }
+        console.log("end decision loop");
+        });*/
 
     wordChanged();
     wordInput.focus();
@@ -167,7 +192,12 @@ let backendPromise = import("./backend.js");
         exploreWord(mainWord, mustIncludeWordList);
     }
 
-
+    function restoreState(savedMainWord, savedOtherWords)
+    {
+        let mustIncludeWordList = savedOtherWords;
+        let mustIncludeListUpdated = true;
+        exploreWord(savedMainWord, mustIncludeWordList);
+    }
     
     function wordChanged() {
         console.log("word changed: main input changed");
@@ -219,13 +249,18 @@ let backendPromise = import("./backend.js");
     }
 
 
-    //let colorsAvail = ['color6','color7'];
-    //let colorsUsed = 0;
-    function assembleMainLegendDOM(){
+    let colorsAvail = ['color6','color7','color8','color9'];
+    function assembleMainLegendDOM(colorIndex){
         /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
         //var colorString = colorsAvail[colorsUsed];
-        var html = '<li id=\'dynamicLiObj\' class=\'color6\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
-        html = html.replace("_COLORNUM_", "color6")
+        var html = '<li id=\'dynamicLiObj\' class=\'_COLORNUM_\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
+        if (colorIndex ==null){
+            html = html.replace("_COLORNUM_", "color6");
+        }
+        else{
+            html = html.replace("_COLORNUM_", colorsAvail[colorIndex]);
+        }
+        console.log("Assembled: ", html);
         var template = document.createElement('template');
         template.innerHTML = html;
         var el = template.content.firstChild;
@@ -243,10 +278,10 @@ let backendPromise = import("./backend.js");
 
     
 
-    function addSlotToMainLegend(){
+    function addSlotToMainLegend(colorIndex){
         /*add a new empty DOM li to main legend ul, the content is set in exploreword*/
         var ul = document.getElementById("plotUL");
-        var el = assembleMainLegendDOM();
+        var el = assembleMainLegendDOM(colorIndex);
         ul.append(el);
         dynamicMainLegendDOMs.push(el);
         //force refresh main plot;
@@ -283,15 +318,16 @@ let backendPromise = import("./backend.js");
 
     let DEBUG_history_count = 0;
     function exploreWord(word, mustIncludeList) {
+
         console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
         //corner case: infinite loop
         let stateUrl = "".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
-        history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
+        history.pushState(DEBUG_history_count++, "some useless title", "");
         console.log("state pushed, total states: ",)
         var totalWordNum = 6
         
         cleanMainLegend();
-        if(mustIncludeListUpdated == true ||mustIncludeListUpdated == false)
+        if(mustIncludeListUpdated == true||mustIncludeListUpdated == false)
         {
             //console.log("detected must include list updating")
             totalWordNum = 6 + mustIncludeList.length;
@@ -301,9 +337,10 @@ let backendPromise = import("./backend.js");
 
             if (slotNumDiff>0)
             {
+                let curColorIndex = 0; //starting from 0
                 for (let i=slotNumDiff; i>0; i--)
                 {
-                    addSlotToMainLegend();
+                    addSlotToMainLegend(curColorIndex++);
                     
                 }
                 console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
@@ -356,9 +393,7 @@ let backendPromise = import("./backend.js");
                 
                 for (var i=0; i<mustIncludeWordList.length; i++)
                 {
-                    
                     otherWords[6+i] = inverseVocab[mustIncludeWordList[i]];
-                   
                 }
                 //to handle pair wise traj, a repetition is created; since handle.pairwise_trjectories must use array operation
                 let wordIdRepeated = Array(totalWordNum).fill(wordId);
