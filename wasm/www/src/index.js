@@ -28,9 +28,7 @@ let backendPromise = import("./backend.js");
     }
 
     let currentWord = null;
-    let currentMustIncludedWord = null;
     let mustIncludeWordList = [];
-    let currentMustIncludedWordList = [];
     let mustIncludeListUpdated = false;
 
     let mainLegend = document.getElementById('mainLegend');
@@ -51,7 +49,7 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                exploreWord(el.innerText);
+                exploreWord(el.innerText, mustIncludeWordList);
             });
         });
         tooltip.querySelectorAll('.suggestion.right>a').forEach(el => {
@@ -59,13 +57,13 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                exploreWord(el.innerText);
+                exploreWord(el.innerText, mustIncludeWordList);
             });
         });
         word2Placeholder.addEventListener('click', ev => {
             ev.preventDefault();
             word2Placeholder.blur();
-            exploreWord(word2Placeholder.innerText);
+            exploreWord(word2Placeholder.innerText, mustIncludeWordList);
         });
 
         return function (tooltip, line, indexX) {
@@ -118,7 +116,7 @@ let backendPromise = import("./backend.js");
         legendLink.addEventListener('click', ev => {
             ev.preventDefault();
             legendLink.blur();
-            exploreWord(legendLink.innerText);
+            exploreWord(legendLink.innerText, mustIncludeWordList);
         });
     });
 
@@ -135,9 +133,9 @@ let backendPromise = import("./backend.js");
     wordInput.onchange = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
-    mustIncludeInput.onkeydown = mustIncludeChanged;
-    mustIncludeInput.onkeypress = mustIncludeChanged;
-    mustIncludeInput.onchange = mustIncludeChanged;
+    // mustIncludeInput.onkeydown = mustIncludeChanged;
+    // mustIncludeInput.onkeypress = mustIncludeChanged;
+    // mustIncludeInput.onchange = mustIncludeChanged;
 
     let pinWordButton = document.getElementById('pinWordButton');
     pinWordButton.onclick = pinWord;
@@ -151,6 +149,7 @@ let backendPromise = import("./backend.js");
 
     function check_launch_config(LAUNCH_W_CACHE, mainWord, otherWords)
     {
+        console.log("launch w config");
         if (LAUNCH_W_CACHE == false){
             return;
         }
@@ -167,7 +166,7 @@ let backendPromise = import("./backend.js");
     
     function wordChanged() {
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => exploreWord(wordInput.value, currentMustIncludedWord), 0);
+        setTimeout(() => exploreWord(wordInput.value, mustIncludeWordList), 0);
     }
 
 
@@ -181,7 +180,12 @@ let backendPromise = import("./backend.js");
     function pinWord(){
         //this function is called when the pin word button is called
         var word = mustIncludeInput.value;
+        if (word == "")
+        {
+            return;
+        }
         mustIncludeWordList.push(word);
+        mustIncludeChanged();
         exploreWord(wordInput.value, mustIncludeWordList);
         mustIncludeInput.value = '';
     }
@@ -196,12 +200,13 @@ let backendPromise = import("./backend.js");
     }
 
 
-    let colorsAvail = ['color6','color7'];
-    let colorsUsed = 0;
+    //let colorsAvail = ['color6','color7'];
+    //let colorsUsed = 0;
     function assembleMainLegendDOM(){
         /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
-        var colorString = colorsAvail[colorsUsed];
+        //var colorString = colorsAvail[colorsUsed];
         var html = '<li id=\'dynamicLiObj\' class=\'color6\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
+        html = html.replace("_COLORNUM_", "color6")
         var template = document.createElement('template');
         template.innerHTML = html;
         var el = template.content.firstChild;
@@ -236,6 +241,7 @@ let backendPromise = import("./backend.js");
     }
 
     function cleanMainLegend(){
+
         /*remove all dynamically added slot from main legend*/
         var numToIter = dynamicMainLegendDOMs.length;
 
@@ -256,10 +262,14 @@ let backendPromise = import("./backend.js");
     }   
 
     function exploreWord(word, mustIncludeList) {
+        console.log("exploreWord called");
+        //corner case: infinite loop
         //history.pushState();
         var totalWordNum = 6
+        
         if(mustIncludeListUpdated ==  true)
         {
+            console.log("detected must include list updating")
             cleanMainLegend();
             totalWordNum = 6 + mustIncludeList.length;
             var currentLegendLength = mainLegendItems.length;
@@ -273,7 +283,36 @@ let backendPromise = import("./backend.js");
                     addSlotToMainLegend();
                     
                 }
+                // mainLegendItems.forEach((element, index) => {
+                //     element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
+                //     element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
+
+                //     const legendLink = element.querySelector('a');
+                //     legendLink.addEventListener('click', ev => {
+                //         ev.preventDefault();
+                //         legendLink.blur();
+                //         console.log("going to explore ", legendLink.innerText);
+                //         exploreWord(legendLink.innerText, mustIncludeWordList);
+                //     });
+                // });
+                dynamicMainLegendDOMs.forEach((element, index) => {
+                    element.removeEventListener('mouseover', null);
+                    element.removeEventListener('mouseout', null);
+                    element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
+                    element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
+
+                    const legendLink = element.querySelector('a');
+                    legendLink.addEventListener('click', ev => {
+                        ev.preventDefault();
+                        legendLink.blur();
+                        mustIncludeWordList.splice(mustIncludeWordList.indexOf(legendLink.innerText), 1);
+                        mustIncludeListUpdated = true;
+                        console.log("going to explore ", legendLink.innerText);
+                        exploreWord(legendLink.innerText, mustIncludeWordList);
+                    });
+                });
             }
+
         }
         
         if (word !== currentWord||mustIncludeListUpdated == true) {
@@ -300,7 +339,7 @@ let backendPromise = import("./backend.js");
                 {
                     otherWords[i] = suggestedWords[i];
                 }
-               
+                
                 for (var i=0; i<mustIncludeWordList.length; i++)
                 {
                     
@@ -312,6 +351,7 @@ let backendPromise = import("./backend.js");
                 //O(1)*O(pwtr) + O(k)
                 let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
                 let trajectoryLength = concatenatedTrajectories.length / totalWordNum;
+                console.log("length of other words",otherWords.length);
                 otherWords.forEach((otherWordId, index) => {
                     let otherWord = metaData.vocab[otherWordId];
                     mainPlot.plotLine(
@@ -327,11 +367,13 @@ let backendPromise = import("./backend.js");
                         false
                     );
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
+                    //console.log("legendWodLebl", legendWordLabel);
                     legendWordLabel.textContent = word;
                     
                     legendWordLabel.nextElementSibling.textContent = otherWord;
                     if (legendWordLabel.nextElementSibling.nextElementSibling != null)
                     {
+                        //console.log("setting name of button");
                         legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
                     }
                 });
