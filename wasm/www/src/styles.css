@@ -235,6 +235,18 @@ h2 {
 .legend>ul>li.color7::before {
     color: #666666;
 }
+
+.legend>ul>li.color8::before {
+    color: #666666;
+}
+
+.legend>ul>li.color9::before {
+    color: #666666;
+}
+
+.legend>ul>li.color10::before {
+    color: #666666;
+}
 .pinWordButton {
   background-color: #BCB8AE; /*Mindful Gray*/
   border: none;

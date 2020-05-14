@@ -129,7 +129,7 @@ let backendPromise = import("./backend.js");
 
     let wordInput = document.querySelector('.wordInput');
     wordInput.onkeydown = wordChanged;
-    wordInput.onkeypress = wordChanged;
+    //wordInput.onkeypress = wordChanged;
     wordInput.onchange = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
@@ -141,6 +141,11 @@ let backendPromise = import("./backend.js");
     pinWordButton.onclick = pinWord;
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
+
+    
+    window.addEventListener('popstate', (event) => {
+        console.log("handle url: ", window.location.href);
+        });
 
     wordChanged();
     wordInput.focus();
@@ -165,6 +170,7 @@ let backendPromise = import("./backend.js");
 
     
     function wordChanged() {
+        console.log("word changed: main input changed");
         // Wait for next turn in JS executor to let change take effect.
         setTimeout(() => exploreWord(wordInput.value, mustIncludeWordList), 0);
     }
@@ -184,6 +190,19 @@ let backendPromise = import("./backend.js");
         {
             return;
         }
+        if (mustIncludeWordList.length == 4)
+        {
+            alert("must included word approached threshhold");
+            return;
+        }
+        let wordId = inverseVocab[word];
+        if (typeof wordId === 'undefined') {
+            mustIncludeInput.classList.add('invalid');
+            return;
+        } 
+        else {
+            mustIncludeInput.classList.remove('invalid');}
+            
         mustIncludeWordList.push(word);
         mustIncludeChanged();
         exploreWord(wordInput.value, mustIncludeWordList);
@@ -261,16 +280,20 @@ let backendPromise = import("./backend.js");
         //save current state of webpage
     }   
 
+
+    let DEBUG_history_count = 0;
     function exploreWord(word, mustIncludeList) {
-        console.log("exploreWord called");
+        console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
         //corner case: infinite loop
-        //history.pushState();
+        let stateUrl = "".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
+        history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
+        console.log("state pushed, total states: ",)
         var totalWordNum = 6
         
-        if(mustIncludeListUpdated ==  true)
+        cleanMainLegend();
+        if(mustIncludeListUpdated == true ||mustIncludeListUpdated == false)
         {
-            console.log("detected must include list updating")
-            cleanMainLegend();
+            //console.log("detected must include list updating")
             totalWordNum = 6 + mustIncludeList.length;
             var currentLegendLength = mainLegendItems.length;
             // this is to show how many slot are different
@@ -283,23 +306,13 @@ let backendPromise = import("./backend.js");
                     addSlotToMainLegend();
                     
                 }
-                // mainLegendItems.forEach((element, index) => {
-                //     element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
-                //     element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
-
-                //     const legendLink = element.querySelector('a');
-                //     legendLink.addEventListener('click', ev => {
-                //         ev.preventDefault();
-                //         legendLink.blur();
-                //         console.log("going to explore ", legendLink.innerText);
-                //         exploreWord(legendLink.innerText, mustIncludeWordList);
-                //     });
-                // });
+                console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
                 dynamicMainLegendDOMs.forEach((element, index) => {
+                    let actualMainplotIndex = index + 6;
                     element.removeEventListener('mouseover', null);
                     element.removeEventListener('mouseout', null);
-                    element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
-                    element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
+                    element.addEventListener('mouseover', () => mainPlot.hoverLine(actualMainplotIndex));
+                    element.addEventListener('mouseout', () => mainPlot.unhoverLine(actualMainplotIndex));
 
                     const legendLink = element.querySelector('a');
                     legendLink.addEventListener('click', ev => {
@@ -308,6 +321,7 @@ let backendPromise = import("./backend.js");
                         mustIncludeWordList.splice(mustIncludeWordList.indexOf(legendLink.innerText), 1);
                         mustIncludeListUpdated = true;
                         console.log("going to explore ", legendLink.innerText);
+                        cleanMainLegend();
                         exploreWord(legendLink.innerText, mustIncludeWordList);
                     });
                 });
@@ -351,9 +365,10 @@ let backendPromise = import("./backend.js");
                 //O(1)*O(pwtr) + O(k)
                 let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
                 let trajectoryLength = concatenatedTrajectories.length / totalWordNum;
-                console.log("length of other words",otherWords.length);
+                //console.log("length of other words",otherWords.length);
                 otherWords.forEach((otherWordId, index) => {
                     let otherWord = metaData.vocab[otherWordId];
+                    //console.log("plotting against ",otherWord);
                     mainPlot.plotLine(
                         concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
                         index,
@@ -385,12 +400,7 @@ let backendPromise = import("./backend.js");
 }())
 
 
-/* TODO
-function interpretQuery(string)
-{
-    return mainWO
-}
-
-function deployWithWordList(mainWord, mustIncluide)
+/* TOAsk:
+Multiple state pushed since keydown and keypress are called twice for on input change -> work around or rm?
 
 */

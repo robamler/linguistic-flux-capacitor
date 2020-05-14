@@ -165,6 +165,19 @@ svg.plot .lineGroup.color7>.line {
     stroke: #666666;
 }
 
+svg.plot .lineGroup.color8>.line {
+    stroke: #666666;
+}
+
+svg.plot .lineGroup.color9>.line {
+    stroke: #666666;
+}
+
+svg.plot .lineGroup.color10>.line {
+    stroke: #666666;
+}
+
+
 svg.plot .hoverCursor.color0 {
     fill: #f94a01;
 }
@@ -197,6 +210,15 @@ svg.plot .hoverCursor.color7 {
     fill: #666666;
 }
 
+svg.plot .hoverCursor.color8 {
+    fill: #666666;
+}
+svg.plot .hoverCursor.color9 {
+    fill: #666666;
+}
+svg.plot .hoverCursor.color10 {
+    fill: #666666;
+}
 .plot.tooltip {
     position: relative;
     font-family: Arial, Helvetica, sans-serif;
@@ -332,6 +354,33 @@ svg.plot .hoverCursor.color7 {
 .plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
     background-color: #888888;
 }
+
+.plot.tooltip.color8>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #888888;
+}
+
+.plot.tooltip.color8>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #888888;
+}
+
+
+.plot.tooltip.color9>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #888888;
+}
+
+.plot.tooltip.color9>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #888888;
+}
+
+
+.plot.tooltip.color10>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
+    background-color: #888888;
+}
+
+.plot.tooltip.color10>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #888888;
+}
+
 
 .plot.tooltip .lineDescription {
     font-weight: bold;
