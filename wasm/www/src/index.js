@@ -128,9 +128,9 @@ let backendPromise = import("./backend.js");
 
 
     let wordInput = document.querySelector('.wordInput');
-    wordInput.onkeydown = wordChanged;
-    //wordInput.onkeypress = wordChanged;
-    wordInput.onchange = wordChanged;
+    //wordInput.onkeydown = wordChanged;
+    wordInput.onkeypress = wordChanged;
+    //wordInput.onchange = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
     // mustIncludeInput.onkeydown = mustIncludeChanged;
@@ -142,38 +142,30 @@ let backendPromise = import("./backend.js");
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
-    /*
+    let DEBUG_history_count = 0;
     window.addEventListener('popstate', (event) => {
+        DEBUG_history_count --;
         console.log("handle url: ", window.location.href);
         let cropped = window.location.href.toString().split('/');
         let configs = cropped[cropped.length-1].split('_@_');
-        console.log("decision loop");
-        if (configs.length == 0)
+        let mw = configs[0];
+        let mi = configs[1].split('&');
+        if (mw == "")
         {
             console.log("empty");
-            
-        }
-        else if (configs.length == 1)
-        {
-            console.log("configs len 1");
-            let mw = configs[0];
-            console.log(mw);
             restoreState(mw, []);
+            return;
         }
-        else
-        {
-            console.log("configs len else");
-            let mw = configs[0];
-            let mi = configs[1].split('&');
-            console.log(mw,mi);
-            console.log(mw,mi);
-            restoreState(mw, mi);
-        }
+
+        mi = mi.filter(e => e !== "");
+        console.log(mw,mi);
+        restoreState(mw, mi);
         console.log("end decision loop");
-        });*/
+        });
 
     wordChanged();
     wordInput.focus();
+    history.pushState(0, "some useless title", "");
 
     check_launch_config(false, "female", ["yes","smart"]);
 
@@ -194,9 +186,10 @@ let backendPromise = import("./backend.js");
 
     function restoreState(savedMainWord, savedOtherWords)
     {
-        let mustIncludeWordList = savedOtherWords;
-        let mustIncludeListUpdated = true;
-        exploreWord(savedMainWord, mustIncludeWordList);
+        mustIncludeWordList = savedOtherWords;
+        mustIncludeListUpdated = true;
+        wordInput.value = savedMainWord;
+        exploreWord(savedMainWord, mustIncludeWordList, true);
     }
     
     function wordChanged() {
@@ -316,16 +309,19 @@ let backendPromise = import("./backend.js");
     }   
 
 
-    let DEBUG_history_count = 0;
-    function exploreWord(word, mustIncludeList) {
+    
+    function exploreWord(word, mustIncludeList, surpress_save_state = false) {
 
         console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
         //corner case: infinite loop
-        let stateUrl = "".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
-        history.pushState(DEBUG_history_count++, "some useless title", "");
-        console.log("state pushed, total states: ",)
+        if (surpress_save_state == false)
+        {
+            let stateUrl = "".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
+            history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
+            console.log("state pushed, total states: ", DEBUG_history_count);
+        }
+
         var totalWordNum = 6
-        
         cleanMainLegend();
         if(mustIncludeListUpdated == true||mustIncludeListUpdated == false)
         {
