@@ -143,6 +143,7 @@ let backendPromise = import("./backend.js");
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
     let DEBUG_history_count = 0;
+
     window.addEventListener('popstate', (event) => {
         DEBUG_history_count --;
         console.log("handle url: ", window.location.href);
@@ -153,6 +154,8 @@ let backendPromise = import("./backend.js");
         if (mw == "")
         {
             console.log("empty");
+            mainLegend.style.visibility = 'hidden';
+            mainPlot.clear();
             restoreState(mw, []);
             return;
         }
