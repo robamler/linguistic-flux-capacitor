@@ -142,15 +142,24 @@ let backendPromise = import("./backend.js");
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
+    
     let DEBUG_history_count = 0;
+    window.addEventListener('popstate', on_popstate);
+    
+    wordInput.focus();
+    history.pushState(0, "some useless title", "");
 
-    window.addEventListener('popstate', (event) => {
+    let colorsAvail = ['color6','color7','color8','color9'];
+    
+    setTimeout(on_popstate, 0);
+
+    function on_popstate() {
         DEBUG_history_count --;
         console.log("handle url: ", window.location.href);
-        let cropped = window.location.href.toString().split('/');
-        let configs = cropped[cropped.length-1].split('_@_');
+        let cropped = window.location.hash.substr(1);
+        let configs = cropped.split('_@_');
         let mw = configs[0];
-        let mi = configs[1].split('&');
+        let mi = configs.length < 2 ? [] : configs[1].split('&');
         if (mw == "")
         {
             console.log("empty");
@@ -164,27 +173,6 @@ let backendPromise = import("./backend.js");
         console.log(mw,mi);
         restoreState(mw, mi);
         console.log("end decision loop");
-        });
-
-    wordChanged();
-    wordInput.focus();
-    history.pushState(0, "some useless title", "");
-
-    check_launch_config(false, "female", ["yes","smart"]);
-
-    function check_launch_config(LAUNCH_W_CACHE, mainWord, otherWords)
-    {
-        console.log("launch w config");
-        if (LAUNCH_W_CACHE == false){
-            return;
-        }
-        var i;
-        for (i = otherWords.length; i>0; i--)
-        {
-            mustIncludeWordList.push(otherWords[i-1]);
-        }
-        mustIncludeListUpdated = true;
-        exploreWord(mainWord, mustIncludeWordList);
     }
 
     function restoreState(savedMainWord, savedOtherWords)
@@ -245,7 +233,6 @@ let backendPromise = import("./backend.js");
     }
 
 
-    let colorsAvail = ['color6','color7','color8','color9'];
     function assembleMainLegendDOM(colorIndex){
         /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
         //var colorString = colorsAvail[colorsUsed];
@@ -319,7 +306,7 @@ let backendPromise = import("./backend.js");
         //corner case: infinite loop
         if (surpress_save_state == false)
         {
-            let stateUrl = "".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
+            let stateUrl = "#".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
             history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
             console.log("state pushed, total states: ", DEBUG_history_count);
         }
