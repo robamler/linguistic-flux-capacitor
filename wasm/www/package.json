@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack",
-    "serve": "webpack-dev-server"
+    "serve": "webpack-dev-server",
+    "start": "http-server -a localhost -p 8000"
   },
   "keywords": [],
   "author": "Robert Bamler <robert.bamler@gmail.com>",

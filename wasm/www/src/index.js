@@ -1,6 +1,8 @@
 import './styles.css';
 
 import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000";
+//import FaceBookIcon from './facebook-icon.png'
+//import TwitterIcon from './facebook-icon.png'
 
 // Wasm modules must be imported asynchronously.
 let backendPromise = import("./backend.js");
@@ -128,17 +130,23 @@ let backendPromise = import("./backend.js");
 
 
     let wordInput = document.querySelector('.wordInput');
-    //wordInput.onkeydown = wordChanged;
-    wordInput.onkeypress = wordChanged;
-    //wordInput.onchange = wordChanged;
+    wordInput.onkeydown = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
-    // mustIncludeInput.onkeydown = mustIncludeChanged;
-    // mustIncludeInput.onkeypress = mustIncludeChanged;
-    // mustIncludeInput.onchange = mustIncludeChanged;
+    
 
     let pinWordButton = document.getElementById('pinWordButton');
     pinWordButton.onclick = pinWord;
+
+    let shareFacebookButton = document.getElementById('shareFacebookButton');
+    shareFacebookButton.onclick = shareFaceBook;
+
+    let shareTwitterButton = document.getElementById('shareTwitterButton');
+    shareTwitterButton.onclick = shareTwitter;
+
+    let showUrlButton = document.getElementById('showUrlButton');
+    console.log("here", showUrlButton);
+    showUrlButton.onclick = showUrl;
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
@@ -152,6 +160,27 @@ let backendPromise = import("./backend.js");
     let colorsAvail = ['color6','color7','color8','color9'];
     
     setTimeout(on_popstate, 0);
+
+    function shareFaceBook(){
+    	console.log("//TODO: copy current link to url2");
+    	window.open(
+      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href), 
+      'facebook-share-dialog', 
+      'width=626,height=436'); 
+    }
+
+    function shareTwitter(){
+    	console.log("//TODO: copy current link to url");
+    	window.open(
+      "https://twitter.com/intent/tweet?text=check this out! -> "+encodeURIComponent(location.href), 
+      'facebook-share-dialog', 
+      'width=626,height=436'); 
+    }
+
+    function showUrl(){
+    	console.log("//TODO: copy show this url to user");
+    	alert("copy this link to share -> ".concat(location.href.toString()));
+    }
 
     function on_popstate() {
         DEBUG_history_count --;
@@ -421,7 +450,3 @@ let backendPromise = import("./backend.js");
 }())
 
 
-/* TOAsk:
-Multiple state pushed since keydown and keypress are called twice for on input change -> work around or rm?
-
-*/
