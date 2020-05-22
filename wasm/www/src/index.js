@@ -145,7 +145,7 @@ let backendPromise = import("./backend.js");
     shareTwitterButton.onclick = shareTwitter;
 
     let showUrlButton = document.getElementById('showUrlButton');
-    console.log("here", showUrlButton);
+    //console.log("here", showUrlButton);
     showUrlButton.onclick = showUrl;
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
@@ -162,7 +162,7 @@ let backendPromise = import("./backend.js");
     setTimeout(on_popstate, 0);
 
     function shareFaceBook(){
-    	console.log("//TODO: copy current link to url2");
+    	//console.log("//TODO: copy current link to url2");
     	window.open(
       'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href), 
       'facebook-share-dialog', 
@@ -170,7 +170,7 @@ let backendPromise = import("./backend.js");
     }
 
     function shareTwitter(){
-    	console.log("//TODO: copy current link to url");
+    	//console.log("//TODO: copy current link to url");
     	window.open(
       "https://twitter.com/intent/tweet?text=check this out! -> "+encodeURIComponent(location.href), 
       'facebook-share-dialog', 
@@ -178,20 +178,20 @@ let backendPromise = import("./backend.js");
     }
 
     function showUrl(){
-    	console.log("//TODO: copy show this url to user");
+    	//console.log("//TODO: copy show this url to user");
     	alert("copy this link to share -> ".concat(location.href.toString()));
     }
 
     function on_popstate() {
         DEBUG_history_count --;
-        console.log("handle url: ", window.location.href);
+        //console.log("handle url: ", window.location.href);
         let cropped = window.location.hash.substr(1);
         let configs = cropped.split('_@_');
         let mw = configs[0];
         let mi = configs.length < 2 ? [] : configs[1].split('&');
         if (mw == "")
         {
-            console.log("empty");
+            //console.log("empty");
             mainLegend.style.visibility = 'hidden';
             mainPlot.clear();
             restoreState(mw, []);
@@ -199,9 +199,9 @@ let backendPromise = import("./backend.js");
         }
 
         mi = mi.filter(e => e !== "");
-        console.log(mw,mi);
+        //console.log(mw,mi);
         restoreState(mw, mi);
-        console.log("end decision loop");
+        //console.log("end decision loop");
     }
 
     function restoreState(savedMainWord, savedOtherWords)
@@ -213,7 +213,7 @@ let backendPromise = import("./backend.js");
     }
     
     function wordChanged() {
-        console.log("word changed: main input changed");
+        console.log("word changed: main input changed to: ", wordInput.value);
         // Wait for next turn in JS executor to let change take effect.
         setTimeout(() => exploreWord(wordInput.value, mustIncludeWordList), 0);
     }
@@ -272,7 +272,7 @@ let backendPromise = import("./backend.js");
         else{
             html = html.replace("_COLORNUM_", colorsAvail[colorIndex]);
         }
-        console.log("Assembled: ", html);
+        //console.log("Assembled: ", html);
         var template = document.createElement('template');
         template.innerHTML = html;
         var el = template.content.firstChild;
@@ -331,13 +331,21 @@ let backendPromise = import("./backend.js");
     
     function exploreWord(word, mustIncludeList, surpress_save_state = false) {
 
-        console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
+    	if(wordInput.value == "")
+        {
+        	//console.log("detected empty in wordchanged");
+        	mainPlot.clear();
+        	mustIncludeWordList = [];
+        	mainLegend.style.visibility = 'hidden';
+        }
+
+        //console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
         //corner case: infinite loop
         if (surpress_save_state == false)
         {
             let stateUrl = "#".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
             history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
-            console.log("state pushed, total states: ", DEBUG_history_count);
+            //console.log("state pushed, total states: ", DEBUG_history_count);
         }
 
         var totalWordNum = 6
@@ -358,7 +366,7 @@ let backendPromise = import("./backend.js");
                     addSlotToMainLegend(curColorIndex++);
                     
                 }
-                console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
+                //console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
                 dynamicMainLegendDOMs.forEach((element, index) => {
                     let actualMainplotIndex = index + 6;
                     element.removeEventListener('mouseover', null);
@@ -372,7 +380,7 @@ let backendPromise = import("./backend.js");
                         legendLink.blur();
                         mustIncludeWordList.splice(mustIncludeWordList.indexOf(legendLink.innerText), 1);
                         mustIncludeListUpdated = true;
-                        console.log("going to explore ", legendLink.innerText);
+                        //console.log("going to explore ", legendLink.innerText);
                         cleanMainLegend();
                         exploreWord(legendLink.innerText, mustIncludeWordList);
                     });
