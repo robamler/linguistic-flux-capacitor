@@ -1,0 +1,93 @@
+name: Rust + Wasm Build and Deploy
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        # For now, just fetch all branches with all history (so that we can try to merge below)
+        fetch-depth: 0
+
+    - name: Merge into master
+      run: git -c user.name=bot -c user.email=bot merge --no-edit origin/master
+
+    - name: Cache backend (cargo) dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          target
+          ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Run backend tests
+      run: cargo test
+
+    - name: Check rust code format
+      run: cargo fmt -- --check
+
+    - name: Install wasm-pack 0.8.1
+      uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        # Restrict to version 0.8.1 to work around this issue:
+        # https://users.rust-lang.org/t/unexpected-wasm-opt-crash-when-running-wasm-pack/46573
+        # https://github.com/rustwasm/wasm-pack/issues/886
+        version: v0.8.1
+
+    - name: Build backend
+      run: cd wasm && wasm-pack build
+
+    - name: Install node.js version 10.16 
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10.16
+
+    - name: Audit npm dependencies (with --audit-level=high)
+      run: cd wasm/www && npm audit --audit-level=high
+
+    - name: Cache frontend (npm) dependencies
+      uses: actions/cache@v2
+      with:
+        path: wasm/www/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('wasm/www/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install frontend (npm) dependencies
+      run: cd wasm/www && npm install
+
+    - name: Get frontend assets from current staging branch
+      uses: actions/checkout@v2
+      with:
+        # TODO: set to "gh-pages" (also in title) when available
+        ref: gh-pages-staging
+        path: wasm/www/assets.tmp
+    
+    - name: Clean up unused assets
+      run: |
+        cd wasm/www
+        mv assets.tmp/*.dwe assets/*.dwe
+        mv assets.tmp/*.bin assets/*.bin
+        rm -rf assets.tmp
+
+    - name: Build frontend
+      run: cd wasm/www && npm run build
+
+    - name: Stage
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./wasm/www/dist
+        publish_branch: gh-pages-staging
