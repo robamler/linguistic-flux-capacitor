@@ -70,11 +70,7 @@ pub fn build_file(
 
     let last_timestep_dest =
         get_i8_slice_mut(&mut compressed[last_timestep_offset as usize..root_block_size as usize]);
-    last_timestep_dest.copy_from_slice(
-        uncompressed
-            .subview((num_timesteps - 1) as usize)
-            .slice(),
-    );
+    last_timestep_dest.copy_from_slice(uncompressed.subview((num_timesteps - 1) as usize).slice());
 
     // Skip over time step meta data since we don't know the chunk addresses yet.
     compressed.resize(address as usize, 0);
