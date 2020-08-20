@@ -274,6 +274,7 @@ mod test {
 
     #[test]
     fn distribution() {
+        panic!();
         let min_symbol = 250;
         let frequencies = [10, 1, 15, 0, 0, 7, 100, 110, 13];
         let distribution = DistributionU8::new(min_symbol, &frequencies);
