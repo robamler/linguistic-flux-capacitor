@@ -1,6 +1,6 @@
 import './styles.css';
 
-import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000";
+import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000.bin";
 
 // Wasm modules must be imported asynchronously.
 let backendPromise = import("./backend.js");
