@@ -1,4 +1,4 @@
-name: Rust + Wasm Project New or Updated Pull Request
+name: New or Updated Pull Request
 
 on:
   pull_request:
@@ -10,6 +10,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo done
+
   check-rust-code-format:
     name: Check rust code format
     runs-on: ubuntu-latest
