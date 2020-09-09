@@ -1,3 +1,53 @@
+//! Lossless Compression with Asymmetric Numeral Systems
+//!
+//! This module provides data structures for lossless compression and decompression
+//! using [Asymmetric Numeral Systems]. The module is organized in a hierarchy of
+//! builders:
+//! - The entry point is an [`EntropyModel`], which describes a probability
+//!   distribution over symbols.
+//! - An `EntropyModel` can be used to construct either an [`EncoderModel`] or a
+//!   [`DecoderModel`], which provide high level APIs for compression and
+//!   decompression, respectively.
+//! - The `EncoderModel` and `DecoderModel` can optionally further be used to
+//!   construct one or more [`Encoder`]s or [`Decoder`]s, respectively. These
+//!   provide more low level APIs for compression and decompression.
+//!
+//! # Example
+//!
+//! End-to-end encryption-decryption example:
+//!
+//! ```
+//! # use compressed_dynamic_word_embeddings::ans::EntropyModel12_32;
+//! let symbols = ['a', 'b', 'c'];
+//! let frequencies = [2000, 1000];  // Frequency of last symbol is deduced automatically.
+//! let sample_data = ['a', 'b', 'a', 'c', 'a', 'b', 'a', 'a', 'c', 'a'];
+//!
+//! // Create an `EncoderModel` and compress some data using the high-level API.
+//! let encoder_model =
+//!     EntropyModel12_32::new(symbols.iter().cloned(), frequencies.iter().cloned())
+//!         .encoder_model();
+//! let compressed = encoder_model.encode(&sample_data).unwrap();
+//!
+//! // `compressed` is a `Vec<u32>` holding the compressed representation of the data.
+//! assert_eq!(compressed, [0x0000_438a, 0x223f_46e0]);
+//!
+//! // Create a `DecoderModel` and decompress the data using the high-level API.
+//! let decoder_model =
+//!     EntropyModel12_32::new(symbols.iter().cloned(), frequencies.iter().cloned())
+//!         .decoder_model();
+//! let decompressed = decoder_model.decode(&compressed, 10).unwrap();
+//!
+//! // Test if it worked.
+//! assert_eq!(decompressed, sample_data);
+//! ```
+//!
+//! [Asymmetric Numeral Systems]: https://en.wikipedia.org/wiki/Asymmetric_numeral_systems
+//! [`EntropyModel`]: struct.EntropyModel.html
+//! [`EncoderModel`]: struct.EncoderModel.html
+//! [`DecoderModel`]: struct.DecoderModel.html
+//! [`Encoder`]: struct.Encoder.html
+//! [`Decoder`]: struct.Decoder.html
+
 use num::{
     traits::{ToPrimitive, WrappingAdd, WrappingSub},
     CheckedDiv, One, Zero,
@@ -123,13 +173,12 @@ where
     /// # Example
     ///
     /// The generic signature of this method allows constructing an `EntropyModel` from
-    /// both an explicit `Vec` or array of frequencies, as well as from a
-    /// [`CompactFrequencyReader12bit`]:
+    /// both an explicit slice of frequencies, as well as by using [`expand_u12s`]:
     ///
     /// ```
-    /// # use compressed_dynamic_word_embeddings::ans::{
-    /// #     CompactFrequencyReader12bit,
-    /// #     EntropyModel12_32,
+    /// # use compressed_dynamic_word_embeddings::{
+    /// #     ans::EntropyModel12_32,
+    /// #     u12::expand_u12s,
     /// # };
     /// let symbols = ['r', 's', 't', 'u', 'v', 'w'];
     ///
@@ -145,7 +194,7 @@ where
     /// let compact_frequencies = [0x0123, 0x4561, 0x892b, 0xc1ef];
     /// let model2 = EntropyModel12_32::new(
     ///     symbols.iter().cloned(),
-    ///     CompactFrequencyReader12bit::new(&compact_frequencies, 5)
+    ///     expand_u12s(&compact_frequencies, 5)
     /// );
     ///
     /// assert_eq!(
@@ -158,7 +207,7 @@ where
     /// [`DecoderModel`]: struct.DecoderModel.html
     /// [`encoder_model`]: #method.encoder_model
     /// [`decoder_model`]: #method.decoder_model
-    /// [`CompactFrequencyReader12bit`]: struct.CompactFrequencyReader12bit.html
+    /// [`expand_u12s`]: ../u12/fn.expand_u12s.html
     pub fn new(
         symbols: impl IntoIterator<IntoIter = SI, Item = SI::Item>,
         frequencies: impl IntoIterator<Item = O::Frequency, IntoIter = FI>,
@@ -339,9 +388,9 @@ impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
     /// This method abstracts away the stack ("first-in-first-out") nature of the
     /// underlying entropy coding algorithm by pushing symbols on an encoder in reverse
     /// order and reversing the compressed data upon completion. Thus, decompressing the
-    /// returned data with [`Decoder::decode`] yields the symbols in forward direction.
-    /// See [module level documentation](index.html) for end-to-end encoding-decoding
-    /// examples.
+    /// returned data with [`DecoderModel::decode`] or [`Decoder::streaming_decode`] will
+    /// yield the symbols in forward direction. See [module level
+    /// documentation](index.html) for end-to-end encoding-decoding examples.
     ///
     /// # Returns
     ///
@@ -349,7 +398,8 @@ impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
     /// yields an unknown or prohibited symbol.
     ///
     /// [`encoder`]: #method.encoder
-    /// [`Decoder::decode`]: struct.Decoder.html#method.decode
+    /// [`DecoderModel::decode`]: struct.DecoderModel.html#method.decode
+    /// [`Decoder::streaming_decode`]: struct.Decoder.html#method.streaming_decode
     /// [`EncoderError`]: enum.EncoderError.html
     pub fn encode<'a, I>(&self, uncompressed: I) -> Result<Vec<O::CompressedWord>, EncoderError>
     where
@@ -520,11 +570,11 @@ impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbo
 /// // Decode the same sample data and verify it on the fly.
 /// let mut decoder = decoder_model.decoder(&compressed);
 /// decoder
-///     .decode(expected.iter(), |decompressed_symbol, expected_symbol| {
+///     .streaming_decode(expected.iter(), |decompressed_symbol, expected_symbol| {
 ///         assert_eq!(decompressed_symbol, expected_symbol)
 ///     })
 ///     .unwrap();
-/// decoder.finish().unwrap();
+/// decoder.check_eof().unwrap();
 /// ```
 ///
 /// [`Decoder`]: struct.Decoder.html
@@ -608,8 +658,6 @@ impl<O: EntropyModelOptions, Symbol> DecoderModel<O, Symbol> {
     /// See [struct level documentation](struct.DecoderModel.html) for an example.
     ///
     /// [`decoder`]: #method.decoder
-    /// [`Decoder::decode`]: struct.Decoder.html#method.decode
-    /// [`EncoderError`]: enum.EncoderError.html
     pub fn decode(
         &self,
         compressed: &[O::CompressedWord],
@@ -620,7 +668,7 @@ impl<O: EntropyModelOptions, Symbol> DecoderModel<O, Symbol> {
     {
         let mut decoder = self.decoder(compressed);
         let mut result = Vec::with_capacity(amt);
-        decoder.decode(0..amt, |symbol, _| result.push(symbol.clone()))?;
+        decoder.streaming_decode(0..amt, |symbol, _| result.push(symbol.clone()))?;
         Ok(result)
     }
 
@@ -738,7 +786,7 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
     /// // Decode the first two symbols, turn them into upper case, and write them to a buffer.
     /// let mut buffer = [' '; 2];
     /// decoder
-    ///     .decode(buffer.iter_mut(), |symbol, destination| {
+    ///     .streaming_decode(buffer.iter_mut(), |symbol, destination| {
     ///         *destination = symbol.to_ascii_uppercase();
     ///     })
     ///     .unwrap();
@@ -746,7 +794,7 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
     ///
     /// // No need to decode to the end if we're just interested in the first part of the data.
     /// ```
-    pub fn decode<I: Iterator>(
+    pub fn streaming_decode<I: Iterator>(
         &mut self,
         driver: I,
         mut callback: impl FnMut(&Symbol, I::Item),
@@ -808,7 +856,7 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
     /// This method is deliberately called *skip* rather than *seek* to remind the caller
     /// that skipping ahead requires decompression, so it requires `O(amt)` time.
     pub fn skip(&mut self, amt: usize) -> Result<(), DecoderError> {
-        self.decode(0..amt, |_, _| ())
+        self.streaming_decode(0..amt, |_, _| ())
     }
 
     /// Checks if the `Decoder` is in a valid "end" state and then drops it.
@@ -829,7 +877,7 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
     ///
     /// [`DecoderError::DataLeft`]: enum.DecoderError.html#variant.DataLeft
     /// [`DecoderError::CorruptedData`]: enum.DecoderError.html#variant.CorruptedData
-    pub fn finish(self) -> Result<(), DecoderError> {
+    pub fn check_eof(self) -> Result<(), DecoderError> {
         if self.cursor != self.compressed.len() {
             Err(DecoderError::DataLeft)
         } else if self.state != min_state::<O>() {
@@ -991,76 +1039,6 @@ unsafe impl EntropyModelOptions for EntropyModelOptions12_32 {
     type State = u64;
 }
 
-/// TODO: move to a separate module
-pub struct CompactFrequencyReader12bit<'a> {
-    compact: &'a [u16],
-    carry: u32,
-    cursor: usize,
-    remaining: usize,
-}
-
-impl<'a> CompactFrequencyReader12bit<'a> {
-    pub fn new(compact: &'a [u16], amt: u16) -> Self {
-        // Since `amt` is a `u16` the checked arithmetic gets optimized away
-        // unless `usize` is `u16` (only realistic on micro controllers).
-        let expected_compact_len = (amt as usize)
-            .checked_add(1)
-            .unwrap()
-            .checked_mul(3)
-            .unwrap()
-            / 4;
-        assert_eq!(compact.len(), expected_compact_len);
-
-        let (carry, cursor) = if amt % 4 == 0 {
-            // The initial value of `carry` doesn't matter in this case.
-            // The only reason why we don't initialize it to `compact[0]`
-            // in all cases is to take into account the edge case
-            // `amt == 0`, in which case `compact.len() == 0`.
-            (0, usize::max_value())
-        } else {
-            (compact[0] as u32, 0)
-        };
-
-        Self {
-            compact,
-            carry,
-            cursor,
-            remaining: amt as usize,
-        }
-    }
-}
-
-impl<'a> Iterator for CompactFrequencyReader12bit<'a> {
-    type Item = u16;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
-            None
-        } else {
-            self.remaining -= 1;
-            self.cursor = self.cursor.wrapping_add((self.remaining % 4 != 0) as usize);
-
-            let shift_l = (self.remaining * 4) % 16;
-            let shift_r = 16 - shift_l;
-
-            let current = unsafe {
-                // SAFETY: The constructor ensures that `self.compact` is long enough.
-                *self.compact.get_unchecked(self.cursor) as u32
-            };
-            let new = (((self.carry << shift_l) & 0x0fff) | (current >> shift_r)) as u16;
-            self.carry = current;
-
-            Some(new)
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.remaining, Some(self.remaining))
-    }
-}
-
-impl<'a> ExactSizeIterator for CompactFrequencyReader12bit<'a> {}
-
 #[cfg(test)]
 mod test {
     //! TODO: Test with real data: overhead for small compressed words will probably
@@ -1068,34 +1046,8 @@ mod test {
     //! (also: benchmark both variants on real data)
 
     use super::*;
+    use crate::u12::expand_u12s;
     use rand::{rngs::StdRng, SeedableRng};
-
-    #[test]
-    fn compact_frequency_reader_12bit() {
-        let compact = [0x0123, 0x4567, 0x89ab, 0xcdef];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 5).collect::<Vec<_>>();
-        assert_eq!(frequencies, [0x0123, 0x0456, 0x0789, 0x0abc, 0x0def]);
-
-        let compact = [0x4567, 0x89ab, 0xcdef];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 4).collect::<Vec<_>>();
-        assert_eq!(frequencies, [0x0456, 0x0789, 0x0abc, 0x0def]);
-
-        let compact = [0x000a, 0x1234, 0x5678];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 3).collect::<Vec<_>>();
-        assert_eq!(frequencies, [0x0a12, 0x0345, 0x0678]);
-
-        let compact = [0x00ab, 0xcdef];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 2).collect::<Vec<_>>();
-        assert_eq!(frequencies, [0x0abc, 0x0def]);
-
-        let compact = [0x0bcd];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 1).collect::<Vec<_>>();
-        assert_eq!(frequencies, [0x0bcd]);
-
-        let compact = [];
-        let frequencies = CompactFrequencyReader12bit::new(&compact, 0).collect::<Vec<_>>();
-        assert_eq!(frequencies, []);
-    }
 
     #[test]
     fn decoder_model_from_compact_frequencies() {
@@ -1116,7 +1068,7 @@ mod test {
 
         let dec = EntropyModel::<EntropyModelOptions12_32, _, _>::new(
             symbols.iter().cloned(),
-            CompactFrequencyReader12bit::new(&frequencies_compact, 6),
+            expand_u12s(&frequencies_compact, 6),
         )
         .decoder_model();
 
@@ -1201,9 +1153,9 @@ mod test {
         let mut decoded = Vec::with_capacity(samples.len());
         let mut decoder = decoder_model.decoder(&*compressed);
         decoder
-            .decode(0..samples.len(), |symbol, _| decoded.push(symbol.clone()))
+            .streaming_decode(0..samples.len(), |symbol, _| decoded.push(symbol.clone()))
             .unwrap();
-        decoder.finish().unwrap();
+        decoder.check_eof().unwrap();
         assert!(decoded == samples);
     }
 }
