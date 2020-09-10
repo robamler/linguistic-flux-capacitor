@@ -40,6 +40,9 @@
 <body>
     <div class='pageContainer'>
         <h1>Word History Explorer File Format</h1>
+        <ul>
+            <li><strong>Version:</strong> 1.0</li>
+        </ul>
         <h2>Compression Strategy</h2>
         <ul>
             <li>TODO (bisect in a tree and store compressed diffs compared to average of parents)</li>
@@ -50,21 +53,19 @@
             <li>The file is a tree of blocks that are linked together.</li>
             <li>All blocks are aligned to multiples of 4 bytes from the beginning of the file.</li>
             <li>The file size must be a multiple of 4 bytes.</li>
-            <li>Essentially, we treat the file as an array of 32-bit integers.</li>
             <li>When addressing a child block from a parent block, we specify its start position measured from the
-                beginning of the file in units of 4 bytes.</li>
+                beginning of the file in units of 4 bytes. In other words, we treat the file as an array of 32-bit
+                integers, and all pointers to positions in the file are indices into this array.</li>
             <li>Except for the root block, which must start at the beginning of the file, the encoder may place all
                 other blocks at arbitrary (non-overlapping) positions in the file. The encoder <em>should</em>
-                choose
-                block placements to optimize for cache locality on the decoder side, and it <em>should</em> avoid
-                gaps
-                between blocks unless needed for alignment or for future features (see minor_version field in root
-                block).</li>
+                choose block placements to optimize for streaming decoding (see field "meta_size" of the root block) and
+                cache locality on the decoder side, and it <em>should</em> avoid gaps between blocks unless needed for
+                alignment or for future features (see field "minor_version" of the root block).</li>
             <li>All fields are stored in little-endian byte order because WebAssembly (as well as the rest of the
                 world)
                 is little-endian.</li>
         </ul>
-        <h3 id="Root-Block-(File-Header)">Root Block (File Header)</h3>
+        <h3 id="Root-Block">Root Block</h3>
         <ul>
             <li>The root block always starts at address zero, i.e., at the beginning of the file.</li>
         </ul>
@@ -84,10 +85,14 @@
                         4
                     </td>
                     <td>
-                        [u8; 4]
+                        [u8;&nbsp;4]
                     </td>
                     <td>
-                        Magic number to detect file type. Set to a constant to be defined later.
+                        Magic number that allows other programs to detect the file type.
+                        Has to be set to the byte sequence [0x00, 0x64, 0x77, 0x65] (note that this is 0x65776400 in
+                        little-endian encoding). This is a zero byte followed by
+                        the ASCII (or UTF-8) encoding of the string "dwe".
+                        In particular, the initial zero byte makes it easy to detect the file as a binary file.
                     </td>
                 </tr>
                 <tr>
@@ -101,10 +106,11 @@
                         u32
                     </td>
                     <td>
-                        Major version of the file format. Set to zero for now and used for future compatibility. A
-                        possible future change in the major version will indicate that decoders not familiar with
-                        the
-                        new major version will likely not be able to correctly parse the file.
+                        Major version of the file format.
+                        This document describes version 1.0 of the file format, so this field should be set to "1" for
+                        files following this version of the format.
+                        Increasing the major version indicates that decoders not familiar with
+                        the new major version will likely not be able to correctly parse the file.
                     </td>
                 </tr>
                 <tr>
@@ -118,10 +124,12 @@
                         u32
                     </td>
                     <td>
-                        Set to one (1) for now. Used for future compatibility. A possible future change in just the
-                        minor version (and not the major version) will indicate that decoders not familiar with the
-                        new
-                        minor version will still be able to parse the file correctly (with some definition of
+                        Minor version of the file format.
+                        This document describes version 1.0 of the file format, so this field should be set to "0" for
+                        files following this version of the format.
+                        Increasing the minor version only (as opposed to the major version) means that that decoders not
+                        familiar with the
+                        new minor version will still be able to parse the file correctly (with some definition of
                         correctness) but they will miss out on some new features.
                     </td>
                 </tr>
@@ -136,9 +144,33 @@
                         u32
                     </td>
                     <td>
-                        The total file size, in units of 4 bytes (i.e., the file size in bytes, which must be a
-                        multiple
-                        of 4, divided by 4).
+                        The total file size, in units of 4 bytes (i.e., the file size in bytes divided by 4, which must
+                        result in an integer number as the file size must be a multiple of 4).
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        meta_size
+                    </td>
+                    <td>
+                        4
+                    </td>
+                    <td>
+                        u32
+                    </td>
+                    <td>
+                        The size of an initial portion of the file (measured in units of 4 bytes) that contains all
+                        "time step meta data blocks". This is used as a hint to streaming decoders. It is always safe to
+                        set this field to the same value as the "file_size" field above, but this will prohibit
+                        streaming decoding.
+                        <p>
+                            In more detail, efficient decoding of a DWE file requires building some lookup tables for
+                            the entropy coder. Usually, the data required to construct these lookup tables takes up only
+                            a small portion of the file, stored in the so-called "time step meta data blocks" (see
+                            below). Since building these lookup tables may take some time, it is typically a good idea
+                            to place all time step meta data blocks early in the encoded file. A decoder can then start
+                            building the lookup tables as soon as all time step meta data blocks have been received,
+                            while the rest of the file is still being downloaded.
                     </td>
                 </tr>
                 <tr>
@@ -196,11 +228,6 @@
                                 Must be nonzero.
                             </li>
                         </ul>
-                        <ul>
-                            <li>
-                                vocab_size * embedding_dim must be a multiple of 4.
-                            </li>
-                        </ul>
                     </td>
                 </tr>
                 <tr>
@@ -214,80 +241,72 @@
                         u32
                     </td>
                     <td>
-                        Number of words that are compressed in a single chunk.
+                        Number of embedding vectors that are compressed in a single chunk.
                         <ul>
                             <li>
                                 Must be nonzero and a divisor of vocab_size.
                             </li>
-                        </ul>
-                        <ul>
                             <li>
                                 Can be 1, but that&rsquo;s not recommended.
                             </li>
-                        </ul>
-                        <ul>
                             <li>
-                                Can be vocab_size.
+                                Can be vocab_size (but not larger).
+                            </li>
+                            <li>
+                                Small chunk sizes make random access across the vocabulary dimension faster, but
+                                excessively small chunk sizes lead to an overhead in file size (each chunk contributes
+                                about 6 bytes of overhead).
                             </li>
                         </ul>
                     </td>
+                </tr>
+                <tr>
+                    <td>
+                        scale_factor
+                    </td>
+                    <td>
+                        4
+                    </td>
+                    <td>
+                        f32
+                    </td>
+                    <td>
+                        Scalar factor (typically < 1.0) to map the encoded integer embedding vectors back to their
+                            continuous representations. Thus, to calculate the scalar product between two embedding
+                            vectors, one has to first calculate the scalar product of the encoded integer
+                            representations and then multiply it with the <em>square</em> of scale_factor. </td>
                 </tr>
                 <tr>
                     <td>
                         timestep_addrs
                     </td>
                     <td>
-                        4 * (num_timesteps - 2)
+                        4 * num_timesteps
                     </td>
                     <td>
                         [u32]
                     </td>
                     <td>
                         Addresses (in units of 4 bytes, see <a href="#Overall-Layout">
-                            Overall Layout</a>) of the time step meta data blocks (for each time step
-                        except
-                        the zeroth and last one, which are stored in uncompressed form). See <a
-                            href="#Time-Step-Meta-Data-Blocks">
-                            below</a> for the layout of the time step meta data.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        vec[0, :, :]
-                    </td>
-                    <td>
-                        vocab_size * embedding_dim (which is a multiple of 4)
-                    </td>
-                    <td>
-                        [i8]
-                    </td>
-                    <td>
-                        Clear text form of the embedding vectors for the zeroth time step. Encoded as a sequence of
-                        vocab_size arrays of embedding_dim bytes.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        vec[num_timesteps-1, :, :]
-                    </td>
-                    <td>
-                        vocab_size * embedding_dim (which is a multiple of 4)
-                    </td>
-                    <td>
-                        [i8]
-                    </td>
-                    <td>
-                        Clear text form of the embedding vectors for the last time step. Encoded as a sequence of
-                        vocab_size arrays of embedding_dim bytes.
+                            Overall Layout</a>) of the time step meta data blocks. See <a
+                            href="#Time-Step-Meta-Data-Blocks">below</a>.
                     </td>
                 </tr>
             </tbody>
         </table>
+
         <h3 id="Time-Step-Meta-Data-Blocks">Time Step Meta Data Blocks</h3>
         <ul>
-            <li>There are (root_block.num_timestep - 2) time step meta data blocks. They start at the addresses
-                given in
-                root_block.timestep_addrs.</li>
+            <li>There are root_block.num_timestep time step meta data blocks.</li>
+            <li>Each time step meta data block starts at an address specified in root_block.timestep_addrs.</li>
+            <li>The layout of each time step meta data block is described below. The first three fields hold values of
+                type u16 or i16, i.e., 16-bit integers. These integers are encoded in little endian byte order and
+                concatenated in the order that is described below so that two 16-bit integers comprise one slot of the
+                array of 32-bit integers that makes up the file. Thus, each 32-bit slot holds a byte sequence "x_low
+                x_high y_low y_high" where x and y are the first and second 16-bit integer, respectively, and the
+                suffixes "_low" and "_high" denote their low and high order byte, respectively. If there is an odd
+                number of 16-bit integers, then the last 32-bit slot is padded as "x_low x_high ? ?" where "?" denotes
+                arbitrary values (see "padding" field below).</li>
         </ul>
         <table>
             <tbody>
@@ -299,44 +318,47 @@
                 </tr>
                 <tr>
                     <td>
-                        smallest_symbol
+                        num_symbols
                     </td>
                     <td>
-                        1
+                        2
                     </td>
                     <td>
-                        i8
+                        u16
                     </td>
                     <td>
-                        The smallest symbol with nonzero frequency.
+                        The number of different (renormalized) symbols that appear in the uncompressed data stream.
+                        <ul>
+                            <li>
+                                Must be larger than one since the decompression algorithm cannot deal with a degenerate
+                                frequency distribution that puts all its mass on a single symbol.
+                                In the highly unlikely case
+                                that all entries of the payload are the same symbol, the encoder should
+                                approximate the distribution of symbols with a distribution that has (scaled) frequency
+                                4095 for the true symbol and frequency 1 for an arbitrary other symbol.
+                            </li>
+                            <li>
+                                Must not be larger than 4096 (= 2^12) since each symbol must have a nonzero frequency
+                                and we encode frequencies with 12 bit precision.
+                            </li>
+                        </ul>
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        largest_symbol
+                        symbols
                     </td>
                     <td>
-                        1
+                        2 * num_symbols
                     </td>
                     <td>
-                        i8
+                        [i16]
                     </td>
                     <td>
-                        The largest symbol with nonzero frequency (inclusively).
-                        <ul>
-                            <li>
-                                Must be larger than smallest_symbol. Setting largest_symbol equal to smallest_symbol
-                                is
-                                not allowed because the compression algorithm cannot deal with a degenerate
-                                frequency
-                                distribution that puts all its mass on a single symbol. In the highly unlikely case
-                                that
-                                all symbols in the payload really are identical, the encoder should approximate the
-                                distribution of symbols with a distribution that has (scaled) frequency 255 for the
-                                true
-                                symbol and frequency 1 for either neighboring symbol
-                            </li>
-                        </ul>
+                        A list of all (renormalized) symbols that appear in the uncompressed payload, in the same order
+                        as their frequencies are given in the above "frequencies" field. This list has one more entry
+                        than the "frequencies" field because, unlike the last frequency, the last symbol cannot be
+                        inferred.
                     </td>
                 </tr>
                 <tr>
@@ -344,58 +366,46 @@
                         frequencies
                     </td>
                     <td>
-                        largest_symbol - smallest_symbol + 1
+                        2 * floor(3 * num_symbols / 4)
                     </td>
                     <td>
-                        [u8]
+                        [u16]
                     </td>
                     <td>
-                        The frequencies of symbols in the payload, scaled by a factor of 256.
+                        The frequencies of symbols in the payload, scaled by a factor of 4096 (= 2^12).
                         <ul>
                             <li>
-                                Must sum up to 256.
+                                Must sum up to less than 4096.
                             </li>
-                        </ul>
-                        <ul>
                             <li>
-                                Must not start or end in a zero (because that&rsquo;s what the fields
-                                smallest_symbol
-                                and largest_symbol are for).
+                                Must not contain any zeros.
                             </li>
-                        </ul>
-                        <ul>
                             <li>
-                                The distribution specified by frequencies, smallest_symbol, and largest_symbol must
-                                not
-                                assign a zero frequency to any symbol that appears in the payload (because this
-                                would
-                                make it impossible to encode the symbol).
+                                The frequency of the last symbol is not stored in the file as it can be inferred from
+                                the condition that the sum of all scaled frequencies must be 4096 (and the decoder has
+                                to calculate this sum anyway to construct the cumulative distribution).
                             </li>
-                        </ul>
-                        <ul>
                             <li>
-                                The specified distribution should approximate the true frequencies (multiplied by
-                                256)
-                                of symbols in the payload in order to achieve optimal compression ratio. More
-                                precisely,
-                                the encoder should minimize the cross entropy of the distribution specified here
-                                relative to the true frequencies of symbols.
+                                The frequencies are stored in a compact format, using the fact that frequencies are
+                                encoded with only 12 bit accuracy.
+                                In the first (3 * floor((num_symbols - 1) / 2))
+                                Each pair of two successive frequencies can
                             </li>
                         </ul>
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        (padding)
+                        padding
                     </td>
                     <td>
-                        at most 3
+                        0 or 2
                     </td>
                     <td>
                         &mdash;
                     </td>
                     <td>
-                        Unused padding bytes to restore 4-byte alignment.
+                        Unused space to ensure 4-byte alignment of the next field.
                     </td>
                 </tr>
                 <tr>
@@ -410,26 +420,24 @@
                         [u32]
                     </td>
                     <td>
-                        Addresses (in units of 4 bytes, see <a href="#Overall-Layout">
-                            Overall Layout</a>) of the compressed chunks. See <a href="#Chunk-Blocks">
-                            below</a> for the layout of chunks.
+                        Addresses (in units of 4 bytes, see <a href="#Overall-Layout"> Overall Layout</a>) of the
+                        compressed chunks. See <a href="#Chunk-Blocks"> below</a> for the layout of chunks.
                     </td>
                 </tr>
             </tbody>
         </table>
+
         <h3 id="Chunk-Blocks">Chunk Blocks</h3>
         <ul>
-            <li>There are (root_block.num_timestep - 2) * root_block.vocab_size / root_block.chunk_size chunk
-                blocks.</li>
-            <li>The chunk blocks start at the addresses given in time_step_meta_data_block.chunk_addrs, which are
-                multiples of four.</li>
+            <li>There are root_block.num_timestep * root_block.vocab_size / root_block.chunk_size chunk blocks.</li>
+            <li>The chunk blocks start at the addresses given in time_step_meta_data_block.chunk_addrs (measured in
+                multiples of four bytes, see <a href="#Overall-Layout">Overall Layout</a>).</li>
             <li>Chunk blocks contain a compressed stream that uncompresses to an array of size root_block.chunk_size
                 *
                 root_block.embedding_dim.</li>
             <li>The uncompressed representation of a chunk block contains root_block.chunk_size concatenated
                 difference
-                vectors, where each difference vector is a sequence of root_node.embedding_dim signed bytes (i.e.,
-                i8s).</li>
+                vectors, where each difference vector is a sequence of root_block.embedding_dim i16s).</li>
         </ul>
         <table>
             <tbody>
@@ -456,12 +464,10 @@
             </tbody>
         </table>
         <h3 id="Compression">Compression</h3>
-        We use an <a href="https://en.wikipedia.org/wiki/Asymmetric_numeral_systems">asymmetric numeral
-            system</a> for lossless compression. The encoding and decoding algorithms use a buffer of 32 bits, and
-        they
-        transfer
-        data between this buffer and the compressed data source/sink at a granularity of 16 bits. This is why the
-        compressed_data field of chunk blocks is of type [u16].
+        We use an <a href="https://en.wikipedia.org/wiki/Asymmetric_numeral_systems">asymmetric numeral system</a> for
+        lossless compression. The encoding and decoding algorithms use a buffer of 32 bits, and they
+        transfer data between this buffer and the compressed data sink/source at a granularity of 16 bits. This is why
+        the compressed_data field of chunk blocks is of type [u16].
         TODO: precise specification of the compression algorithm.
     </div>
 </body>

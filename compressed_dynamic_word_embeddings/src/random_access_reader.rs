@@ -55,110 +55,111 @@ impl RandomAccessReader {
         min_increasing: u32,
         min_decreasing: u32,
     ) -> Vec<u32> {
-        let first_timestep_data = self.file.margin_embeddings(0).uncompressed;
-        let last_timestep_data = self.file.margin_embeddings(1).uncompressed;
+        todo!()
+        // let first_timestep_data = self.file.margin_embeddings(0).uncompressed;
+        // let last_timestep_data = self.file.margin_embeddings(1).uncompressed;
 
-        let header = self.file.header();
-        let emb_dim = header.embedding_dim;
+        // let header = self.file.header();
+        // let emb_dim = header.embedding_dim;
 
-        let first_target = &first_timestep_data
-            [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
-        let last_target = &last_timestep_data
-            [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
+        // let first_target = &first_timestep_data
+        //     [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
+        // let last_target = &last_timestep_data
+        //     [(target_word * emb_dim) as usize..((target_word + 1) * emb_dim) as usize];
 
-        let mut increasing_front_runners = Vec::<FrontRunnerCandidate>::new();
-        increasing_front_runners.resize_with(amt as usize, Default::default);
+        // let mut increasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        // increasing_front_runners.resize_with(amt as usize, Default::default);
 
-        let mut decreasing_front_runners = Vec::<FrontRunnerCandidate>::new();
-        decreasing_front_runners.resize_with(amt as usize, Default::default);
+        // let mut decreasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        // decreasing_front_runners.resize_with(amt as usize, Default::default);
 
-        for (word, (first_emb, last_emb)) in first_timestep_data
-            .chunks_exact(emb_dim as usize)
-            .zip(last_timestep_data.chunks_exact(emb_dim as usize))
-            .enumerate()
-        {
-            if word as u32 != target_word {
-                let first_dot_product = first_target
-                    .iter()
-                    .zip(first_emb)
-                    .map(|(a, b)| *a as i32 * *b as i32)
-                    .sum::<i32>();
-                let last_dot_product = last_target
-                    .iter()
-                    .zip(last_emb)
-                    .map(|(a, b)| *a as i32 * *b as i32)
-                    .sum::<i32>();
+        // for (word, (first_emb, last_emb)) in first_timestep_data
+        //     .chunks_exact(emb_dim as usize)
+        //     .zip(last_timestep_data.chunks_exact(emb_dim as usize))
+        //     .enumerate()
+        // {
+        //     if word as u32 != target_word {
+        //         let first_dot_product = first_target
+        //             .iter()
+        //             .zip(first_emb)
+        //             .map(|(a, b)| *a as i32 * *b as i32)
+        //             .sum::<i32>();
+        //         let last_dot_product = last_target
+        //             .iter()
+        //             .zip(last_emb)
+        //             .map(|(a, b)| *a as i32 * *b as i32)
+        //             .sum::<i32>();
 
-                let diff = last_dot_product - first_dot_product;
+        //         let diff = last_dot_product - first_dot_product;
 
-                let increasing_last_better = increasing_front_runners
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find(|(_index, fr)| fr.value >= diff);
-                let increasing_first_worse =
-                    increasing_last_better.map_or(0, |(index, _)| index + 1);
-                let mut insert_fr = FrontRunnerCandidate {
-                    word: word as u32,
-                    value: diff,
-                };
-                for dest in increasing_front_runners[increasing_first_worse..].iter_mut() {
-                    std::mem::swap(dest, &mut insert_fr);
-                }
+        //         let increasing_last_better = increasing_front_runners
+        //             .iter()
+        //             .enumerate()
+        //             .rev()
+        //             .find(|(_index, fr)| fr.n >= diff);
+        //         let increasing_first_worse =
+        //             increasing_last_better.map_or(0, |(index, _)| index + 1);
+        //         let mut insert_fr = FrontRunnerCandidate {
+        //             word: word as u32,
+        //             n: diff,
+        //         };
+        //         for dest in increasing_front_runners[increasing_first_worse..].iter_mut() {
+        //             std::mem::swap(dest, &mut insert_fr);
+        //         }
 
-                let neg_diff = -diff;
-                let decreasing_last_better = decreasing_front_runners
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find(|(_index, fr)| fr.value >= neg_diff);
-                let decreasing_first_worse =
-                    decreasing_last_better.map_or(0, |(index, _)| index + 1);
-                let mut insert_fr = FrontRunnerCandidate {
-                    word: word as u32,
-                    value: neg_diff,
-                };
-                for dest in decreasing_front_runners[decreasing_first_worse..].iter_mut() {
-                    std::mem::swap(dest, &mut insert_fr);
-                }
-            }
-        }
+        //         let neg_diff = -diff;
+        //         let decreasing_last_better = decreasing_front_runners
+        //             .iter()
+        //             .enumerate()
+        //             .rev()
+        //             .find(|(_index, fr)| fr.n >= neg_diff);
+        //         let decreasing_first_worse =
+        //             decreasing_last_better.map_or(0, |(index, _)| index + 1);
+        //         let mut insert_fr = FrontRunnerCandidate {
+        //             word: word as u32,
+        //             n: neg_diff,
+        //         };
+        //         for dest in decreasing_front_runners[decreasing_first_worse..].iter_mut() {
+        //             std::mem::swap(dest, &mut insert_fr);
+        //         }
+        //     }
+        // }
 
-        let mut combined = Vec::with_capacity((2 * amt) as usize);
+        // let mut combined = Vec::with_capacity((2 * amt) as usize);
 
-        // Put the required words (`min_increasing` and `min_decrasing`) first.
-        combined.extend_from_slice(&increasing_front_runners[..min_increasing as usize]);
-        combined.extend_from_slice(&decreasing_front_runners[..min_decreasing as usize]);
+        // // Put the required words (`min_increasing` and `min_decreasing`) first.
+        // combined.extend_from_slice(&increasing_front_runners[..min_increasing as usize]);
+        // combined.extend_from_slice(&decreasing_front_runners[..min_decreasing as usize]);
 
-        // Then put the remaining items and sort them.
-        combined.extend_from_slice(&increasing_front_runners[min_increasing as usize..]);
-        combined.extend_from_slice(&decreasing_front_runners[min_decreasing as usize..]);
+        // // Then put the remaining items and sort them.
+        // combined.extend_from_slice(&increasing_front_runners[min_increasing as usize..]);
+        // combined.extend_from_slice(&decreasing_front_runners[min_decreasing as usize..]);
 
-        // We will keep on only the first half of the list. Sort it as well by magnitude
-        // of the change, so that in particular the first result (which a viewer may
-        // highlight by default) is the one with the largest change in magnitude.
-        combined[..amt as usize].sort_by_key(|fr| -fr.value);
+        // // We will keep on only the first half of the list. Sort it as well by magnitude
+        // // of the change, so that in particular the first result (which a viewer may
+        // // highlight by default) is the one with the largest change in magnitude.
+        // combined[..amt as usize].sort_by_key(|fr| -fr.n);
 
-        // Retain only the `word` part of the first half of the list.
-        combined
-            .into_iter()
-            .take(amt as usize)
-            .map(|fr| fr.word)
-            .collect()
+        // // Retain only the `word` part of the first half of the list.
+        // combined
+        //     .into_iter()
+        //     .take(amt as usize)
+        //     .map(|fr| fr.word)
+        //     .collect()
     }
 }
 
 #[derive(Copy, Clone)]
 struct FrontRunnerCandidate {
     word: u32,
-    value: i32,
+    n: i32,
 }
 
 impl Default for FrontRunnerCandidate {
     fn default() -> Self {
         Self {
             word: std::u32::MAX,
-            value: std::i32::MIN,
+            n: std::i32::MIN,
         }
     }
 }
@@ -218,170 +219,171 @@ trait SingleTimestepTask: Sized {
     fn finalize(self) -> Self::Output;
 
     fn run(mut self, t: u32, rar: &RandomAccessReader) -> Self::Output {
-        let header = rar.file.header();
-        let mut center_scratch =
-            RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
+        todo!()
+        // let header = rar.file.header();
+        // let mut center_scratch =
+        //     RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
 
-        if t == 0 || t == header.num_timesteps - 1 {
-            let level = if t == 0 { 0 } else { 1 };
-            let mut center_scratch_view_mut = center_scratch.as_view_mut();
-            let full_timestep_data = rar.file.margin_embeddings(level).uncompressed;
-            self.iter_scratch_words(
-                center_scratch_view_mut.iter_mut_subviews(),
-                |center_emb, word| {
-                    let start = word * header.embedding_dim;
-                    let end = start + header.embedding_dim;
-                    center_emb.copy_from_slice(&full_timestep_data[start as usize..end as usize]);
-                },
-            );
+        // if t == 0 || t == header.num_timesteps - 1 {
+        //     let level = if t == 0 { 0 } else { 1 };
+        //     let mut center_scratch_view_mut = center_scratch.as_view_mut();
+        //     let full_timestep_data = rar.file.margin_embeddings(level).uncompressed;
+        //     self.iter_scratch_words(
+        //         center_scratch_view_mut.iter_mut_subviews(),
+        //         |center_emb, word| {
+        //             let start = word * header.embedding_dim;
+        //             let end = start + header.embedding_dim;
+        //             center_emb.copy_from_slice(&full_timestep_data[start as usize..end as usize]);
+        //         },
+        //     );
 
-            let center_scratch_view = center_scratch_view_mut.downgrade();
-            let total_chunk_size = header.chunk_size * header.embedding_dim;
-            for (start_word, embeddings) in (0..)
-                .step_by(header.chunk_size as usize)
-                .zip(full_timestep_data.chunks_exact(total_chunk_size as usize))
-            {
-                let embeddings = RankTwoTensorView::from_flattened(
-                    header.chunk_size,
-                    header.embedding_dim,
-                    embeddings,
-                );
-                let word_range = start_word..start_word + header.chunk_size;
-                self.process_chunk(word_range, embeddings, center_scratch_view);
-            }
-        } else {
-            let first_timestep_data = rar.file.margin_embeddings(0).uncompressed;
-            let mut left_scratch =
-                RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
-            let mut left_scratch_view_mut = left_scratch.as_view_mut();
+        //     let center_scratch_view = center_scratch_view_mut.downgrade();
+        //     let total_chunk_size = header.chunk_size * header.embedding_dim;
+        //     for (start_word, embeddings) in (0..)
+        //         .step_by(header.chunk_size as usize)
+        //         .zip(full_timestep_data.chunks_exact(total_chunk_size as usize))
+        //     {
+        //         let embeddings = RankTwoTensorView::from_flattened(
+        //             header.chunk_size,
+        //             header.embedding_dim,
+        //             embeddings,
+        //         );
+        //         let word_range = start_word..start_word + header.chunk_size;
+        //         self.process_chunk(word_range, embeddings, center_scratch_view);
+        //     }
+        // } else {
+        //     let first_timestep_data = rar.file.margin_embeddings(0).uncompressed;
+        //     let mut left_scratch =
+        //         RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
+        //     let mut left_scratch_view_mut = left_scratch.as_view_mut();
 
-            let last_timestep_data = rar.file.margin_embeddings(1).uncompressed;
-            let mut right_scratch =
-                RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
-            let mut right_scratch_view_mut = right_scratch.as_view_mut();
+        //     let last_timestep_data = rar.file.margin_embeddings(1).uncompressed;
+        //     let mut right_scratch =
+        //         RankTwoTensor::new(self.scratch_size(), header.embedding_dim as usize);
+        //     let mut right_scratch_view_mut = right_scratch.as_view_mut();
 
-            self.iter_scratch_words(
-                left_scratch_view_mut
-                    .iter_mut_subviews()
-                    .zip(right_scratch_view_mut.iter_mut_subviews()),
-                |(left_emb, right_emb), word| {
-                    let start = word * header.embedding_dim;
-                    let end = start + header.embedding_dim;
-                    left_emb.copy_from_slice(&first_timestep_data[start as usize..end as usize]);
-                    right_emb.copy_from_slice(&last_timestep_data[start as usize..end as usize]);
-                },
-            );
+        //     self.iter_scratch_words(
+        //         left_scratch_view_mut
+        //             .iter_mut_subviews()
+        //             .zip(right_scratch_view_mut.iter_mut_subviews()),
+        //         |(left_emb, right_emb), word| {
+        //             let start = word * header.embedding_dim;
+        //             let end = start + header.embedding_dim;
+        //             left_emb.copy_from_slice(&first_timestep_data[start as usize..end as usize]);
+        //             right_emb.copy_from_slice(&last_timestep_data[start as usize..end as usize]);
+        //         },
+        //     );
 
-            let mut path_from_root = Vec::new();
-            traverse_subtree(
-                2,
-                0,
-                0,
-                header.num_timesteps - 1,
-                1,
-                &mut |current_t, _level, _left_t, _left_level, _right_t, _right_level| {
-                    let left_embeddings_view = left_scratch.as_view();
-                    let right_embeddings_view = right_scratch.as_view();
-                    let mut center_scratch_view_mut = center_scratch.as_view_mut();
+        //     let mut path_from_root = Vec::new();
+        //     traverse_subtree(
+        //         2,
+        //         0,
+        //         0,
+        //         header.num_timesteps - 1,
+        //         1,
+        //         &mut |current_t, _level, _left_t, _left_level, _right_t, _right_level| {
+        //             let left_embeddings_view = left_scratch.as_view();
+        //             let right_embeddings_view = right_scratch.as_view();
+        //             let mut center_scratch_view_mut = center_scratch.as_view_mut();
 
-                    let timestep = rar.file.timestep(current_t).unwrap();
-                    let diff_reader = timestep.reader();
-                    let mut reader = AccumulatingReader::new(
-                        diff_reader,
-                        &left_embeddings_view.slice(),
-                        &right_embeddings_view.slice(),
-                        header.embedding_dim,
-                    );
+        //             let timestep = rar.file.timestep(current_t).unwrap();
+        //             let diff_reader = timestep.reader();
+        //             let mut reader = AccumulatingReader::new(
+        //                 diff_reader,
+        //                 &left_embeddings_view.slice(),
+        //                 &right_embeddings_view.slice(),
+        //                 header.embedding_dim,
+        //             );
 
-                    self.iter_scratch_words(
-                        center_scratch_view_mut.iter_mut_subviews(),
-                        |dest, word| {
-                            reader
-                                .next_diff_vector_in_ascending_order(
-                                    word,
-                                    dest.iter_mut(),
-                                    |src, dest| *dest = src,
-                                )
-                                .unwrap();
-                        },
-                    );
-                    path_from_root.push((timestep, current_t));
+        //             self.iter_scratch_words(
+        //                 center_scratch_view_mut.iter_mut_subviews(),
+        //                 |dest, word| {
+        //                     reader
+        //                         .next_diff_vector_in_ascending_order(
+        //                             word,
+        //                             dest.iter_mut(),
+        //                             |src, dest| *dest = src,
+        //                         )
+        //                         .unwrap();
+        //                 },
+        //             );
+        //             path_from_root.push((timestep, current_t));
 
-                    match current_t.cmp(&t) {
-                        Less => {
-                            // Continue to the right half of the interval.
-                            std::mem::swap(&mut center_scratch, &mut left_scratch);
-                            (false, true)
-                        }
-                        Greater => {
-                            // Continue to the left half of the interval.
-                            std::mem::swap(&mut center_scratch, &mut right_scratch);
-                            (true, false)
-                        }
-                        Equal => {
-                            // Found the node of interest. Stop iteration.
-                            (false, false)
-                        }
-                    }
-                },
-            );
+        //             match current_t.cmp(&t) {
+        //                 Less => {
+        //                     // Continue to the right half of the interval.
+        //                     std::mem::swap(&mut center_scratch, &mut left_scratch);
+        //                     (false, true)
+        //                 }
+        //                 Greater => {
+        //                     // Continue to the left half of the interval.
+        //                     std::mem::swap(&mut center_scratch, &mut right_scratch);
+        //                     (true, false)
+        //                 }
+        //                 Equal => {
+        //                     // Found the node of interest. Stop iteration.
+        //                     (false, false)
+        //                 }
+        //             }
+        //         },
+        //     );
 
-            let total_chunk_size = (header.chunk_size * header.embedding_dim) as usize;
-            let mut left_buf =
-                RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
-            let mut right_buf =
-                RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
-            let mut center_buf =
-                RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
+        //     let total_chunk_size = (header.chunk_size * header.embedding_dim) as usize;
+        //     let mut left_buf =
+        //         RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
+        //     let mut right_buf =
+        //         RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
+        //     let mut center_buf =
+        //         RankTwoTensor::new(header.chunk_size as usize, header.embedding_dim as usize);
 
-            for chunk_index in 0..(header.vocab_size / header.chunk_size) {
-                let mut left_buf_view_mut = left_buf.as_view_mut();
-                let mut right_buf_view_mut = right_buf.as_view_mut();
+        //     for chunk_index in 0..(header.vocab_size / header.chunk_size) {
+        //         let mut left_buf_view_mut = left_buf.as_view_mut();
+        //         let mut right_buf_view_mut = right_buf.as_view_mut();
 
-                // TODO: This would be much cleaner if wed' just compress the first and second
-                //       time step as well.
-                let chunk_begin = chunk_index as usize * total_chunk_size;
-                let chunk_end = chunk_begin + total_chunk_size;
-                left_buf_view_mut
-                    .as_mut_slice()
-                    .copy_from_slice(&first_timestep_data[chunk_begin..chunk_end]);
-                right_buf_view_mut
-                    .as_mut_slice()
-                    .copy_from_slice(&last_timestep_data[chunk_begin..chunk_end]);
+        //         // TODO: This would be much cleaner if wed' just compress the first and second
+        //         //       time step as well.
+        //         let chunk_begin = chunk_index as usize * total_chunk_size;
+        //         let chunk_end = chunk_begin + total_chunk_size;
+        //         left_buf_view_mut
+        //             .as_mut_slice()
+        //             .copy_from_slice(&first_timestep_data[chunk_begin..chunk_end]);
+        //         right_buf_view_mut
+        //             .as_mut_slice()
+        //             .copy_from_slice(&last_timestep_data[chunk_begin..chunk_end]);
 
-                for (timestep, current_t) in path_from_root.iter() {
-                    let left_buf_view = left_buf.as_view();
-                    let right_buf_view = right_buf.as_view();
-                    let mut center_buf_view_mut = center_buf.as_view_mut();
+        //         for (timestep, current_t) in path_from_root.iter() {
+        //             let left_buf_view = left_buf.as_view();
+        //             let right_buf_view = right_buf.as_view();
+        //             let mut center_buf_view_mut = center_buf.as_view_mut();
 
-                    let mut diff_chunk = timestep.chunk(chunk_index).unwrap();
-                    let dest_iter = center_buf_view_mut
-                        .as_mut_slice()
-                        .iter_mut()
-                        .zip(left_buf_view.slice().iter())
-                        .zip(right_buf_view.slice().iter());
-                    diff_chunk
-                        .decode(dest_iter, |diff, ((dest, left), right)| {
-                            let prediction = ((*left as i32 + *right as i32) / 2) as i8;
-                            *dest = prediction.wrapping_add(diff as i8);
-                        })
-                        .unwrap();
-                    assert!(diff_chunk.could_be_end());
+        //             let mut diff_chunk = timestep.chunk(chunk_index).unwrap();
+        //             let dest_iter = center_buf_view_mut
+        //                 .as_mut_slice()
+        //                 .iter_mut()
+        //                 .zip(left_buf_view.slice().iter())
+        //                 .zip(right_buf_view.slice().iter());
+        //             diff_chunk
+        //                 .decode(dest_iter, |diff, ((dest, left), right)| {
+        //                     let prediction = ((*left as i32 + *right as i32) / 2) as i8;
+        //                     *dest = prediction.wrapping_add(diff as i8);
+        //                 })
+        //                 .unwrap();
+        //             assert!(diff_chunk.could_be_end());
 
-                    match current_t.cmp(&t) {
-                        Less => std::mem::swap(&mut center_buf, &mut left_buf),
-                        Greater => std::mem::swap(&mut center_buf, &mut right_buf),
-                        Equal => (),
-                    }
-                }
+        //             match current_t.cmp(&t) {
+        //                 Less => std::mem::swap(&mut center_buf, &mut left_buf),
+        //                 Greater => std::mem::swap(&mut center_buf, &mut right_buf),
+        //                 Equal => (),
+        //             }
+        //         }
 
-                let word_range =
-                    chunk_index * header.chunk_size..(chunk_index + 1) * header.chunk_size;
-                self.process_chunk(word_range, center_buf.as_view(), center_scratch.as_view());
-            }
-        }
+        //         let word_range =
+        //             chunk_index * header.chunk_size..(chunk_index + 1) * header.chunk_size;
+        //         self.process_chunk(word_range, center_buf.as_view(), center_scratch.as_view());
+        //     }
+        // }
 
-        self.finalize()
+        // self.finalize()
     }
 }
 
@@ -454,11 +456,11 @@ impl SingleTimestepTask for MostRelatedToAtT {
                         .iter()
                         .enumerate()
                         .rev()
-                        .find(|(_index, fr)| fr.value >= dot_product);
+                        .find(|(_index, fr)| fr.n >= dot_product);
                     let first_worse = last_better.map_or(0, |(index, _)| index + 1);
                     let mut insert_fr = FrontRunnerCandidate {
                         word,
-                        value: dot_product,
+                        n: dot_product,
                     };
                     for dest in front_runners[first_worse..].iter_mut() {
                         std::mem::swap(dest, &mut insert_fr);
@@ -519,7 +521,7 @@ impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
         &mut self,
         index: u32,
         dest_iter: I,
-        mut callback: impl FnMut(i8, I::Item),
+        mut callback: impl FnMut(i16, I::Item),
     ) -> Result<(), ()> {
         self.inner.next_diff_vector_in_ascending_order(
             index,
@@ -528,8 +530,8 @@ impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
                 .zip(&mut self.right_parent_iter)
                 .take(self.embedding_dim as usize),
             |diff, ((dest, left), right)| {
-                let prediction = ((*left as i32 + *right as i32) / 2) as i8;
-                callback(prediction.wrapping_add(diff), dest)
+                let prediction = (*left as i32 + *right as i32) / 2;
+                callback((prediction + diff as i32) as i16, dest)
             },
         )
     }
@@ -564,71 +566,70 @@ impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
     }
 
     fn run(mut self) -> RankTwoTensor<T::Output> {
-        let header = self.data.header();
-        let mut buf_view = self.buf.as_view_mut();
-        let mut output_view = self.output.as_view_mut();
+        todo!()
+        // let header = self.data.header();
+        // let mut buf_view = self.buf.as_view_mut();
+        // let mut output_view = self.output.as_view_mut();
 
-        for (t, level) in &[(0, 0), (header.num_timesteps - 1, 1)] {
-            let mut buf_subview = buf_view.subview_mut(*level as usize);
-            let mut reader = self.data.margin_embeddings(*level);
-            let mut buf_iter_mut = buf_subview.as_mut_slice().iter_mut();
-            let output = output_view.subview_mut(*t as usize);
+        // for (t, level) in &[(0, 0), (header.num_timesteps - 1, 1)] {
+        //     let mut buf_subview = buf_view.subview_mut(*level as usize);
+        //     let mut reader = self.data.margin_embeddings(*level);
+        //     let mut buf_iter_mut = buf_subview.as_mut_slice().iter_mut();
+        //     let output = output_view.subview_mut(*t as usize);
 
-            self.task.iter_words(|word| {
-                reader
-                    .next_diff_vector_in_ascending_order(word, &mut buf_iter_mut, |value, dest| {
-                        *dest = value
-                    })
-                    .unwrap();
-            });
+        //     self.task.iter_words(|word| {
+        //         reader
+        //             .next_diff_vector_in_ascending_order(word, &mut buf_iter_mut, |n, dest| {
+        //                 *dest = n
+        //             })
+        //             .unwrap();
+        //     });
 
-            self.task
-                .finalize_timestep(*t, buf_subview.downgrade(), output);
-        }
+        //     self.task
+        //         .finalize_timestep(*t, buf_subview.downgrade(), output);
+        // }
 
-        traverse_subtree(
-            2,
-            0,
-            0,
-            header.num_timesteps - 1,
-            1,
-            &mut |t, level, _left_t, left_level, _right_t, right_level| {
-                let mut buf_view = self.buf.as_view_mut();
-                let (left_parent_view, right_parent_view, mut target_view) = buf_view.subviews_rrw(
-                    left_level as usize,
-                    right_level as usize,
-                    level as usize,
-                );
-                let mut buf_iter_mut = target_view.as_mut_slice().iter_mut();
+        // traverse_subtree(
+        //     2,
+        //     0,
+        //     0,
+        //     header.num_timesteps - 1,
+        //     1,
+        //     &mut |t, level, _left_t, left_level, _right_t, right_level| {
+        //         let mut buf_view = self.buf.as_view_mut();
+        //         let (left_parent_view, right_parent_view, mut target_view) = buf_view.subviews_rrw(
+        //             left_level as usize,
+        //             right_level as usize,
+        //             level as usize,
+        //         );
+        //         let mut buf_iter_mut = target_view.as_mut_slice().iter_mut();
 
-                let timestep = self.data.timestep(t).unwrap();
-                let mut reader = AccumulatingReader::new(
-                    timestep.reader(),
-                    left_parent_view.slice(),
-                    right_parent_view.slice(),
-                    self.data.header().embedding_dim,
-                );
+        //         let timestep = self.data.timestep(t).unwrap();
+        //         let mut reader = AccumulatingReader::new(
+        //             timestep.reader(),
+        //             left_parent_view.slice(),
+        //             right_parent_view.slice(),
+        //             self.data.header().embedding_dim,
+        //         );
 
-                let mut output_view = self.output.as_view_mut();
-                let output = output_view.subview_mut(t as usize);
+        //         let mut output_view = self.output.as_view_mut();
+        //         let output = output_view.subview_mut(t as usize);
 
-                self.task.iter_words(|word| {
-                    reader
-                        .next_diff_vector_in_ascending_order(
-                            word,
-                            &mut buf_iter_mut,
-                            |value, dest| *dest = value,
-                        )
-                        .unwrap();
-                });
-                self.task
-                    .finalize_timestep(t, target_view.downgrade(), output);
+        //         self.task.iter_words(|word| {
+        //             reader
+        //                 .next_diff_vector_in_ascending_order(word, &mut buf_iter_mut, |n, dest| {
+        //                     *dest = n
+        //                 })
+        //                 .unwrap();
+        //         });
+        //         self.task
+        //             .finalize_timestep(t, target_view.downgrade(), output);
 
-                (true, true)
-            },
-        );
+        //         (true, true)
+        //     },
+        // );
 
-        self.output.as_view().to_transposed()
+        // self.output.as_view().to_transposed()
     }
 }
 
@@ -812,7 +813,7 @@ mod test {
         }
     }
 
-    /// TODO: replace this by a function that loads a precompressed file from disk.
+    /// TODO: replace this by a function that loads a pre-compressed file from disk.
     fn create_sample_file() -> EmbeddingFile {
         const NUM_TIMESTEPS: u32 = 6;
         const VOCAB_SIZE: u32 = 100;
@@ -831,6 +832,12 @@ mod test {
             (NUM_TIMESTEPS * VOCAB_SIZE * EMBEDDING_DIM) as usize
         );
 
+        // Convert to i16.
+        let input_buf = input_buf
+            .iter()
+            .map(|&x| x as i8 as i16)
+            .collect::<Vec<_>>();
+
         // Check that negative values are treated correctly.
         assert_eq!(
             input_buf[(3 * VOCAB_SIZE * EMBEDDING_DIM + 5 * EMBEDDING_DIM + 10) as usize] as i8,
@@ -838,7 +845,7 @@ mod test {
         );
 
         let uncompressed = RankThreeTensor::from_flattened(
-            u8_slice_to_i8_slice(&input_buf).to_vec(),
+            input_buf,
             NUM_TIMESTEPS as usize,
             VOCAB_SIZE as usize,
             EMBEDDING_DIM as usize,
@@ -851,10 +858,35 @@ mod test {
             .unwrap()
     }
 
-    fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {
-        unsafe {
-            let ptr = data.as_ptr();
-            std::slice::from_raw_parts_mut(ptr as *mut i8, data.len())
+    #[test]
+    fn sqrt_u32() {
+        /// Calculates the integer square root bounded by one.
+        ///
+        /// Returns `max(1, sqrt(n))`, where `sqrt(n)` is the square root of `n`,
+        /// rounded either up or down.
+        fn sqrt_at_least_one(n: u32) -> u32 {
+            let n = n | 1;
+            let shift = (32 - n.leading_zeros()) / 2;
+            let mut xn = 1 << shift;
+
+            // Three Newton iterations turn out to be enough for all numbers in the range of u32.
+            xn = (xn + (n >> shift)) / 2; // `(n >> shift) == n / xn` here but slightly faster.
+            xn = (xn + n / xn) / 2;
+            xn = (xn + n / xn) / 2;
+            xn
         }
+
+        assert_eq!(1, sqrt_at_least_one(0));
+
+        for i in 1..(256 * 256) {
+            assert_eq!(i, sqrt_at_least_one(i * i));
+        }
+
+        // This complete test also passes, but it takes about 33 seconds on my machine.
+        // for i in 1..=u32::max_value() {
+        //     let sqrt = sqrt_at_least_one(i);
+        //     assert!((sqrt - 1) * (sqrt - 1) < i);
+        //     assert!((sqrt + 1) as u64 * (sqrt + 1) as u64 > i as u64);
+        // }
     }
 }

@@ -23,6 +23,40 @@
             "command": "cargo bench"
         },
         {
+            "label": "cargo test",
+            "type": "shell",
+            "command": "cargo test",
+            "presentation": {
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "cargo doc",
+            "type": "shell",
+            "command": "cargo doc --open",
+            "presentation": {
+                "reveal": "never",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "cargo fmt",
+            "type": "shell",
+            "command": "cargo fmt",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
             "type": "npm",
             "script": "serve",
             "path": "wasm/www/",

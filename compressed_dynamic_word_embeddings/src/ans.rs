@@ -732,7 +732,7 @@ impl<O: EntropyModelOptions, Symbol> DecoderModel<O, Symbol> {
 /// [`DecoderModel::decode`]: struct.DecoderModel.html#method.decode
 /// [`DecoderModel`]: struct.DecoderModel.html
 pub struct Decoder<'model, 'data, O: EntropyModelOptions, Symbol> {
-    model: &'model DecoderModel<O, Symbol>,
+    model: &'model DecoderModel<O, Symbol>, // TODO: avoid additional indirection.
     state: O::State,
     cursor: usize,
     compressed: &'data [O::CompressedWord],
@@ -752,6 +752,7 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
         model: &'model DecoderModel<O, Symbol>,
         compressed: &'data [O::CompressedWord],
     ) -> Self {
+        // TODO: turn compressed[0/1] into compressed.get(0/1).ok_or(..) and return Result
         let word_size = 8 * size_of::<O::CompressedWord>();
         let state = (O::State::from(compressed[0]) << word_size) | O::State::from(compressed[1]);
         Self {
