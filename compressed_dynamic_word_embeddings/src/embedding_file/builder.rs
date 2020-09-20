@@ -1,17 +1,142 @@
-use super::{FileHeader, HEADER_SIZE};
+use super::{FileHeader, JumpPointer, HEADER_SIZE};
 use crate::{
-    ans::EntropyModel12_16,
+    ans::Encoder12_16,
+    ans::{EncoderModel12_16, EntropyModel12_16},
     tensors::{RankThreeTensor, RankThreeTensorView},
     u12::pack_u12s,
 };
 
-use std::{collections::HashMap, convert::TryInto};
+use byteorder::{LittleEndian, WriteBytesExt};
 
-pub fn build_file(
+use std::{collections::HashMap, convert::TryInto, io::Write};
+
+fn create_and_serialize_encoder_models(
+    counts: &[HashMap<i16, u32>],
+) -> Result<(Vec<EncoderModel12_16<i16>>, Vec<u16>), ()> {
+    let mut serialized = Vec::new();
+    let mut models = Vec::with_capacity(counts.len());
+
+    for counts in counts {
+        let symbols_and_frequencies = optimal_frequencies_12bit(counts);
+
+        let frequencies = symbols_and_frequencies
+            .iter()
+            .map(|&(_, f)| f)
+            .collect::<Vec<_>>();
+
+        let num_symbols: u16 = symbols_and_frequencies.len().try_into().map_err(|_| ())?;
+        serialized.push(num_symbols);
+        for &(symbol, _) in &symbols_and_frequencies {
+            serialized.push(symbol as u16);
+        }
+        for frequency_encoding in pack_u12s(&frequencies[..frequencies.len() - 1]) {
+            serialized.push(frequency_encoding);
+        }
+
+        models.push(
+            EntropyModel12_16::new(
+                symbols_and_frequencies.iter().map(|&(s, _)| s),
+                symbols_and_frequencies.iter().map(|&(_, f)| f),
+            )
+            .encoder_model(),
+        );
+    }
+
+    // Add padding if necessary.
+    if serialized.len() % 2 == 1 {
+        serialized.push(0);
+    }
+
+    Ok((models, serialized))
+}
+
+fn compress_data(
+    diffs: RankThreeTensorView<i16>,
+    encoder_models: &[EncoderModel12_16<i16>],
+    jump_interval: u32,
+) -> Result<(Vec<JumpPointer>, Vec<u16>), ()> {
+    let (num_timesteps, vocab_size, embedding_dim) = diffs.shape();
+    let num_timesteps: u32 = num_timesteps.try_into().unwrap();
+    let vocab_size: u32 = vocab_size.try_into().unwrap();
+    let embedding_dim: u32 = embedding_dim.try_into().unwrap();
+
+    let mut tree_order = Vec::with_capacity(num_timesteps as usize);
+    tree_order.push(0);
+    tree_order.push(num_timesteps - 1);
+    traverse_subtree(
+        2,
+        0,
+        0,
+        (num_timesteps - 1) as usize,
+        1,
+        &mut |t, _, _, _, _, _| {
+            tree_order.push(t as u32);
+        },
+    );
+
+    let jump_points_per_timestep = (vocab_size + jump_interval - 1) / jump_interval;
+    let jump_table_len = num_timesteps * jump_points_per_timestep;
+    let mut jump_table_section = vec![
+        JumpPointer {
+            offset: 0,
+            state: 0
+        };
+        jump_table_len as usize
+    ];
+    let mut previous_encoder: Option<Encoder12_16<i16>> = None;
+
+    for &t in tree_order.iter().rev() {
+        let mut data_iter = diffs.subview(t as usize).slice().iter().rev();
+
+        previous_encoder = previous_encoder.map(|old| {
+            let (buf, state) = old.into_inner();
+            encoder_models[t as usize].encoder_with_history(buf, state)
+        });
+        let encoder = previous_encoder.get_or_insert_with(|| encoder_models[t as usize].encoder());
+
+        for i in (0..vocab_size).rev() {
+            for _k in (0..embedding_dim).rev() {
+                encoder
+                    .push_symbol(data_iter.next().unwrap())
+                    .map_err(|_| ())?;
+            }
+
+            if i % jump_interval == 0 {
+                jump_table_section[(t * jump_points_per_timestep + i / jump_interval) as usize] =
+                    JumpPointer {
+                        offset: encoder.compressed_len().try_into().map_err(|_| ())?,
+                        state: encoder.state(),
+                    }
+            }
+        }
+    }
+
+    let encoder = previous_encoder.unwrap();
+
+    let final_compressed_size: u32 = encoder.compressed_len().try_into().map_err(|_| ())?;
+
+    for JumpPointer { offset, .. } in jump_table_section.iter_mut() {
+        *offset = final_compressed_size - *offset;
+    }
+
+    let (mut compressed_data_section, _) = encoder.into_inner();
+    compressed_data_section.reverse();
+
+    // Apply padding if necessary.
+    if compressed_data_section.len() % 2 == 1 {
+        compressed_data_section.push(0);
+    }
+
+    Ok((jump_table_section, compressed_data_section))
+}
+
+/// Returns the number of written *bytes* (not u32's) upon success.
+pub fn write_compressed_dwe_file(
     uncompressed: RankThreeTensorView<i16>,
-    chunk_size: u32,
+    jump_interval: u32,
     scale_factor: f32,
-) -> Vec<u32> {
+    mut output: impl Write,
+) -> Result<usize, ()> {
     let (num_timesteps, vocab_size, embedding_dim) = uncompressed.shape();
     let num_timesteps: u32 = num_timesteps.try_into().unwrap();
     let vocab_size: u32 = vocab_size.try_into().unwrap();
@@ -19,146 +144,63 @@ pub fn build_file(
 
     assert!(vocab_size > 0);
     assert!(embedding_dim > 0);
-    assert!(chunk_size > 0);
-    assert_eq!(vocab_size % chunk_size, 0);
-
-    let chunks_per_timestep = vocab_size / chunk_size;
-
-    let entropy_model_description_length = |num_symbols: u32| {
-        let symbol_count_u16s = 1;
-        let frequency_u16s = 3 * num_symbols / 4;
-        let symbols_u16s = num_symbols;
-        let total_u16s = symbol_count_u16s + frequency_u16s + symbols_u16s;
-
-        (total_u16s + 1) / 2
-    };
-
     assert!(num_timesteps >= 2);
+    assert!(jump_interval > 0);
+    assert!(jump_interval <= vocab_size);
+
     let (diffs, counts) = get_diffs(uncompressed);
+    let (encoder_models, entropy_models_section) = create_and_serialize_encoder_models(&counts)?;
+    let (jump_table_section, compressed_data_section) =
+        compress_data(diffs.as_view(), &encoder_models, jump_interval)?;
 
-    // TODO: estimate file size based on entropies and reserve it.
-    let mut compressed = Vec::new();
-    // Fill in header later, when we know the file size.
-    compressed.resize(HEADER_SIZE as usize, 0);
+    let entropy_model_section_size: u32 = (entropy_models_section.len() / 2)
+        .try_into()
+        .map_err(|_| ())?;
+    let compressed_data_section_size: u32 = (compressed_data_section.len() / 2)
+        .try_into()
+        .map_err(|_| ())?;
+    let jump_table_address = HEADER_SIZE + entropy_model_section_size;
+    let file_size =
+        jump_table_address + 2 * jump_table_section.len() as u32 + compressed_data_section_size;
 
-    // Calculate and push time step addresses.
-    let mut address = HEADER_SIZE + num_timesteps;
-    let symbols_and_frequencies = counts
-        .into_iter()
-        .map(|counts| {
-            let symbols_and_frequencies = optimal_frequencies_12bit(&counts);
-            compressed.push(address);
-            address += entropy_model_description_length(symbols_and_frequencies.len() as u32)
-                + chunks_per_timestep;
-            symbols_and_frequencies
-        })
-        .collect::<Vec<_>>();
-
-    let meta_size = address;
-
-    // Skip over time step meta data since we don't know the chunk addresses yet.
-    compressed.resize(meta_size as usize, 0);
-
-    // Write out compressed chunks in tree traversal order (might improve memory locality).
-    let mut chunk_addresses =
-        vec![Vec::with_capacity(chunks_per_timestep as usize); num_timesteps as usize];
-
-    let mut write_timestep = |t: usize| {
-        let symbols_and_frequencies = &symbols_and_frequencies[t];
-        let encoder_model = EntropyModel12_16::new(
-            symbols_and_frequencies.iter().map(|&(s, _)| s),
-            symbols_and_frequencies.iter().map(|&(_, f)| f),
-        )
-        .encoder_model();
-
-        let chunk_addresses = &mut chunk_addresses[t];
-        for chunk in diffs
-            .as_view()
-            .subview(t)
-            .slice()
-            .chunks((chunk_size * embedding_dim) as usize)
-        {
-            let mut compressed_chunk = encoder_model.encode(chunk).unwrap();
-            if compressed_chunk.len() % 2 == 1 {
-                compressed_chunk.push(0);
-            }
-
-            chunk_addresses.push(compressed.len() as u32);
-            compressed.reserve(compressed_chunk.len() / 2);
-            let mut iter = compressed_chunk.iter();
-            while let Some(first) = iter.next() {
-                let second = iter.next().unwrap();
-                // Little endian byte order: first bytes are least significant.
-                compressed.push((*second as u32) << 16 | (*first as u32));
-            }
-        }
-    };
-
-    write_timestep(0);
-    write_timestep((num_timesteps - 1) as usize);
-
-    traverse_subtree(
-        2,
-        0,
-        0,
-        num_timesteps as usize - 1,
-        1,
-        &mut |t, _, _, _, _, _| write_timestep(t),
-    );
-
-    // Write out time step meta data.
-    let mut address = HEADER_SIZE + num_timesteps;
-    for (symbols_and_frequencies, chunk_addresses) in
-        symbols_and_frequencies.into_iter().zip(chunk_addresses)
-    {
-        let frequencies = symbols_and_frequencies
-            .iter()
-            .map(|&(_, f)| f)
-            .collect::<Vec<_>>();
-        let mut u16_iter = std::iter::once(symbols_and_frequencies.len().try_into().unwrap())
-            .chain(symbols_and_frequencies.iter().map(|&(s, _)| s as u16))
-            .chain(pack_u12s(&frequencies[..frequencies.len() - 1]))
-            .chain(std::iter::once(0));
-
-        let description_length =
-            entropy_model_description_length(symbols_and_frequencies.len() as u32);
-        for dest in &mut compressed[address as usize..(address + description_length) as usize] {
-            let first = u16_iter.next().unwrap();
-            let second = u16_iter.next().unwrap();
-            // Little endian byte order: first bytes are least significant.
-            *dest = (second as u32) << 16 | first as u32;
-        }
-
-        address += description_length;
-        compressed[address as usize..(address + chunks_per_timestep) as usize]
-            .copy_from_slice(&chunk_addresses);
-        address += chunks_per_timestep;
-    }
-
-    // Write file header.
     let file_header = FileHeader {
         magic: 0x6577_6400,
         major_version: 1,
         minor_version: 0,
-        file_size: compressed.len() as u32,
-        meta_size,
+        file_size,
+        jump_table_address,
         num_timesteps,
         vocab_size,
         embedding_dim,
-        chunk_size,
+        jump_interval,
         scale_factor,
     };
 
-    let header_array = unsafe {
+    let header_section = unsafe {
         const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
-        // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
-        // `[u32; HEADER_SIZE]`.
+        // SAFETY: This is safe because `FileHeader` is `repr(C)` and has the same
+        // alignment as `[u32; HEADER_SIZE]`.
         &*(&file_header as *const FileHeader as *const [u32; HEADER_SIZE])
     };
 
-    compressed[..header_array.len()].copy_from_slice(header_array);
+    // Serialize all sections to the output writer.
+    for &word in header_section {
+        output.write_u32::<LittleEndian>(word).map_err(|_| ())?;
+    }
+    for word in entropy_models_section {
+        output.write_u16::<LittleEndian>(word).map_err(|_| ())?;
+    }
+    for JumpPointer { offset, state } in jump_table_section {
+        output.write_u32::<LittleEndian>(offset).map_err(|_| ())?;
+        output.write_u32::<LittleEndian>(state).map_err(|_| ())?;
+    }
+    for word in compressed_data_section {
+        output.write_u16::<LittleEndian>(word).map_err(|_| ())?;
+    }
 
-    compressed
+    output.flush().map_err(|_| ())?;
+
+    Ok(file_size as usize * 4)
 }
 
 fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
@@ -403,7 +445,7 @@ mod test {
         const NUM_TIMESTEPS: u32 = 6;
         const VOCAB_SIZE: u32 = 100;
         const EMBEDDING_DIM: u32 = 16;
-        const CHUNK_SIZE: u32 = 20;
+        const JUMP_INTERVAL: u32 = 20;
 
         let file_name = format!(
             "{}/tests/fake_data_generation/random_{}_{}_{}",
@@ -441,8 +483,26 @@ mod test {
         );
         let uncompressed = uncompressed.as_view();
 
-        const SCALE_FACTOR: f32 = 1.5;
-        let compressed = build_file(uncompressed, CHUNK_SIZE, SCALE_FACTOR);
+        const SCALE_FACTOR: f32 = 0.125;
+        let mut compressed = Vec::<u8>::new();
+        let file_size =
+            write_compressed_dwe_file(uncompressed, JUMP_INTERVAL, SCALE_FACTOR, &mut compressed)
+                .unwrap();
+
+        assert_eq!(file_size, compressed.len());
+        assert_eq!(file_size % 4, 0);
+        assert_eq!(&compressed[0..4], b"\0dwe");
+
+        let compressed = compressed
+            .chunks_exact(4)
+            .map(|chunk| {
+                chunk[0] as u32
+                    | ((chunk[1] as u32) << 8)
+                    | ((chunk[2] as u32) << 16)
+                    | ((chunk[3] as u32) << 24)
+            })
+            .collect::<Vec<u32>>();
+
         let compressed_len = compressed.len();
 
         let file = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();
@@ -451,40 +511,31 @@ mod test {
         assert_eq!(
             header,
             &FileHeader {
-                magic: ('\0' as u32) | ('d' as u32) << 8 | ('w' as u32) << 16 | ('e' as u32) << 24,
+                magic: header.magic, // Already checked above.
                 major_version: 1,
                 minor_version: 0,
                 file_size: compressed_len as u32,
-                meta_size: header.meta_size, // Gets checked below.
+                jump_table_address: header.jump_table_address, // Checked in `EmbeddingFile::new`.
                 num_timesteps: NUM_TIMESTEPS,
                 vocab_size: VOCAB_SIZE,
                 embedding_dim: EMBEDDING_DIM,
-                chunk_size: CHUNK_SIZE,
+                jump_interval: JUMP_INTERVAL,
                 scale_factor: SCALE_FACTOR,
             }
         );
 
-        // Check `header.meta_size` *after* we've verified the other header fields
-        // because a malformed header would likely cause the below calculation of
-        // `min_chunk_address` fail in a way that would be hard to debug.
-        let min_chunk_address = *(0..NUM_TIMESTEPS)
-            .flat_map(|t| file.timestep(t).unwrap().chunk_addresses)
-            .min()
-            .unwrap();
-        assert_eq!(header.meta_size, min_chunk_address);
-
         let test_timestep = |t, expected: RankTwoTensorView<i16>| {
-            let timestep = file.timestep(t).unwrap();
+            let mut timestep = file.timestep(t).unwrap();
             assert_eq!(
-                timestep.chunk_addresses.len(),
-                (VOCAB_SIZE / CHUNK_SIZE) as usize
+                timestep.jump_table.len(),
+                ((VOCAB_SIZE + JUMP_INTERVAL - 1) / JUMP_INTERVAL) as usize
             );
 
             let mut buf = [0i16; EMBEDDING_DIM as usize];
-            let mut reader = timestep.reader();
             for i in &[0, 1, 8, 19, 20, 25, 45, 59, 67, 68, 83, 99] {
-                reader
-                    .next_diff_vector_in_ascending_order(*i, buf.iter_mut(), |source, dest| {
+                timestep.jump_to(*i);
+                timestep
+                    .read_single_embedding_vector(buf.iter_mut(), |source, dest| {
                         *dest = source;
                     })
                     .unwrap();

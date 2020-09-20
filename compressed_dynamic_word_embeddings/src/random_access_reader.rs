@@ -2,7 +2,7 @@ use std::cmp::Ordering::*;
 use std::collections::BinaryHeap;
 use std::ops::Range;
 
-use super::embedding_file::{EmbeddingData, EmbeddingFile, FileHeader, TimestepReader};
+use super::embedding_file::{EmbeddingFile, FileHeader, TimestepReader};
 use super::tensors::{RankThreeTensor, RankTwoTensor, RankTwoTensorView};
 
 pub struct RandomAccessReader {
@@ -516,32 +516,32 @@ impl<'a, R: TimestepReader> AccumulatingReader<'a, R> {
     }
 }
 
-impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
-    fn next_diff_vector_in_ascending_order<I: Iterator>(
-        &mut self,
-        index: u32,
-        dest_iter: I,
-        mut callback: impl FnMut(i16, I::Item),
-    ) -> Result<(), ()> {
-        self.inner.next_diff_vector_in_ascending_order(
-            index,
-            dest_iter
-                .zip(&mut self.left_parent_iter)
-                .zip(&mut self.right_parent_iter)
-                .take(self.embedding_dim as usize),
-            |diff, ((dest, left), right)| {
-                let prediction = (*left as i32 + *right as i32) / 2;
-                callback((prediction + diff as i32) as i16, dest)
-            },
-        )
-    }
-}
+// impl<'a, R: TimestepReader> TimestepReader for AccumulatingReader<'a, R> {
+//     fn next_diff_vector_in_ascending_order<I: Iterator>(
+//         &mut self,
+//         index: u32,
+//         dest_iter: I,
+//         mut callback: impl FnMut(i16, I::Item),
+//     ) -> Result<(), ()> {
+//         self.inner.next_diff_vector_in_ascending_order(
+//             index,
+//             dest_iter
+//                 .zip(&mut self.left_parent_iter)
+//                 .zip(&mut self.right_parent_iter)
+//                 .take(self.embedding_dim as usize),
+//             |diff, ((dest, left), right)| {
+//                 let prediction = (*left as i32 + *right as i32) / 2;
+//                 callback((prediction + diff as i32) as i16, dest)
+//             },
+//         )
+//     }
+// }
 
 struct TreeTraverser<'a, T: TraversalTask> {
     buf: RankThreeTensor<i8>,
     output: RankTwoTensor<T::Output>,
     task: T,
-    data: &'a EmbeddingData,
+    data: &'a EmbeddingFile,
 }
 
 impl<'a, T: TraversalTask> TreeTraverser<'a, T> {
@@ -854,8 +854,9 @@ mod test {
         let chunk_size = 20;
         let scale_factor = 0.000_227_234_92;
 
-        EmbeddingFile::from_uncompressed_quantized(uncompressed.as_view(), chunk_size, scale_factor)
-            .unwrap()
+        todo!();
+        // EmbeddingFile::from_uncompressed_quantized(uncompressed.as_view(), chunk_size, scale_factor)
+        //     .unwrap()
     }
 
     #[test]

@@ -1,16 +1,16 @@
 use ndarray::{Array0, Array3};
 use ndarray_npy::NpzReader;
-use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::BufWriter;
 use std::path::PathBuf;
+use std::{error::Error, io::Write};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use log::info;
 use structopt::StructOpt;
 
 use compressed_dynamic_word_embeddings::{
-    embedding_file::{EmbeddingData, EmbeddingFile, HEADER_SIZE},
+    embedding_file::{builder::write_compressed_dwe_file, EmbeddingFile, FileHeader, HEADER_SIZE},
     tensors::RankThreeTensor,
 };
 
@@ -35,7 +35,7 @@ struct CreateOpt {
     /// compression rate but slow down tasks that don't need access to all
     /// embedding vectors in a time step.
     #[structopt(long, short = "C", default_value = "100")]
-    chunk_size: u32,
+    jump_interval: u32,
 
     /// Path to output file [defaults to input file with extension replaced by
     /// ".dwe"].
@@ -133,20 +133,19 @@ fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
 
     std::mem::drop(npz_reader);
 
-    info!("Building compressed representation ...");
-    let compressed = EmbeddingFile::from_uncompressed_quantized(
-        uncompressed.as_view(),
-        opt.chunk_size,
-        scale_factor,
-    )
-    .map_err(|()| "Error when compressing file")?;
-
     info!(
-        "Saving compressed representation to {} ...",
+        "Building compressed representation and saving to {}...",
         output_path.display()
     );
+
     let output_file = BufWriter::new(output_file);
-    compressed.write_to(output_file)?;
+    write_compressed_dwe_file(
+        uncompressed.as_view(),
+        opt.jump_interval,
+        scale_factor,
+        output_file,
+    )
+    .map_err(|()| "Error when compressing file")?;
 
     info!("Done.");
     Ok(())
@@ -185,7 +184,11 @@ fn inspect(opt: InspectOpts) -> Result<(), Box<dyn Error>> {
     let mut file = File::open(opt.input)?;
     let mut buf = [0u32; HEADER_SIZE as usize];
     file.read_u32_into::<LittleEndian>(&mut buf)?;
-    println!("{:#?}", EmbeddingData::header_from_raw(&buf).unwrap());
+    let header = unsafe {
+        // SAFETY: `buf` has correct size.
+        FileHeader::memory_map_unsafe(&buf)
+    };
+    println!("{:#?}", header);
 
     Ok(())
 }

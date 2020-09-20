@@ -3,15 +3,15 @@
 //! # Example
 //!
 //! ```
-//! # use compressed_dynamic_word_embeddings::u12::{expand_u12s, pack_u12s};
+//! # use compressed_dynamic_word_embeddings::u12::{unpack_u12s, pack_u12s};
 //! // Pack some 12-bit integers into a compact representation.
 //! let unpacked = [0x0123, 0x0456, 0x0789, 0x0abc, 0x0def];
 //! let packed = pack_u12s(&unpacked).collect::<Vec<_>>();
 //! assert_eq!(packed, [0x0123, 0x4567, 0x89ab, 0xcdef]);
 //!
 //! // Re-expand the packed representation.
-//! let expanded = expand_u12s(&packed, 5).collect::<Vec<_>>();
-//! assert_eq!(expanded, unpacked);
+//! let unpacked = unpack_u12s(&packed, 5).collect::<Vec<_>>();
+//! assert_eq!(unpacked, unpacked);
 //! ```
 
 /// Chop up a packed concatenation of 12-bit integers into
@@ -27,10 +27,10 @@
 /// possible because `4 * 12 <= 3 * 16`.
 ///
 /// ```
-/// # use compressed_dynamic_word_embeddings::u12::expand_u12s;
+/// # use compressed_dynamic_word_embeddings::u12::unpack_u12s;
 /// let packed = [0x4567, 0x89ab, 0xcdef];
-/// let expanded = expand_u12s(&packed, 4).collect::<Vec<_>>();
-/// assert_eq!(expanded, [0x0456, 0x0789, 0x0abc, 0x0def]);
+/// let unpacked = unpack_u12s(&packed, 4).collect::<Vec<_>>();
+/// assert_eq!(unpacked, [0x0456, 0x0789, 0x0abc, 0x0def]);
 /// ```
 ///
 /// The argument `amt` is necessary because the number of 12-bit blocks that fit into
@@ -40,12 +40,12 @@
 /// element of the argument `packed` must be zero:
 ///
 /// ```
-/// # use compressed_dynamic_word_embeddings::u12::expand_u12s;
+/// # use compressed_dynamic_word_embeddings::u12::unpack_u12s;
 /// let packed = [0x000a, 0x1234, 0x5678];
-/// let expanded = expand_u12s(&packed, 3).collect::<Vec<_>>();
-/// assert_eq!(expanded, [0x0a12, 0x0345, 0x0678]);
+/// let unpacked = unpack_u12s(&packed, 3).collect::<Vec<_>>();
+/// assert_eq!(unpacked, [0x0a12, 0x0345, 0x0678]);
 /// ```
-pub fn expand_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator {
+pub fn unpack_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator {
     ExpandedU12Iterator::new(packed, amt)
 }
 
@@ -55,7 +55,7 @@ pub fn expand_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator {
 /// information and the other bits are zeroed. Returns an iterator that yields
 /// `u16s` that result from concatenating the 12-bit integers.
 ///
-/// This is the inverse of [`expand_u12s`](fn.expand_u12s.html).
+/// This is the inverse of [`unpack_u12s`](fn.unpack_u12s.html).
 ///
 /// # Example
 ///
@@ -75,7 +75,7 @@ pub fn pack_u12s(unpacked: &[u16]) -> CompactifiedU12Iterator {
 
 /// Iterator that yields `u16`s whose 4 highest order bits are zero.
 ///
-/// See [`expand_u12s`](fn.expand_u12s.html).
+/// See [`unpack_u12s`](fn.unpack_u12s.html).
 pub struct ExpandedU12Iterator<'a> {
     packed: &'a [u16],
     carry: u32,
@@ -209,27 +209,27 @@ mod test {
     #[test]
     fn test_expand_u12s() {
         let packed = [0x0123, 0x4567, 0x89ab, 0xcdef];
-        let frequencies = expand_u12s(&packed, 5).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 5).collect::<Vec<_>>();
         assert_eq!(frequencies, [0x0123, 0x0456, 0x0789, 0x0abc, 0x0def]);
 
         let packed = [0x4567, 0x89ab, 0xcdef];
-        let frequencies = expand_u12s(&packed, 4).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 4).collect::<Vec<_>>();
         assert_eq!(frequencies, [0x0456, 0x0789, 0x0abc, 0x0def]);
 
         let packed = [0x000a, 0x1234, 0x5678];
-        let frequencies = expand_u12s(&packed, 3).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 3).collect::<Vec<_>>();
         assert_eq!(frequencies, [0x0a12, 0x0345, 0x0678]);
 
         let packed = [0x00ab, 0xcdef];
-        let frequencies = expand_u12s(&packed, 2).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 2).collect::<Vec<_>>();
         assert_eq!(frequencies, [0x0abc, 0x0def]);
 
         let packed = [0x0bcd];
-        let frequencies = expand_u12s(&packed, 1).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 1).collect::<Vec<_>>();
         assert_eq!(frequencies, [0x0bcd]);
 
         let packed = [];
-        let frequencies = expand_u12s(&packed, 0).collect::<Vec<_>>();
+        let frequencies = unpack_u12s(&packed, 0).collect::<Vec<_>>();
         assert_eq!(frequencies, []);
     }
 

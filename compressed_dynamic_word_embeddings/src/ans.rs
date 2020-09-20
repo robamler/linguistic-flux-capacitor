@@ -359,6 +359,16 @@ pub struct EncoderModel<O: EntropyModelOptions, Symbol: Hash + Eq> {
     symbol_to_freq_and_cdf: HashMap<Symbol, (O::Frequency, O::Frequency)>,
 }
 
+/// Shortcut for an [`EncoderModel`] with 12 bit frequencies and `u16` compressed words.
+///
+/// [`EncoderModel`]: struct.EncoderModel.html
+pub type EncoderModel12_16<Symbol> = EncoderModel<EntropyModelOptions12_16, Symbol>;
+
+/// Shortcut for an [`EncoderModel`] with 12 bit frequencies and `u32` compressed words.
+///
+/// [`EncoderModel`]: struct.EncoderModel.html
+pub type EncoderModel12_32<Symbol> = EncoderModel<EntropyModelOptions12_32, Symbol>;
+
 impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
     /// Constructs an `EncoderModel`.
     ///
@@ -409,7 +419,7 @@ impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
     {
         let mut encoder = self.encoder();
         for symbol in uncompressed.into_iter().rev() {
-            encoder.put_symbol(symbol)?;
+            encoder.push_symbol(symbol)?;
         }
 
         Ok(encoder.finish())
@@ -432,6 +442,15 @@ impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
     /// [`encode`]: #method.encode
     pub fn encoder(&self) -> Encoder<O, Symbol> {
         Encoder::new(self)
+    }
+
+    /// TODO: document
+    pub fn encoder_with_history(
+        &self,
+        compressed: Vec<O::CompressedWord>,
+        state: O::State,
+    ) -> Encoder<O, Symbol> {
+        Encoder::with_history(self, compressed, state)
     }
 }
 
@@ -458,9 +477,19 @@ where
     Symbol: Hash + Eq,
 {
     model: &'model EncoderModel<O, Symbol>,
-    state: O::State,
+    state_: O::State,
     compressed: Vec<O::CompressedWord>,
 }
+
+/// Shortcut for an [`Encoder`] with 12 bit frequencies and `u16` compressed words.
+///
+/// [`Encoder`]: struct.Encoder.html
+pub type Encoder12_16<'model, Symbol> = Encoder<'model, EntropyModelOptions12_16, Symbol>;
+
+/// Shortcut for an [`Encoder`] with 12 bit frequencies and `u32` compressed words.
+///
+/// [`Encoder`]: struct.Encoder.html
+pub type Encoder12_32<'model, Symbol> = Encoder<'model, EntropyModelOptions12_32, Symbol>;
 
 impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbol> {
     /// Constructs an `Encoder`.
@@ -475,17 +504,30 @@ impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbo
     pub fn new(model: &'model EncoderModel<O, Symbol>) -> Self {
         Self {
             model,
-            state: min_state::<O>(),
+            state_: min_state::<O>(),
             compressed: Vec::new(),
         }
     }
 
-    /// Put a symbol on the compressed data stack.
+    /// TODO: document
+    pub fn with_history(
+        model: &'model EncoderModel<O, Symbol>,
+        compressed: Vec<O::CompressedWord>,
+        state: O::State,
+    ) -> Self {
+        Self {
+            model,
+            state_: state,
+            compressed,
+        }
+    }
+
+    /// Push a symbol on the compressed data stack.
     ///
     /// This method is deliberately named *`put`*`_symbol` to remind callers that the
     /// underlying entropy coding algorithm is a stack, so symbols have to be put on the
     /// stack in reverse order.
-    pub fn put_symbol(&mut self, symbol: &Symbol) -> Result<(), EncoderError> {
+    pub fn push_symbol(&mut self, symbol: &Symbol) -> Result<(), EncoderError> {
         let word_bits = 8 * size_of::<O::CompressedWord>();
 
         // Invariant at this point: `state >= min_state::<O>()`.
@@ -499,11 +541,11 @@ impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbo
         // If emitting a compressed word and then pushing `symbol` on `state` results
         // in `state >= min_state::<O>()`, then do it. If not, then just pushing
         // `symbol` on `state` is guaranteed not to overflow.
-        if self.state >= threshold_encoder_state::<O>() * frequency {
+        if self.state_ >= threshold_encoder_state::<O>() * frequency {
             // The following line verifiably gets optimized to just a single "movl"
             // or "movq" instruction on x86.
-            let compressed_word = num::cast(self.state % (O::State::one() << word_bits)).unwrap();
-            self.state = self.state >> word_bits;
+            let compressed_word = num::cast(self.state_ % (O::State::one() << word_bits)).unwrap();
+            self.state_ = self.state_ >> word_bits;
 
             self.compressed.push(compressed_word);
             // This is the only time where `state < min_state::<O>()`. Thus,
@@ -513,11 +555,11 @@ impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbo
 
         // Push `symbol` on `state`.
         let prefix = self
-            .state
+            .state_
             .checked_div(&frequency)
             .ok_or(EncoderError::ProhibitedSymbol)?;
-        let suffix = self.state % frequency + From::<O::Frequency>::from(cdf);
-        self.state = (prefix << O::FREQUENCY_BITS) | suffix;
+        let suffix = self.state_ % frequency + From::<O::Frequency>::from(cdf);
+        self.state_ = (prefix << O::FREQUENCY_BITS) | suffix;
 
         Ok(())
     }
@@ -531,13 +573,33 @@ impl<'model, Symbol: Hash + Eq, O: EntropyModelOptions> Encoder<'model, O, Symbo
     /// have been put on the stack.
     pub fn finish(mut self) -> Vec<O::CompressedWord> {
         let word_bits = 8 * size_of::<O::CompressedWord>();
-        let compressed_word1 = num::cast(self.state % (O::State::one() << word_bits)).unwrap();
-        let compressed_word2 = num::cast(self.state >> word_bits).unwrap();
+        let compressed_word1 = num::cast(self.state_ % (O::State::one() << word_bits)).unwrap();
+        let compressed_word2 = num::cast(self.state_ >> word_bits).unwrap();
         self.compressed.push(compressed_word1);
         self.compressed.push(compressed_word2);
 
         self.compressed.reverse();
         self.compressed
+    }
+
+    /// TODO: document
+    pub fn into_inner(self) -> (Vec<O::CompressedWord>, O::State) {
+        (self.compressed, self.state_)
+    }
+
+    /// TODO: document
+    pub fn state(&self) -> O::State {
+        self.state_
+    }
+
+    /// TODO: document
+    pub fn compressed_len(&self) -> usize {
+        self.compressed.len()
+    }
+
+    /// TODO: document
+    pub fn stack(&self) -> &[O::CompressedWord] {
+        &self.compressed
     }
 }
 
@@ -601,6 +663,16 @@ pub struct DecoderModel<O: EntropyModelOptions, Symbol> {
     /// allow this.
     inverse_cdf: Box<[O::Frequency]>,
 }
+
+/// Shortcut for an [`DecoderModel`] with 12 bit frequencies and `u16` compressed words.
+///
+/// [`DecoderModel`]: struct.DecoderModel.html
+pub type DecoderModel12_16<Symbol> = DecoderModel<EntropyModelOptions12_16, Symbol>;
+
+/// Shortcut for an [`DecoderModel`] with 12 bit frequencies and `u32` compressed words.
+///
+/// [`DecoderModel`]: struct.DecoderModel.html
+pub type DecoderModel12_32<Symbol> = DecoderModel<EntropyModelOptions12_32, Symbol>;
 
 impl<O: EntropyModelOptions, Symbol> DecoderModel<O, Symbol> {
     /// Constructs a `DecoderModel`.
@@ -695,6 +767,16 @@ impl<O: EntropyModelOptions, Symbol> DecoderModel<O, Symbol> {
         Decoder::new(self, compressed)
     }
 
+    /// TODO: document
+    pub fn decoder_with_history<'model, 'data>(
+        &'model self,
+        compressed: &'data [O::CompressedWord],
+        offset: usize,
+        state: O::State,
+    ) -> Decoder<'model, 'data, O, Symbol> {
+        Decoder::with_history(self, compressed, offset, state)
+    }
+
     /// Generates a random sample from the entropy model.
     ///
     /// This is implemented as a method on `DecoderModel` since drawing random samples
@@ -738,6 +820,18 @@ pub struct Decoder<'model, 'data, O: EntropyModelOptions, Symbol> {
     compressed: &'data [O::CompressedWord],
 }
 
+/// Shortcut for an [`Decoder`] with 12 bit frequencies and `u16` compressed words.
+///
+/// [`Decoder`]: struct.Decoder.html
+pub type Decoder12_16<'model, 'data, Symbol> =
+    Decoder<'model, 'data, EntropyModelOptions12_16, Symbol>;
+
+/// Shortcut for an [`Decoder`] with 12 bit frequencies and `u32` compressed words.
+///
+/// [`Decoder`]: struct.Decoder.html
+pub type Decoder12_32<'model, 'data, Symbol> =
+    Decoder<'model, 'data, EntropyModelOptions12_32, Symbol>;
+
 impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Symbol> {
     /// Constructs an `Decoder`.
     ///
@@ -761,6 +855,27 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
             cursor: 2,
             compressed,
         }
+    }
+
+    /// TODO: document
+    pub fn with_history(
+        model: &'model DecoderModel<O, Symbol>,
+        compressed: &'data [O::CompressedWord],
+        offset: usize,
+        state: O::State,
+    ) -> Self {
+        Self {
+            model,
+            state,
+            cursor: offset,
+            compressed,
+        }
+    }
+
+    /// TODO: document
+    pub fn jump_to(&mut self, position: usize, state: O::State) {
+        self.cursor = position;
+        self.state = state
     }
 
     /// Low-level decoding API.
@@ -833,10 +948,10 @@ impl<'model, 'data, O: EntropyModelOptions, Symbol> Decoder<'model, 'data, O, Sy
 
             callback(symbol, dest);
 
-            // Update `state`.
+            // Update `state`. Parenthesis around "suffix - cdf" ensure calculation never overflows.
             let word_size = 8 * size_of::<O::CompressedWord>();
-            state = (state >> O::FREQUENCY_BITS) * From::<O::Frequency>::from(frequency) + suffix
-                - From::<O::Frequency>::from(*cdf);
+            state = (state >> O::FREQUENCY_BITS) * From::<O::Frequency>::from(frequency)
+                + (suffix - From::<O::Frequency>::from(*cdf));
 
             // Refill `state` from compressed data if necessary.
             if state < min_state::<O>() {
@@ -1047,7 +1162,7 @@ mod test {
     //! (also: benchmark both variants on real data)
 
     use super::*;
-    use crate::u12::expand_u12s;
+    use crate::u12::unpack_u12s;
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
@@ -1069,7 +1184,7 @@ mod test {
 
         let dec = EntropyModel::<EntropyModelOptions12_32, _, _>::new(
             symbols.iter().cloned(),
-            expand_u12s(&frequencies_compact, 6),
+            unpack_u12s(&frequencies_compact, 6),
         )
         .decoder_model();
 
