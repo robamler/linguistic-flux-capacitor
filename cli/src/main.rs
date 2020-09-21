@@ -1,9 +1,12 @@
 use ndarray::{Array0, Array3};
 use ndarray_npy::NpzReader;
-use std::fs::{File, OpenOptions};
 use std::io::BufWriter;
 use std::path::PathBuf;
 use std::{error::Error, io::Write};
+use std::{
+    fs::{File, OpenOptions},
+    io::BufReader,
+};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use log::info;
@@ -156,7 +159,7 @@ fn pairwise_trajectories(opt: PairwiseTrajectoriesOpt) -> Result<(), Box<dyn Err
         "Loading compressed dynamic embeddings from {} ...",
         opt.input.display()
     );
-    let file = File::open(opt.input)?;
+    let file = BufReader::new(File::open(opt.input)?);
     let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
 
     info!("Calculating trajectories ...");

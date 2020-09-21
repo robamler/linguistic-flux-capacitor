@@ -753,7 +753,7 @@
         Initialize an empty stack for unsigned 16-bit integers.<br>
         Allocate space for a <a href="#jump-table">jump table</a> with
         <code>num_timesteps * ceil(vocab_size / jump_interval)</code> rows.<br>
-        Initialize <code>state ← 2<sup>16</sup></code>.<br>
+        Initialize an unsigned 32-bit integer variable <code>state ← 2<sup>16</sup></code>.<br>
         For each time step <code>t ∊ {0, ..., num_timesteps - 1}</code> in arbitrary order:
         <blockquote>
             For each word <code>i ∊ {0, ..., vocab_size - 1}</code> in <em>descending</em> order:
@@ -786,7 +786,7 @@
             Replace the value of the row's <code>offset</code> field by <code>(final_stack_size - offset)</code> where
             <code>offset</code> is the previous value and <code>final_stack_size</code> is the final size of the stack
             (i.e., the total number of 16-bit words that were pushed on it).<br>
-            Serialize the row to the file as described under <a href="#jump-table">jump table</a>.
+            Serialize the row as described under <a href="#jump-table">jump table</a> and append it to the file.
         </blockquote>
         While the stack is not empty:
         <blockquote>
