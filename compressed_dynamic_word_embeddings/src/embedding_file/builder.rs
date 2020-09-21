@@ -1,7 +1,7 @@
 use super::{FileHeader, JumpPointer, HEADER_SIZE};
 use crate::{
-    ans::Encoder12_16,
-    ans::{EncoderModel12_16, EntropyModel12_16},
+    compression::Encoder12_16,
+    compression::{EncoderModel12_16, EntropyModel12_16},
     tensors::{RankThreeTensor, RankThreeTensorView},
     u12::pack_u12s,
 };

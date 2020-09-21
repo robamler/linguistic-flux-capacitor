@@ -3,13 +3,13 @@ use std::io::{Read, Write};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use super::random_access_reader::RandomAccessReader;
-use crate::{ans::DecoderModel12_16, u12::unpack_u12s};
+use crate::{compression::DecoderModel12_16, u12::unpack_u12s};
 
 pub mod builder;
 
-type EntropyModel<SI, FI> = crate::ans::EntropyModel12_16<SI, FI>;
-type DecoderModel = crate::ans::DecoderModel12_16<i16>;
-type Decoder<'model, 'data> = crate::ans::Decoder12_16<'model, 'data, i16>;
+type EntropyModel<SI, FI> = crate::compression::EntropyModel12_16<SI, FI>;
+type DecoderModel = crate::compression::DecoderModel12_16<i16>;
+type Decoder<'model, 'data> = crate::compression::Decoder12_16<'model, 'data, i16>;
 
 pub const HEADER_SIZE: u32 = (std::mem::size_of::<FileHeader>() / 4) as u32;
 
