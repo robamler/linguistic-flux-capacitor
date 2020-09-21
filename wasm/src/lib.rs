@@ -1,4 +1,4 @@
-// pub mod embedding_file_builder;
+pub mod embedding_file_builder;
 pub mod utils;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
