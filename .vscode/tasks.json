@@ -20,12 +20,27 @@
         {
             "label": "cargo bench",
             "type": "shell",
-            "command": "cargo bench"
+            "command": "cargo bench",
+            "problemMatcher": [
+                "$rustc"
+            ]
         },
         {
             "label": "cargo test",
             "type": "shell",
             "command": "cargo test",
+            "presentation": {
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "cargo check",
+            "type": "shell",
+            "command": "cargo check",
             "presentation": {
                 "panel": "dedicated",
                 "clear": true
