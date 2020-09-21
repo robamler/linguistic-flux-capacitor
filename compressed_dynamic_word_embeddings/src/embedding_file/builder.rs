@@ -1,241 +1,362 @@
-use super::super::compression::DistributionU8;
-use super::super::tensors::{RankThreeTensor, RankThreeTensorView, RankTwoTensor};
-use super::FileHeader;
+use super::{FileHeader, JumpPointer, HEADER_SIZE};
+use crate::{
+    compression::Encoder12_16,
+    compression::{EncoderModel12_16, EntropyModel12_16},
+    tensors::{RankThreeTensor, RankThreeTensorView},
+    u12::pack_u12s,
+};
 
-use std::convert::TryInto;
+use byteorder::{LittleEndian, WriteBytesExt};
 
-pub fn build_file(
-    uncompressed: RankThreeTensorView<i8>,
-    chunk_size: u32,
+use std::{collections::HashMap, convert::TryInto, io::Write};
+
+fn create_and_serialize_encoder_models(
+    counts: &[HashMap<i16, u32>],
+) -> Result<(Vec<EncoderModel12_16<i16>>, Vec<u16>), ()> {
+    let mut serialized = Vec::new();
+    let mut models = Vec::with_capacity(counts.len());
+
+    for counts in counts {
+        let symbols_and_frequencies = optimal_frequencies_12bit(counts);
+
+        let frequencies = symbols_and_frequencies
+            .iter()
+            .map(|&(_, f)| f)
+            .collect::<Vec<_>>();
+
+        let num_symbols: u16 = symbols_and_frequencies.len().try_into().map_err(|_| ())?;
+        serialized.push(num_symbols);
+        for &(symbol, _) in &symbols_and_frequencies {
+            serialized.push(symbol as u16);
+        }
+        for frequency_encoding in pack_u12s(&frequencies[..frequencies.len() - 1]) {
+            serialized.push(frequency_encoding);
+        }
+
+        models.push(
+            EntropyModel12_16::new(
+                symbols_and_frequencies.iter().map(|&(s, _)| s),
+                symbols_and_frequencies.iter().map(|&(_, f)| f),
+            )
+            .encoder_model(),
+        );
+    }
+
+    // Add padding if necessary.
+    if serialized.len() % 2 == 1 {
+        serialized.push(0);
+    }
+
+    Ok((models, serialized))
+}
+
+fn compress_data(
+    diffs: RankThreeTensorView<i16>,
+    encoder_models: &[EncoderModel12_16<i16>],
+    jump_interval: u32,
+) -> Result<(Vec<JumpPointer>, Vec<u16>), ()> {
+    let (num_timesteps, vocab_size, embedding_dim) = diffs.shape();
+    let num_timesteps: u32 = num_timesteps.try_into().unwrap();
+    let vocab_size: u32 = vocab_size.try_into().unwrap();
+    let embedding_dim: u32 = embedding_dim.try_into().unwrap();
+
+    let mut tree_order = Vec::with_capacity(num_timesteps as usize);
+    tree_order.push(0);
+    tree_order.push(num_timesteps - 1);
+    traverse_subtree(
+        2,
+        0,
+        0,
+        (num_timesteps - 1) as usize,
+        1,
+        &mut |t, _, _, _, _, _| {
+            tree_order.push(t as u32);
+        },
+    );
+
+    let jump_points_per_timestep = (vocab_size + jump_interval - 1) / jump_interval;
+    let jump_table_len = num_timesteps * jump_points_per_timestep;
+    let mut jump_table_section = vec![
+        JumpPointer {
+            offset: 0,
+            state: 0
+        };
+        jump_table_len as usize
+    ];
+    let mut previous_encoder: Option<Encoder12_16<i16>> = None;
+
+    for &t in tree_order.iter().rev() {
+        let mut data_iter = diffs.subview(t as usize).slice().iter().rev();
+
+        previous_encoder = previous_encoder.map(|old| {
+            let (buf, state) = old.into_inner();
+            encoder_models[t as usize].encoder_with_history(buf, state)
+        });
+        let encoder = previous_encoder.get_or_insert_with(|| encoder_models[t as usize].encoder());
+
+        for i in (0..vocab_size).rev() {
+            for _k in (0..embedding_dim).rev() {
+                encoder
+                    .push_symbol(data_iter.next().unwrap())
+                    .map_err(|_| ())?;
+            }
+
+            if i % jump_interval == 0 {
+                jump_table_section[(t * jump_points_per_timestep + i / jump_interval) as usize] =
+                    JumpPointer {
+                        offset: encoder.compressed_len().try_into().map_err(|_| ())?,
+                        state: encoder.state(),
+                    }
+            }
+        }
+    }
+
+    let encoder = previous_encoder.unwrap();
+
+    let final_compressed_size: u32 = encoder.compressed_len().try_into().map_err(|_| ())?;
+
+    for JumpPointer { offset, .. } in jump_table_section.iter_mut() {
+        *offset = final_compressed_size - *offset;
+    }
+
+    let (mut compressed_data_section, _) = encoder.into_inner();
+    compressed_data_section.reverse();
+
+    // Apply padding if necessary.
+    if compressed_data_section.len() % 2 == 1 {
+        compressed_data_section.push(0);
+    }
+
+    Ok((jump_table_section, compressed_data_section))
+}
+
+/// Returns the number of written *bytes* (not u32's) upon success.
+pub fn write_compressed_dwe_file(
+    uncompressed: RankThreeTensorView<i16>,
+    jump_interval: u32,
     scale_factor: f32,
-) -> Vec<u32> {
+    mut output: impl Write,
+) -> Result<usize, ()> {
     let (num_timesteps, vocab_size, embedding_dim) = uncompressed.shape();
     let num_timesteps: u32 = num_timesteps.try_into().unwrap();
     let vocab_size: u32 = vocab_size.try_into().unwrap();
     let embedding_dim: u32 = embedding_dim.try_into().unwrap();
 
+    assert!(vocab_size > 0);
+    assert!(embedding_dim > 0);
     assert!(num_timesteps >= 2);
-    assert_eq!(vocab_size % chunk_size, 0);
-    let uncompressed_timestep_byte_size = vocab_size.checked_mul(embedding_dim).unwrap();
-    assert_eq!(uncompressed_timestep_byte_size % 4, 0);
+    assert!(jump_interval > 0);
+    assert!(jump_interval <= vocab_size);
 
     let (diffs, counts) = get_diffs(uncompressed);
+    let (encoder_models, entropy_models_section) = create_and_serialize_encoder_models(&counts)?;
+    let (jump_table_section, compressed_data_section) =
+        compress_data(diffs.as_view(), &encoder_models, jump_interval)?;
 
-    let timestep_addrs_addr = std::mem::size_of::<FileHeader>() as u32 / 4;
-    let first_timestep_offset = timestep_addrs_addr + num_timesteps - 2;
-    let last_timestep_offset = first_timestep_offset + uncompressed_timestep_byte_size / 4;
-    let root_block_size = last_timestep_offset + uncompressed_timestep_byte_size / 4;
+    let entropy_model_section_size: u32 = (entropy_models_section.len() / 2)
+        .try_into()
+        .map_err(|_| ())?;
+    let compressed_data_section_size: u32 = (compressed_data_section.len() / 2)
+        .try_into()
+        .map_err(|_| ())?;
+    let jump_table_address = HEADER_SIZE + entropy_model_section_size;
+    let file_size =
+        jump_table_address + 2 * jump_table_section.len() as u32 + compressed_data_section_size;
 
-    let mut address = root_block_size;
-    let counts_view = counts.as_view();
-    let timestep_ir = counts_view
-        .iter_subviews()
-        .map(|counts| {
-            let (smallest_symbol, num_symbols) = find_optimal_nonzero_range(counts);
-            // The data format does not allow distributions of length 1.
-            let num_symbols = usize::max(num_symbols, 2);
-            let largest_symbol = (smallest_symbol as u8).wrapping_add((num_symbols - 1) as u8);
-
-            let size = (2 + num_symbols as u32 + 3) / 4 + vocab_size / chunk_size;
-            let current_address = address;
-            address += size;
-
-            TimeStepIR {
-                address: current_address,
-                smallest_symbol: smallest_symbol as u8,
-                largest_symbol,
-                counts,
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let mut compressed = Vec::new();
-    // TODO: estimate file size based on entropies and reserve it.
-
-    // Fill in header later, when we know the file size.
-    compressed.resize(timestep_addrs_addr as usize, 0);
-
-    // Write timestep addresses.
-    for TimeStepIR { address, .. } in &timestep_ir {
-        compressed.push(*address);
-    }
-
-    // Write embedding vectors of first and last time step.
-    compressed.resize(root_block_size as usize, 0);
-
-    let first_timestep_dest = get_i8_slice_mut(
-        &mut compressed[first_timestep_offset as usize..last_timestep_offset as usize],
-    );
-    first_timestep_dest.copy_from_slice(uncompressed.subview(0).slice());
-
-    let last_timestep_dest =
-        get_i8_slice_mut(&mut compressed[last_timestep_offset as usize..root_block_size as usize]);
-    last_timestep_dest.copy_from_slice(uncompressed.subview((num_timesteps - 1) as usize).slice());
-
-    // Skip over time step meta data since we don't know the chunk addresses yet.
-    compressed.resize(address as usize, 0);
-
-    // Write out compressed chunks.
-    let mut timestep_llir = Vec::new();
-    timestep_llir.resize_with((num_timesteps - 2) as usize, Default::default);
-
-    traverse_subtree(
-        2,
-        0,
-        0,
-        num_timesteps as usize - 1,
-        1,
-        &mut |t, _, _, _, _, _| {
-            let ir = &timestep_ir[t - 1];
-
-            let mut shifted_counts = [0u32; 256];
-            let num_nonzero_counts =
-                ir.largest_symbol.wrapping_sub(ir.smallest_symbol) as usize + 1;
-            if ir.largest_symbol > ir.smallest_symbol {
-                for (dest, src) in shifted_counts[..num_nonzero_counts]
-                    .iter_mut()
-                    .zip(&ir.counts[ir.smallest_symbol as usize..=ir.largest_symbol as usize])
-                {
-                    *dest = (*src).try_into().unwrap()
-                }
-            } else {
-                let len_part1 = 256 - ir.smallest_symbol as usize;
-                for (dest, src) in shifted_counts[..len_part1]
-                    .iter_mut()
-                    .zip(&ir.counts[ir.smallest_symbol as usize..])
-                {
-                    *dest = (*src).try_into().unwrap()
-                }
-                for (dest, src) in shifted_counts[len_part1..]
-                    .iter_mut()
-                    .zip(&ir.counts[..=ir.largest_symbol as usize])
-                {
-                    *dest = (*src).try_into().unwrap()
-                }
-            }
-            let shifted_counts = &shifted_counts[..num_nonzero_counts];
-            let mut frequencies =
-                quantized_frequencies(&shifted_counts, uncompressed_timestep_byte_size);
-
-            if frequencies[ir.smallest_symbol as usize] == 256 {
-                frequencies[ir.smallest_symbol as usize] = 255;
-                frequencies[ir.smallest_symbol.wrapping_add(1) as usize] = 1;
-            }
-
-            let mut frequencies_u8 = [0u8; 256];
-            for (freq_u8, freq_u32) in frequencies_u8[..num_nonzero_counts]
-                .iter_mut()
-                .zip(frequencies.iter())
-            {
-                *freq_u8 = (*freq_u32).try_into().unwrap();
-            }
-
-            let distribution =
-                DistributionU8::new(ir.smallest_symbol, &frequencies_u8[..num_nonzero_counts]);
-
-            let mut chunk_addresses = Vec::<u32>::new();
-            chunk_addresses.reserve((vocab_size / chunk_size) as usize);
-
-            let diffs_view = diffs.as_view();
-            let diffs_subview = diffs_view.subview(t - 1);
-            let diffs = diffs_subview.slice();
-            for uncompressed_chunk in diffs.chunks((chunk_size * embedding_dim) as usize) {
-                chunk_addresses.push(compressed.len().try_into().unwrap());
-
-                let mut compressed_chunk = distribution.encode(uncompressed_chunk).unwrap();
-                if compressed_chunk.len() % 2 == 1 {
-                    compressed_chunk.push(0);
-                }
-
-                compressed.reserve(compressed_chunk.len() / 2);
-                let mut iter = compressed_chunk.iter();
-                while let Some(first) = iter.next() {
-                    let second = iter.next().unwrap();
-                    // Little endian byte order: first bytes are least significant.
-                    compressed.push((*second as u32) << 16 | (*first as u32));
-                }
-            }
-
-            timestep_llir[t - 1] = Some(TimeStepLowLevelIR {
-                address: ir.address,
-                smallest_symbol: ir.smallest_symbol,
-                largest_symbol: ir.largest_symbol,
-                frequencies: frequencies_u8,
-                chunk_addresses,
-            });
-        },
-    );
-
-    // Write out time step meta data.
-    for meta in timestep_llir.into_iter() {
-        let meta = meta.unwrap();
-        let num_frequencies = meta.largest_symbol.wrapping_sub(meta.smallest_symbol) as usize + 1;
-        let header_end_u32 = meta.address as usize + (2 + num_frequencies + 3) / 4;
-        let header = get_u8_slice_mut(&mut compressed[meta.address as usize..header_end_u32]);
-        header[0] = meta.smallest_symbol;
-        header[1] = meta.largest_symbol;
-        header[2..num_frequencies + 2].copy_from_slice(&meta.frequencies[..num_frequencies]);
-        debug_assert!(meta.chunk_addresses.len() == (vocab_size / chunk_size) as usize);
-        let body = &mut compressed[header_end_u32..header_end_u32 + meta.chunk_addresses.len()];
-        body.copy_from_slice(&meta.chunk_addresses);
-    }
-
-    // Write file header.
     let file_header = FileHeader {
-        magic: 0, // TODO
-        major_version: 0,
-        minor_version: 1,
-        file_size: compressed.len() as u32,
+        magic: 0x6577_6400,
+        major_version: 1,
+        minor_version: 0,
+        file_size,
+        jump_table_address,
         num_timesteps,
         vocab_size,
         embedding_dim,
-        chunk_size,
+        jump_interval,
         scale_factor,
     };
 
-    let header_array = unsafe {
+    let header_section = unsafe {
         const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
-        // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
-        // `[u32; HEADER_SIZE]
+        // SAFETY: This is safe because `FileHeader` is `repr(C)` and has the same
+        // alignment as `[u32; HEADER_SIZE]`.
         &*(&file_header as *const FileHeader as *const [u32; HEADER_SIZE])
     };
 
-    compressed[..header_array.len()].copy_from_slice(header_array);
+    // Serialize all sections to the output writer.
+    for &word in header_section {
+        output.write_u32::<LittleEndian>(word).map_err(|_| ())?;
+    }
+    for word in entropy_models_section {
+        output.write_u16::<LittleEndian>(word).map_err(|_| ())?;
+    }
+    for JumpPointer { offset, state } in jump_table_section {
+        output.write_u32::<LittleEndian>(offset).map_err(|_| ())?;
+        output.write_u32::<LittleEndian>(state).map_err(|_| ())?;
+    }
+    for word in compressed_data_section {
+        output.write_u16::<LittleEndian>(word).map_err(|_| ())?;
+    }
 
-    compressed
+    output.flush().map_err(|_| ())?;
+
+    Ok(file_size as usize * 4)
 }
 
-struct TimeStepIR<'a> {
-    address: u32,
-    smallest_symbol: u8,
-    largest_symbol: u8,
-    counts: &'a [u32],
-}
+fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
+    assert!(!counts.is_empty());
 
-struct TimeStepLowLevelIR {
-    address: u32,
-    smallest_symbol: u8,
-    largest_symbol: u8,
-    frequencies: [u8; 256],
-    chunk_addresses: Vec<u32>,
+    let max_weight = (1 << 12) - 1;
+
+    if counts.len() == 1 {
+        // The file format does not support degenerate models with all probability mass
+        // on a single symbol. We therefore add a token additional symbol with minimal
+        // frequency.
+        let only_symbol = *counts.iter().next().unwrap().0;
+        return vec![(only_symbol, max_weight), (only_symbol.wrapping_add(1), 1)];
+    }
+
+    // Start by assigning each symbol weight 1 and then distributing no more than
+    // the remaining weight approximately evenly across all symbols.
+    let free_weight = (1 << 12) - counts.len() as u32;
+    let total_count = counts.iter().map(|(_, &count)| count).sum::<u32>();
+    let mut remaining_weight = 1 << 12;
+
+    let mut symbols_counts_weights_wins_losses = counts
+        .iter()
+        .map(|(&symbol, &count)| {
+            let weight = (1 + count as u64 * free_weight as u64 / total_count as u64) as u16;
+            remaining_weight -= weight;
+
+            // How much the cross entropy would decrease when increasing the weight by one.
+            let win = if weight == max_weight {
+                std::f64::NEG_INFINITY
+            } else {
+                count as f64 * ((weight + 1) as f64 / weight as f64).log2()
+            };
+
+            // How much the cross entropy would increase when decreasing the weight by one.
+            let loss = if weight == 1 {
+                std::f64::INFINITY
+            } else {
+                count as f64 * (weight as f64 / (weight - 1) as f64).log2()
+            };
+
+            (symbol, count, weight, win, loss)
+        })
+        .collect::<Vec<_>>();
+
+    // Distribute remaining weight evenly among symbols with highest wins.
+    // Break ties by symbol value to make output deterministic.
+    symbols_counts_weights_wins_losses.sort_by(|&(s1, _, _, win1, _), &(s2, _, _, win2, _)| {
+        (win2, s1).partial_cmp(&(win1, s2)).unwrap()
+    });
+    for (_, count, weight, win, loss) in
+        &mut symbols_counts_weights_wins_losses[..remaining_weight as usize]
+    {
+        *weight += 1; // Cannot end up in `max_weight` because win would otherwise be zero.
+        *win = if *weight == max_weight {
+            std::f64::NEG_INFINITY
+        } else {
+            *count as f64 * ((*weight + 1) as f64 / *weight as f64).log2()
+        };
+        *loss = *count as f64 * (*weight as f64 / (*weight - 1) as f64).log2();
+    }
+
+    loop {
+        // Find element where increasing weight would incur the biggest win.
+        let (buyer_index, &(_, _, _, buyer_win, _)) = symbols_counts_weights_wins_losses
+            .iter()
+            .enumerate()
+            .max_by(|(_, (_, _, _, win1, _)), (_, (_, _, _, win2, _))| {
+                win1.partial_cmp(win2).unwrap()
+            })
+            .unwrap();
+        let (seller_index, (_, seller_count, seller_weight, seller_win, seller_loss)) =
+            symbols_counts_weights_wins_losses
+                .iter_mut()
+                .enumerate()
+                .min_by(|(_, (_, _, _, _, loss1)), (_, (_, _, _, _, loss2))| {
+                    loss1.partial_cmp(loss2).unwrap()
+                })
+                .unwrap();
+
+        if buyer_index == seller_index {
+            // This can only happen due to rounding errors. In this case, we can't expect
+            // to be able to improve further.
+            break;
+        }
+
+        if buyer_win <= *seller_loss {
+            // We've found the optimal solution.
+            break;
+        }
+
+        *seller_weight -= 1;
+        *seller_win =
+            *seller_count as f64 * ((*seller_weight + 1) as f64 / *seller_weight as f64).log2();
+        *seller_loss = if *seller_weight == 1 {
+            std::f64::INFINITY
+        } else {
+            *seller_count as f64 * (*seller_weight as f64 / (*seller_weight - 1) as f64).log2()
+        };
+
+        let (_, buyer_count, buyer_weight, buyer_win, buyer_loss) =
+            &mut symbols_counts_weights_wins_losses[buyer_index];
+        *buyer_weight += 1;
+        *buyer_win = if *buyer_weight == max_weight {
+            std::f64::NEG_INFINITY
+        } else {
+            *buyer_count as f64 * ((*buyer_weight + 1) as f64 / *buyer_weight as f64).log2()
+        };
+        *buyer_loss =
+            *buyer_count as f64 * (*buyer_weight as f64 / (*buyer_weight - 1) as f64).log2();
+    }
+
+    let mut ret = symbols_counts_weights_wins_losses
+        .into_iter()
+        .map(|(symbol, _, weight, _, _)| (symbol, weight))
+        .collect::<Vec<_>>();
+    ret.sort_by_key(|&(s, w)| (u16::max_value() - w, s)); // Sort to make output deterministic.
+    ret
 }
 
 /// Calculates checked differences and their statistics.
-fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, RankTwoTensor<u32>) {
-    let (num_timesteps, vocab_size, embedding_dim) = uncompressed.shape();
-    let mut diffs = RankThreeTensor::<u8>::new(
-        (num_timesteps - 2) as usize,
+///
+/// Returns a tuple `(diffs, counts)`, where `diffs` has the same shape as
+/// `input` and contains the differences from the left and right parent, and
+/// `counts` contains a `Vec` of `HashMap`s that map from symbols in the respective
+/// slice of `diff` to their counts.
+fn get_diffs(input: RankThreeTensorView<i16>) -> (RankThreeTensor<i16>, Vec<HashMap<i16, u32>>) {
+    let (num_timesteps, vocab_size, embedding_dim) = input.shape();
+    let mut diffs = RankThreeTensor::new(
+        num_timesteps as usize,
         vocab_size as usize,
         embedding_dim as usize,
     );
     let mut diffs_view = diffs.as_view_mut();
+    let mut counts = vec![HashMap::new(); num_timesteps];
 
-    let mut counts = RankTwoTensor::<u32>::new((num_timesteps - 2) as usize, 256);
-    let mut counts_view = counts.as_view_mut();
+    // Copy over first and last time step and create their `counts`.
+    for &t in [0, num_timesteps - 1].iter() {
+        let source_view = input.subview(t as usize);
+        let mut target_view = diffs_view.subview_mut(t as usize);
+        let current_counts = &mut counts[t];
 
-    let mut nonzero_counts = Vec::<u32>::new();
-    nonzero_counts.resize((num_timesteps - 2) as usize, 0);
+        for (target, source) in target_view
+            .as_mut_slice()
+            .iter_mut()
+            .zip(source_view.slice())
+        {
+            *target = *source;
+            current_counts
+                .entry(*target)
+                .and_modify(|n| *n += 1)
+                .or_insert(1);
+        }
+    }
 
+    // Calculate diffs of inner time steps and create their `counts`.
     traverse_subtree(
         2,
         0,
@@ -243,128 +364,31 @@ fn get_diffs(uncompressed: RankThreeTensorView<i8>) -> (RankThreeTensor<u8>, Ran
         num_timesteps - 1,
         1,
         &mut |t, _level, left_t, _left_level, right_t, _right_level| {
-            let left_view = uncompressed.subview(left_t as usize);
-            let right_view = uncompressed.subview(right_t as usize);
-            let center_view = uncompressed.subview(t as usize);
-            let mut target_view = diffs_view.subview_mut((t - 1) as usize);
-            let counts_subview = counts_view.subview_mut((t - 1) as usize);
+            let left_view = input.subview(left_t as usize);
+            let right_view = input.subview(right_t as usize);
+            let center_view = input.subview(t as usize);
+            let mut target_view = diffs_view.subview_mut(t as usize);
+            let current_counts = &mut counts[t];
 
-            for (((target_val, left_val), right_val), center_val) in target_view
+            for (((target, left), right), center) in target_view
                 .as_mut_slice()
                 .iter_mut()
                 .zip(left_view.slice())
                 .zip(right_view.slice())
                 .zip(center_view.slice())
             {
-                // We have to calculate the differences as signed integers because
-                // division by 2 is not the same for signed and unsigned integers.
-                let diff = *center_val as i32 - (*left_val as i32 + *right_val as i32) / 2;
-                // Convert into `i8` and then interpret as `u8` for correct sign treatment.
-                let diff: i8 = diff.try_into().unwrap();
-                *target_val = diff as u8;
-
-                counts_subview[diff as u8 as usize] += 1;
+                *target = (*center as i32 - ((*left as i32 + *right as i32) / 2))
+                    .try_into()
+                    .unwrap();
+                current_counts
+                    .entry(*target)
+                    .and_modify(|n| *n += 1)
+                    .or_insert(1);
             }
-
-            debug_assert_eq!(
-                counts_subview.iter().cloned().sum::<u32>() as usize,
-                vocab_size * embedding_dim
-            );
         },
     );
 
     (diffs, counts)
-}
-
-/// Find the smallest contiguous region that contains all nonzero values. This is
-/// likely going to wrap around at the end of the `counts` slice because the
-/// indices into counts correspond to `i8` symbols casted to `u8`.
-///
-/// # Returns
-///
-/// A tuple `(first_symbol, len)`.
-///
-/// Note that `len` may be one even though the data format does not allow zero
-/// entropy distributions.
-///
-/// # Panics
-///
-/// Panics if `counts` contains only zeros.
-fn find_optimal_nonzero_range(counts: &[u32]) -> (usize, usize) {
-    let first_zero = if let Some((symbol, _count)) = counts
-        .iter()
-        .enumerate()
-        .find(|(_symbol, &count)| count == 0)
-    {
-        symbol
-    } else {
-        return (0, 255);
-    };
-
-    let mut end_candidate = if first_zero != 0 {
-        first_zero
-    } else {
-        counts
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_symbol, &count)| count != 0)
-            .unwrap()
-            .0
-            + 1
-    };
-
-    // `end_candidate` cannot be zero but it can be `256`, which is semantically
-    // equivalent.
-    let mut last_symbol_was_zero = true;
-    let mut best_start = 0;
-    let mut best_len = 256;
-
-    for (symbol, &count) in counts.iter().enumerate().skip(first_zero + 1) {
-        match (last_symbol_was_zero, count == 0) {
-            (true, false) => {
-                // `symbol` is a candidate to start the run of nonzero symbols.
-                last_symbol_was_zero = false;
-                let len = end_candidate.wrapping_sub(symbol) % 256;
-                if len < best_len {
-                    best_start = symbol;
-                    best_len = len;
-                }
-            }
-            (false, true) => {
-                // `symbol` is a candidate to end the run of nonzero symbols.
-                last_symbol_was_zero = true;
-                end_candidate = symbol;
-            }
-            _ => (),
-        }
-    }
-
-    (best_start, best_len)
-}
-
-/// # TODO
-///
-/// This is a hacky heuristic. In reality, we should minimize the cross entropy here.
-fn quantized_frequencies(counts: &[u32], total_counts: u32) -> [u32; 256] {
-    debug_assert_eq!(counts.iter().cloned().sum::<u32>(), total_counts);
-
-    let mut frequencies = [0u32; 256];
-    let mut total_frequency = 0;
-
-    for (freq, count) in frequencies.iter_mut().zip(counts) {
-        if *count != 0 {
-            *freq = u32::max((*count * 256 + total_counts - 1) / total_counts, 1);
-            total_frequency += *freq;
-        };
-    }
-
-    while total_frequency > 256 {
-        *frequencies.iter_mut().max().unwrap() -= 1;
-        total_frequency -= 1;
-    }
-
-    frequencies
 }
 
 fn traverse_subtree<F: FnMut(usize, usize, usize, usize, usize, usize)>(
@@ -383,44 +407,52 @@ fn traverse_subtree<F: FnMut(usize, usize, usize, usize, usize, usize)>(
     }
 }
 
-#[cfg(target_endian = "little")]
-fn get_i8_slice_mut(data: &mut [u32]) -> &mut [i8] {
-    unsafe {
-        // Transmuting from `&mut [u32]` to `&mut [i8]` is always safe, see, e.g.:
-        // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        let ptr = data.as_mut_ptr();
-        std::slice::from_raw_parts_mut(ptr as *mut i8, 4 * data.len())
-    }
-}
-
-#[cfg(target_endian = "little")]
-fn get_u8_slice_mut(data: &mut [u32]) -> &mut [u8] {
-    unsafe {
-        // Transmuting from `&mut [u32]` to `&mut [u8]` is always safe, see, e.g.:
-        // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        let ptr = data.as_mut_ptr();
-        std::slice::from_raw_parts_mut(ptr as *mut u8, 4 * data.len())
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::super::EmbeddingFile;
-    use super::super::TimestepReader;
     use super::*;
+
+    use super::super::{EmbeddingFile, TimestepReader};
+    use crate::tensors::RankTwoTensorView;
 
     use std::fs::File;
     use std::io::prelude::*;
+
+    #[test]
+    fn test_optimal_frequencies_12bit() {
+        fn test(counts_and_expected_frequencies: &[(u32, u16)]) {
+            let (counts, expected) = counts_and_expected_frequencies
+                .iter()
+                .enumerate()
+                .map(|(s, &(c, f))| ((s as i16, c), (s as i16, f)))
+                .unzip();
+
+            let symbols_and_frequencies = optimal_frequencies_12bit(&counts);
+            let calculated = symbols_and_frequencies
+                .into_iter()
+                .collect::<HashMap<_, _>>();
+
+            assert_eq!(calculated, expected);
+        }
+
+        test(&[(2, 0x0200), (5, 0x0500), (9, 0x0900)]);
+        test(&[(3, 723), (5, 1205), (9, 2168)]);
+        test(&[(3000, 723), (5000, 1204), (9008, 2169)]);
+        test(&[(3000, 722), (5000, 1204), (9009, 2170)]);
+    }
 
     #[test]
     fn create_file() {
         const NUM_TIMESTEPS: u32 = 6;
         const VOCAB_SIZE: u32 = 100;
         const EMBEDDING_DIM: u32 = 16;
+        const JUMP_INTERVAL: u32 = 20;
 
         let file_name = format!(
-            "tests/fake_data_generation/random_{}_{}_{}",
-            NUM_TIMESTEPS, VOCAB_SIZE, EMBEDDING_DIM
+            "{}/tests/fake_data_generation/random_{}_{}_{}",
+            env!("CARGO_MANIFEST_DIR"),
+            NUM_TIMESTEPS,
+            VOCAB_SIZE,
+            EMBEDDING_DIM
         );
         let mut input_file = File::open(file_name).unwrap();
 
@@ -431,22 +463,46 @@ mod test {
             (NUM_TIMESTEPS * VOCAB_SIZE * EMBEDDING_DIM) as usize
         );
 
+        // Convert to i16.
+        let input_buf = input_buf
+            .iter()
+            .map(|&x| x as i8 as i16)
+            .collect::<Vec<_>>();
+
         // Check that negative values are treated correctly.
         assert_eq!(
-            input_buf[(3 * VOCAB_SIZE * EMBEDDING_DIM + 5 * EMBEDDING_DIM + 10) as usize] as i8,
+            input_buf[(3 * VOCAB_SIZE * EMBEDDING_DIM + 5 * EMBEDDING_DIM + 10) as usize],
             -39
         );
 
         let uncompressed = RankThreeTensor::from_flattened(
-            u8_slice_to_i8_slice(&input_buf).to_vec(),
+            input_buf,
             NUM_TIMESTEPS as usize,
             VOCAB_SIZE as usize,
             EMBEDDING_DIM as usize,
         );
+        let uncompressed = uncompressed.as_view();
 
-        let chunk_size = 20;
-        let scale_factor = 1.5f32;
-        let compressed = build_file(uncompressed.as_view(), chunk_size, scale_factor);
+        const SCALE_FACTOR: f32 = 0.125;
+        let mut compressed = Vec::<u8>::new();
+        let file_size =
+            write_compressed_dwe_file(uncompressed, JUMP_INTERVAL, SCALE_FACTOR, &mut compressed)
+                .unwrap();
+
+        assert_eq!(file_size, compressed.len());
+        assert_eq!(file_size % 4, 0);
+        assert_eq!(&compressed[0..4], b"\0dwe");
+
+        let compressed = compressed
+            .chunks_exact(4)
+            .map(|chunk| {
+                chunk[0] as u32
+                    | ((chunk[1] as u32) << 8)
+                    | ((chunk[2] as u32) << 16)
+                    | ((chunk[3] as u32) << 24)
+            })
+            .collect::<Vec<u32>>();
+
         let compressed_len = compressed.len();
 
         let file = EmbeddingFile::new(compressed.into_boxed_slice()).unwrap();
@@ -455,89 +511,64 @@ mod test {
         assert_eq!(
             header,
             &FileHeader {
-                magic: 0,
-                major_version: 0,
-                minor_version: 1,
+                magic: header.magic, // Already checked above.
+                major_version: 1,
+                minor_version: 0,
                 file_size: compressed_len as u32,
+                jump_table_address: header.jump_table_address, // Checked in `EmbeddingFile::new`.
                 num_timesteps: NUM_TIMESTEPS,
                 vocab_size: VOCAB_SIZE,
                 embedding_dim: EMBEDDING_DIM,
-                chunk_size,
-                scale_factor,
+                jump_interval: JUMP_INTERVAL,
+                scale_factor: SCALE_FACTOR,
             }
         );
 
-        let first_timestep = file.margin_embeddings(0);
-        assert_eq!(
-            first_timestep.uncompressed.len(),
-            (VOCAB_SIZE * EMBEDDING_DIM) as usize
-        );
-        assert_eq!(
-            first_timestep.uncompressed[40 * EMBEDDING_DIM as usize + 8],
-            13
-        );
-        assert_eq!(
-            first_timestep.uncompressed[73 * EMBEDDING_DIM as usize + 15],
-            -32
-        );
+        let test_timestep = |t, expected: RankTwoTensorView<i16>| {
+            let mut timestep = file.timestep(t).unwrap();
+            assert_eq!(
+                timestep.jump_table.len(),
+                ((VOCAB_SIZE + JUMP_INTERVAL - 1) / JUMP_INTERVAL) as usize
+            );
 
-        let last_timestep = file.margin_embeddings(1);
-        assert_eq!(
-            last_timestep.uncompressed.len(),
-            (VOCAB_SIZE * EMBEDDING_DIM) as usize
-        );
-        assert_eq!(
-            last_timestep.uncompressed[20 * EMBEDDING_DIM as usize + 9],
-            -12
-        );
-        assert_eq!(last_timestep.uncompressed[13], 5);
+            let mut buf = [0i16; EMBEDDING_DIM as usize];
+            for i in &[0, 1, 8, 19, 20, 25, 45, 59, 67, 68, 83, 99] {
+                timestep.jump_to(*i).unwrap();
+                timestep
+                    .read_single_embedding_vector(buf.iter_mut(), |source, dest| {
+                        *dest = source;
+                    })
+                    .unwrap();
+                assert_eq!(&buf[..], expected.subview(*i as usize));
+            }
+        };
 
-        let center_timestep = file.timestep((NUM_TIMESTEPS - 1) / 2).unwrap();
-        let mut buf = [0i8; EMBEDDING_DIM as usize];
-        let mut center_reader = center_timestep.reader();
-
-        center_reader
-            .next_diff_vector_in_ascending_order(0, buf.iter_mut(), |source, dest| {
-                *dest = source as i8;
-            })
-            .unwrap();
-        assert_eq!(
-            &buf[..],
-            [9, -23, 5, -11, -27, 29, 38, 11, -21, 2, 37, -10, 6, -25, 11, -8]
-        );
-        center_reader
-            .next_diff_vector_in_ascending_order(5, buf.iter_mut(), |source, dest| {
-                *dest = source as i8;
-            })
-            .unwrap();
-        assert_eq!(
-            &buf[..],
-            [2, -23, 14, 42, 3, 31, 6, -20, -23, 10, 21, 3, -19, 2, 34, -3]
-        );
-        center_reader
-            .next_diff_vector_in_ascending_order(8, buf.iter_mut(), |source, dest| {
-                *dest = source as i8;
-            })
-            .unwrap();
-        assert_eq!(
-            &buf[..],
-            [10, -9, 0, 20, 13, 26, 33, -21, 18, 14, -32, 13, 18, -5, -5, 4]
-        );
-        center_reader
-            .next_diff_vector_in_ascending_order(9, buf.iter_mut(), |source, dest| {
-                *dest = source as i8;
-            })
-            .unwrap();
-        assert_eq!(
-            &buf[..],
-            [-19, -22, 3, 29, 12, 2, -18, -18, -34, -24, 21, -24, 15, -31, -25, 13]
-        );
-    }
-
-    fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {
-        unsafe {
-            let ptr = data.as_ptr();
-            std::slice::from_raw_parts_mut(ptr as *mut i8, data.len())
+        let (diffs, _) = get_diffs(uncompressed);
+        for t in 0..NUM_TIMESTEPS {
+            test_timestep(t, diffs.as_view().subview(t as usize));
         }
+
+        // Just in case `get_diffs` is wrong, let's also explicitly test the
+        // first, last, and center time steps.
+        test_timestep(0, uncompressed.subview(0));
+        test_timestep(
+            NUM_TIMESTEPS - 1,
+            uncompressed.subview((NUM_TIMESTEPS - 1) as usize),
+        );
+
+        let center_timestep = (NUM_TIMESTEPS - 1) / 2;
+        let center_diff = uncompressed
+            .subview(0)
+            .slice()
+            .iter()
+            .zip(uncompressed.subview((NUM_TIMESTEPS - 1) as usize).slice())
+            .zip(uncompressed.subview(center_timestep as usize).slice())
+            .map(|((&first, &last), &center)| {
+                (center as i32 - ((first as i32 + last as i32) / 2)) as i16
+            })
+            .collect::<Vec<_>>();
+        let center_diff =
+            RankTwoTensorView::from_flattened(VOCAB_SIZE, EMBEDDING_DIM, &center_diff);
+        test_timestep(center_timestep, center_diff);
     }
 }

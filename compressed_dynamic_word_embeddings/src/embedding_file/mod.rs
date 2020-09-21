@@ -1,21 +1,23 @@
 use std::io::{Read, Write};
-use std::ops::Deref;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use super::compression::{Decoder, DistributionU8};
 use super::random_access_reader::RandomAccessReader;
-use super::tensors::RankThreeTensorView;
+use crate::{compression::DecoderModel12_16, u12::unpack_u12s};
 
-mod builder;
+pub mod builder;
+
+type EntropyModel<SI, FI> = crate::compression::EntropyModel12_16<SI, FI>;
+type DecoderModel = crate::compression::DecoderModel12_16<i16>;
+type Decoder<'model, 'data> = crate::compression::Decoder12_16<'model, 'data, i16>;
+
+pub const HEADER_SIZE: u32 = (std::mem::size_of::<FileHeader>() / 4) as u32;
 
 pub struct EmbeddingFile {
     raw_data: Box<[u32]>,
-}
-
-#[repr(transparent)]
-pub struct EmbeddingData {
-    raw_data: [u32],
+    decoder_models: Box<[DecoderModel]>,
+    jump_points_per_timestep: usize,
+    compressed_data_start: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -25,81 +27,118 @@ pub struct FileHeader {
     pub major_version: u32,
     pub minor_version: u32,
     pub file_size: u32,
+    pub jump_table_address: u32,
     pub num_timesteps: u32,
     pub vocab_size: u32,
     pub embedding_dim: u32,
-    pub chunk_size: u32,
+    pub jump_interval: u32,
     pub scale_factor: f32,
 }
 
-#[repr(C)]
-pub struct CompressedTimestep<'a> {
-    distribution: DistributionU8,
-    chunk_addresses: &'a [u32],
-    embedding_data: &'a EmbeddingData,
+impl FileHeader {
+    /// SAFETY: `data.len()` must be at least `HEADER_SIZE`
+    #[inline(always)]
+    pub unsafe fn memory_map_unsafe(data: &[u32]) -> &Self {
+        #[allow(unused_unsafe)] // See Rust RFC #2585.
+        unsafe {
+            // SAFETY: safe according to contract of this method
+            let header_slice = data.get_unchecked(0..HEADER_SIZE as usize);
+
+            // SAFETY: `FileHeader` is `repr(C)` and has the same size and alignment as
+            // `[u32; HEADER_SIZE]`
+            let ptr = header_slice.as_ptr();
+            &*(ptr as *const FileHeader)
+        }
+    }
 }
 
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
-pub struct UncompressedTimestep<'a> {
-    pub uncompressed: &'a [i8],
-    embedding_data: &'a EmbeddingData,
+struct JumpPointer {
+    offset: u32,
+    state: u32,
+}
+
+pub struct Timestep<'a> {
+    decoder: Decoder<'a, 'a>,
+    jump_table: &'a [JumpPointer],
+    word_index: u32,
+    embedding_dim: u32,
+    jump_interval: u32,
 }
 
 impl EmbeddingFile {
-    pub const HEADER_SIZE: usize = std::mem::size_of::<FileHeader>() / 4;
-
     pub fn new(data: Box<[u32]>) -> Result<Self, ()> {
-        if data.len() < Self::HEADER_SIZE {
+        if data.len() < HEADER_SIZE as usize {
             return Err(());
         }
 
-        let file = Self { raw_data: data };
-        let header = file.header();
+        let header = unsafe {
+            // SAFETY: We checked above that data.len() >= HEADER_SIZE
+            FileHeader::memory_map_unsafe(&*data)
+        };
+
         let embeddings_size = header.vocab_size * header.embedding_dim;
 
-        if header.major_version != 0
-            || header.file_size as usize != file.raw_data.len()
+        if header.magic != 0x6577_6400
+            || header.major_version != 1
+            || header.file_size as usize != data.len()
+            || header.jump_table_address <= HEADER_SIZE
+            || header.jump_table_address > header.file_size
             || header.num_timesteps < 2
             || embeddings_size == 0
-            || embeddings_size % 4 != 0
-            || header.chunk_size == 0
-            || header.vocab_size % header.chunk_size != 0
+            || header.jump_interval == 0
         {
             return Err(());
         }
 
-        let first_embeddings_offset = Self::HEADER_SIZE as u32 + header.num_timesteps - 2;
-        let last_embeddings_offset = first_embeddings_offset + embeddings_size / 4;
-        let payload_offset = last_embeddings_offset + embeddings_size / 4;
+        let entropy_models_section =
+            get_u16_slice(&data[HEADER_SIZE as usize..header.jump_table_address as usize]);
 
-        if header.file_size < payload_offset {
-            return Err(());
+        let mut remainder = entropy_models_section;
+        let mut decoder_models = Vec::with_capacity(header.num_timesteps as usize);
+        for _ in 0..header.num_timesteps {
+            let (model, r) = deserialize_decoder_model(remainder)?;
+            remainder = r;
+            decoder_models.push(model);
+        }
+        if remainder.len() > 1 {
+            // At most one padding entry allowed.
+            Err(())?
         }
 
-        Ok(file)
+        let jump_points_per_timestep =
+            ((header.vocab_size + header.jump_interval - 1) / header.jump_interval) as usize;
+        let compressed_data_start = header.jump_table_address as usize
+            + 2 * header.num_timesteps as usize * jump_points_per_timestep;
+
+        Ok(EmbeddingFile {
+            raw_data: data,
+            decoder_models: decoder_models.into(),
+            jump_points_per_timestep,
+            compressed_data_start,
+        })
     }
 
     pub fn from_reader(mut reader: impl Read) -> Result<EmbeddingFile, ()> {
         let mut buf = Vec::new();
-        buf.resize(Self::HEADER_SIZE, 0);
+        buf.resize(HEADER_SIZE as usize, 0);
         reader
             .read_u32_into::<LittleEndian>(&mut buf[..])
             .map_err(|_| ())?;
 
-        let file_size = EmbeddingData::header_from_raw(&buf[..])?.file_size;
-        buf.resize(file_size as usize, 0);
-        reader
-            .read_u32_into::<LittleEndian>(&mut buf[Self::HEADER_SIZE..])
-            .map_err(|_| ())?;
-        Self::new(buf.into())
-    }
+        let header = unsafe {
+            // SAFETY: We made sure that buf.len() == HEADER_SIZE
+            FileHeader::memory_map_unsafe(&buf)
+        };
+        let file_size = header.file_size;
 
-    pub fn from_uncompressed_quantized(
-        uncompressed: RankThreeTensorView<i8>,
-        chunk_size: u32,
-        scale_factor: f32,
-    ) -> Result<Self, ()> {
-        Self::new(builder::build_file(uncompressed, chunk_size, scale_factor).into())
+        buf.reserve_exact((file_size - HEADER_SIZE) as usize);
+        for _ in HEADER_SIZE..file_size {
+            buf.push(reader.read_u32::<LittleEndian>().map_err(|_| ())?);
+        }
+
+        Self::new(buf.into())
     }
 
     pub fn into_random_access_reader(self) -> RandomAccessReader {
@@ -109,48 +148,12 @@ impl EmbeddingFile {
     pub fn into_inner(self) -> Box<[u32]> {
         self.raw_data
     }
-}
-
-impl Deref for EmbeddingFile {
-    type Target = EmbeddingData;
-
-    fn deref(&self) -> &EmbeddingData {
-        let raw_data_slice: &[u32] = &self.raw_data;
-        unsafe {
-            // As far as I understand, this should be safe because `EmbeddingData` is
-            // declared as `#[repr(transparent)]`.
-            &*(raw_data_slice as *const [u32] as *const EmbeddingData)
-        }
-    }
-}
-
-impl EmbeddingData {
-    pub const HEADER_SIZE: usize = EmbeddingFile::HEADER_SIZE;
 
     #[inline(always)]
     pub fn header(&self) -> &FileHeader {
         unsafe {
-            // This is safe because the constructor checks that `raw_data` is big enough.
-            let header_slice = self.raw_data.get_unchecked(0..Self::HEADER_SIZE);
-
-            // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
-            // `[u32; HEADER_SIZE]`
-            let ptr = header_slice.as_ptr();
-            &*(ptr as *const FileHeader)
-        }
-    }
-
-    #[inline(always)]
-    pub fn header_from_raw(header: &[u32]) -> Result<&FileHeader, ()> {
-        if header.len() < Self::HEADER_SIZE {
-            Err(())
-        } else {
-            unsafe {
-                // This is safe because `FileHeader` is `repr(C)` and has the same alignment as
-                // `[u32; HEADER_SIZE]`
-                let ptr = header.as_ptr();
-                Ok(&*(ptr as *const FileHeader))
-            }
+            // SAFETY: the ensures checks that `self.raw_data` is big enough.
+            FileHeader::memory_map_unsafe(&*self.raw_data)
         }
     }
 
@@ -166,29 +169,33 @@ impl EmbeddingData {
         writer.flush()
     }
 
-    pub fn margin_embeddings(&self, level: u32) -> UncompressedTimestep {
-        assert!(level < 2);
+    pub fn timestep(&self, t: u32) -> Result<Timestep, ()> {
         let header = self.header();
-        let embedding_size = header.vocab_size * header.embedding_dim / 4;
-        let begin = Self::HEADER_SIZE as u32 + header.num_timesteps - 2 + level * embedding_size;
-        let end = begin + embedding_size;
-
-        UncompressedTimestep {
-            uncompressed: get_i8_slice(&self.raw_data[begin as usize..end as usize]),
-            embedding_data: self,
-        }
-    }
-
-    pub fn timestep(&self, t: u32) -> Result<CompressedTimestep, ()> {
-        if t == 0 || t > self.header().num_timesteps {
+        if t as usize >= self.decoder_models.len() {
             Err(())
         } else {
-            let addr = self.raw_data[Self::HEADER_SIZE + (t - 1) as usize];
-            let header = self.header();
-            // `vocab_size` is guaranteed to be a multiple of `chunk_size`.
-            let num_chunks = header.vocab_size / header.chunk_size;
+            let jump_table_start =
+                header.jump_table_address as usize + 2 * self.jump_points_per_timestep * t as usize;
 
-            CompressedTimestep::new(&self, addr, num_chunks)
+            let jump_table = unsafe {
+                // SAFETY: Transmuting from `&[u32]` of even length to `&[JumpPointer]` is safe,
+                // because `JumpPointer` is `repr(C)` and contains exactly two `u32`s.
+                // See also https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
+                let jump_table_data = &self.raw_data
+                    [jump_table_start..jump_table_start + 2 * self.jump_points_per_timestep];
+                let ptr = jump_table_data.as_ptr();
+                std::slice::from_raw_parts(ptr as *const JumpPointer, self.jump_points_per_timestep)
+            };
+
+            let compressed = get_u16_slice(&self.raw_data[self.compressed_data_start..]);
+
+            Ok(Timestep::new(
+                &self.decoder_models[t as usize],
+                jump_table,
+                compressed,
+                header.embedding_dim,
+                header.jump_interval,
+            ))
         }
     }
 
@@ -197,152 +204,88 @@ impl EmbeddingData {
     }
 }
 
-impl<'a> CompressedTimestep<'a> {
-    fn new(embedding_data: &'a EmbeddingData, addr: u32, num_chunks: u32) -> Result<Self, ()> {
-        let byte_slice = get_u8_slice(embedding_data.raw_data.get(addr as usize..).ok_or(())?);
+fn deserialize_decoder_model(serialized: &[u16]) -> Result<(DecoderModel12_16<i16>, &[u16]), ()> {
+    let num_symbols = serialized[0];
+    let packed_size = 3 * num_symbols as usize / 4;
 
-        let smallest_symbol = byte_slice[0] as i8;
-        let largest_symbol = byte_slice[1] as i8;
-        let frequencies_end = 3 + largest_symbol.wrapping_sub(smallest_symbol) as u8 as usize;
-        let frequencies = &byte_slice[2..frequencies_end];
+    // Extract remainder first to check most constrained bounds.
+    let remainder = serialized
+        .get(1 + num_symbols as usize + packed_size..)
+        .ok_or(())?;
+    let symbols = &serialized[1..1 + num_symbols as usize];
+    let packed_frequencies =
+        &serialized[1 + num_symbols as usize..1 + num_symbols as usize + packed_size];
 
-        // The compression module operates on unsigned rather than on signed bytes so
-        // that it is not unnecessarily coupled to this specific application. We convert
-        // symbols between `u8` and `i8` as we pass them to or from the compression
-        // module. On the machine code level, this conversion is a no-op.
-        let distribution = DistributionU8::new(smallest_symbol as u8, frequencies);
+    let model = EntropyModel::new(
+        symbols.iter().map(|&s| s as i16),
+        unpack_u12s(packed_frequencies, num_symbols - 1),
+    )
+    .decoder_model();
 
-        let start_addr = addr as usize + (frequencies_end + 3) / 4;
-        let chunk_addresses = embedding_data
-            .raw_data
-            .get(start_addr..start_addr + num_chunks as usize)
-            .ok_or(())?;
+    Ok((model, remainder))
+}
 
-        Ok(CompressedTimestep {
-            distribution,
-            chunk_addresses,
-            embedding_data,
-        })
+impl<'a> Timestep<'a> {
+    fn new(
+        decoder_model: &'a DecoderModel,
+        jump_table: &'a [JumpPointer],
+        compressed: &'a [u16],
+        embedding_dim: u32,
+        jump_interval: u32,
+    ) -> Self {
+        let JumpPointer { offset, state } = jump_table[0];
+
+        Timestep {
+            decoder: decoder_model.decoder_with_history(compressed, offset as usize, state),
+            jump_table,
+            word_index: 0,
+            embedding_dim,
+            jump_interval,
+        }
     }
 
-    pub fn chunk<'s>(&'s self, index: u32) -> Result<Decoder<'s, 'a>, ()> {
-        let addr = *self.chunk_addresses.get(index as usize).ok_or(())?;
-        let compressed_data = get_u16_slice(
-            self.embedding_data
-                .raw_data
-                .get(addr as usize..)
-                .ok_or(())?,
-        );
-        self.distribution.decoder(compressed_data)
-    }
-
-    pub fn reader<'s>(&'s self) -> CompressedTimestepReader<'s, 'a> {
-        CompressedTimestepReader::new(self)
+    pub fn into_inner(self) -> Decoder<'a, 'a> {
+        self.decoder
     }
 }
 
 pub trait TimestepReader {
-    fn next_diff_vector_in_ascending_order<I: Iterator>(
+    fn read_single_embedding_vector<I: Iterator>(
         &mut self,
-        index: u32,
         dest_iter: I,
-        callback: impl FnMut(i8, I::Item),
+        callback: impl FnMut(i16, I::Item),
     ) -> Result<(), ()>;
+
+    fn jump_to(&mut self, word_index: u32) -> Result<(), ()>;
 }
 
-pub struct CompressedTimestepReader<'a, 'b> {
-    timestep: &'a CompressedTimestep<'b>,
-    decoder_and_chunk_index: Option<(Decoder<'a, 'b>, u32)>,
-    offset: u32,
-}
-
-impl<'a, 'b> CompressedTimestepReader<'a, 'b> {
-    fn new(timestep: &'a CompressedTimestep<'b>) -> Self {
-        Self {
-            timestep,
-            decoder_and_chunk_index: None,
-            offset: 0,
-        }
-    }
-}
-
-impl TimestepReader for CompressedTimestepReader<'_, '_> {
-    fn next_diff_vector_in_ascending_order<I: Iterator>(
+impl<'a> TimestepReader for Timestep<'a> {
+    fn read_single_embedding_vector<I: Iterator>(
         &mut self,
-        index: u32,
         dest_iter: I,
-        mut callback: impl FnMut(i8, I::Item),
+        mut callback: impl FnMut(i16, I::Item),
     ) -> Result<(), ()> {
-        let header = self.timestep.embedding_data.header();
-        let chunk_index = index / header.chunk_size;
-        let offset = header.embedding_dim * (index % header.chunk_size);
-
-        // TODO: find out if the taking and resetting has an impact on performance
-        //       or whether it's just semantics.
-        let mut decoder = match self.decoder_and_chunk_index.take() {
-            Some((decoder, old_chunk_index)) if old_chunk_index == chunk_index => decoder,
-            _ => {
-                self.offset = 0;
-                self.timestep.chunk(chunk_index)?
-            }
-        };
-
-        assert!(offset >= self.offset);
-        decoder.skip((offset - self.offset) as usize)?;
-        decoder.decode(dest_iter, |byte, dest_item| callback(byte as i8, dest_item))?;
-
-        self.offset = offset + header.embedding_dim;
-        self.decoder_and_chunk_index = Some((decoder, chunk_index));
-
+        self.decoder
+            .streaming_decode(dest_iter, |&symbol, dest| callback(symbol, dest))
+            .map_err(|_| ())?;
+        self.word_index += 1;
         Ok(())
     }
-}
 
-impl TimestepReader for UncompressedTimestep<'_> {
-    fn next_diff_vector_in_ascending_order<I: Iterator>(
-        &mut self,
-        index: u32,
-        dest_iter: I,
-        mut callback: impl FnMut(i8, I::Item),
-    ) -> Result<(), ()> {
-        let header = self.embedding_data.header();
-        let start = header.embedding_dim * index;
-        let end = start + header.embedding_dim;
-
-        // The order in which we zip the iterators is important here since `zip` is
-        // short-circuiting. We want to allow callers to continue to use `dest_iter`
-        // after this method terminates.
-        for (source, dest) in self
-            .uncompressed
-            .get(start as usize..end as usize)
-            .ok_or(())?
-            .iter()
-            .zip(dest_iter)
-        {
-            callback(*source, dest);
+    fn jump_to(&mut self, word_index: u32) -> Result<(), ()> {
+        let jump_point = word_index / self.jump_interval;
+        if word_index < self.word_index || jump_point != self.word_index / self.jump_interval {
+            let JumpPointer { offset, state } = self.jump_table[jump_point as usize];
+            self.decoder.jump_to(offset as usize, state);
+            self.word_index = jump_point * self.jump_interval;
         }
 
+        self.decoder
+            .skip(self.embedding_dim as usize * (word_index - self.word_index) as usize)
+            .map_err(|_| ())?;
+        self.word_index = word_index;
+
         Ok(())
-    }
-}
-
-#[cfg(target_endian = "little")]
-fn get_i8_slice(data: &[u32]) -> &[i8] {
-    unsafe {
-        // Transmuting from `&[u32]` to `&[i8]` is always safe, see, e.g.:
-        // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        let ptr = data.as_ptr();
-        std::slice::from_raw_parts(ptr as *const i8, 4 * data.len())
-    }
-}
-
-#[cfg(target_endian = "little")]
-fn get_u8_slice(data: &[u32]) -> &[u8] {
-    unsafe {
-        // Transmuting from `&[u32]` to `&[u8]` is always safe, see, e.g.:
-        // https://internals.rust-lang.org/t/pre-rfc-v2-safe-transmute/11431
-        let ptr = data.as_ptr();
-        std::slice::from_raw_parts(ptr as *const u8, 4 * data.len())
     }
 }
 
@@ -361,26 +304,73 @@ mod test {
 
     #[test]
     fn construct_file() {
-        let data = vec![
-            255, // magic
-            0,   // major_version
-            0,   // minor_version
-            16,  // file_size
-            3,   // num_timesteps
-            4,   // vocab_size
-            3,   // embedding_dim
-            2,   // chunk_size
-            1,   // scale_factor (is logically an f32)
-            10,  // pointer to the other time step
-            1, 2, 3, // embedding vectors of first time step (4 at a time given as `u32`s)
-            4, 5, 6, // embedding vectors of last time step (4 at a time given as `u32`s)
+        let mut header_section = vec![
+            0x65776400u32, // magic
+            1,             // major_version
+            0,             // minor_version
+            35,            // file_size
+            19,            // jump_table_address
+            3,             // num_timesteps
+            4,             // vocab_size
+            5,             // embedding_dim
+            3,             // jump_interval
+            1,             // scale_factor (is logically an f32)
+        ];
+        for i in header_section.iter_mut() {
+            *i = i.to_le();
+        }
+
+        let mut entropy_models_definition_section = vec![
+            2u16, // num_symbols (time step 1)
+            1, 2,      // symbols
+            0x0abc, // frequencies
+            4u16,   // num_symbols (time step 2)
+            1, 2, 3, 4, // symbols
+            0x0008, 0xbc12, 0x3456, // frequencies
+            3u16,   // num_symbols (time step 3)
+            1, 2, 3, // symbols
+            0x0012, 0x3456, // frequencies
+        ];
+        for i in entropy_models_definition_section.iter_mut() {
+            *i = i.to_le();
+        }
+
+        let mut jump_table_section = vec![
+            0u32,
+            0x1234_5678, // t=0, i=0
+            2,
+            0x1234_5678, // t=0, i=3
+            5,
+            0x1234_5678, // t=1, i=0
+            7,
+            0x1234_5678, // t=1, i=3
+            3,
+            0x1234_5678, // t=2, i=0
+            4,
+            0x1234_5678, // t=2, i=3
+        ];
+        for i in jump_table_section.iter_mut() {
+            *i = i.to_le();
+        }
+
+        let compressed_data_section = vec![
+            1u16, 2, 3, 4, 5, 6, 7, 8, // Dummy content (we won't actually decode it).
         ];
 
-        let file = EmbeddingFile::new(data.into_boxed_slice()).unwrap();
-        assert_eq!(file.header().file_size, 16);
+        let mut data = header_section;
+        for chunk in entropy_models_definition_section.chunks_exact(2) {
+            data.push(chunk[0] as u32 | ((chunk[1] as u32) << 16));
+        }
+        data.extend_from_slice(&jump_table_section[..]);
+        for chunk in compressed_data_section.chunks_exact(2) {
+            data.push(chunk[0] as u32 | ((chunk[1] as u32) << 16));
+        }
+
+        let file = EmbeddingFile::new(data.into()).unwrap();
+        assert_eq!(file.header().file_size, 35);
 
         let mut data = file.into_inner();
-        data[3] = 11; // Invalidate the file size field.
+        data[4] -= 1; // Invalidate the jump_table address.
         assert!(EmbeddingFile::new(data).is_err());
     }
 }

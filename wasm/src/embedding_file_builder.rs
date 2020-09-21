@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use wasm_bindgen::prelude::*;
 
 use compressed_dynamic_word_embeddings::{
-    embedding_file::{EmbeddingData, EmbeddingFile},
+    embedding_file::{EmbeddingFile, FileHeader, HEADER_SIZE},
     random_access_reader::RandomAccessReader,
 };
 
@@ -33,7 +33,7 @@ impl EmbeddingFileBuilder {
         self.buf.resize_with(
             usize::max(
                 (self.bytes_initialized + additional_bytes + 3) / 4,
-                EmbeddingFile::HEADER_SIZE,
+                HEADER_SIZE as usize,
             ),
             MaybeUninit::uninit,
         );
@@ -60,14 +60,12 @@ impl EmbeddingFileBuilder {
     /// initialized before this method is called.
     pub fn avail(&mut self, amt: usize) -> Option<PointerAndLen> {
         unsafe {
-            const HEADER_BYTES: usize = EmbeddingFile::HEADER_SIZE * 4;
+            const HEADER_BYTES: usize = HEADER_SIZE as usize * 4;
             if self.bytes_initialized + amt >= HEADER_BYTES {
                 let ptr = self.buf.as_ptr();
                 let header_u32s =
-                    std::slice::from_raw_parts(ptr as *const u32, EmbeddingFile::HEADER_SIZE);
-                let file_size = EmbeddingData::header_from_raw(header_u32s)
-                    .unwrap()
-                    .file_size;
+                    std::slice::from_raw_parts(ptr as *const u32, HEADER_SIZE as usize);
+                let file_size = FileHeader::memory_map_unsafe(header_u32s).file_size;
                 self.buf.reserve_exact(file_size as usize - self.buf.len());
                 self.buf
                     .resize_with(file_size as usize, MaybeUninit::uninit);
