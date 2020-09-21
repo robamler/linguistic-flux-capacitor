@@ -533,7 +533,7 @@ mod test {
 
             let mut buf = [0i16; EMBEDDING_DIM as usize];
             for i in &[0, 1, 8, 19, 20, 25, 45, 59, 67, 68, 83, 99] {
-                timestep.jump_to(*i);
+                timestep.jump_to(*i).unwrap();
                 timestep
                     .read_single_embedding_vector(buf.iter_mut(), |source, dest| {
                         *dest = source;
@@ -556,7 +556,7 @@ mod test {
             uncompressed.subview((NUM_TIMESTEPS - 1) as usize),
         );
 
-        let center_timestep = ((NUM_TIMESTEPS - 1) / 2);
+        let center_timestep = (NUM_TIMESTEPS - 1) / 2;
         let center_diff = uncompressed
             .subview(0)
             .slice()

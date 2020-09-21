@@ -1,11 +1,12 @@
 use ndarray::{Array0, Array3};
 use ndarray_npy::NpzReader;
-use std::io::BufWriter;
-use std::path::PathBuf;
-use std::{error::Error, io::Write};
+
 use std::{
+    error::Error,
     fs::{File, OpenOptions},
     io::BufReader,
+    io::BufWriter,
+    path::PathBuf,
 };
 
 use byteorder::{LittleEndian, ReadBytesExt};

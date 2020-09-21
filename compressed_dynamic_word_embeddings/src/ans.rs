@@ -173,12 +173,12 @@ where
     /// # Example
     ///
     /// The generic signature of this method allows constructing an `EntropyModel` from
-    /// both an explicit slice of frequencies, as well as by using [`expand_u12s`]:
+    /// both an explicit slice of frequencies, as well as by using [`unpack_u12s`]:
     ///
     /// ```
     /// # use compressed_dynamic_word_embeddings::{
     /// #     ans::EntropyModel12_32,
-    /// #     u12::expand_u12s,
+    /// #     u12::unpack_u12s,
     /// # };
     /// let symbols = ['r', 's', 't', 'u', 'v', 'w'];
     ///
@@ -194,7 +194,7 @@ where
     /// let compact_frequencies = [0x0123, 0x4561, 0x892b, 0xc1ef];
     /// let model2 = EntropyModel12_32::new(
     ///     symbols.iter().cloned(),
-    ///     expand_u12s(&compact_frequencies, 5)
+    ///     unpack_u12s(&compact_frequencies, 5)
     /// );
     ///
     /// assert_eq!(
@@ -207,7 +207,7 @@ where
     /// [`DecoderModel`]: struct.DecoderModel.html
     /// [`encoder_model`]: #method.encoder_model
     /// [`decoder_model`]: #method.decoder_model
-    /// [`expand_u12s`]: ../u12/fn.expand_u12s.html
+    /// [`unpack_u12s`]: ../u12/fn.unpack_u12s.html
     pub fn new(
         symbols: impl IntoIterator<IntoIter = SI, Item = SI::Item>,
         frequencies: impl IntoIterator<Item = O::Frequency, IntoIter = FI>,
@@ -345,9 +345,9 @@ where
 /// // Encode the same sample data one symbol at a time using the lower level API.
 /// // NOTE: We have to put symbols on the encoder in reverse order (it is a stack).
 /// let mut encoder = encoder_model.encoder();
-/// encoder.put_symbol(&'b').unwrap();
-/// encoder.put_symbol(&'b').unwrap();
-/// encoder.put_symbol(&'a').unwrap();
+/// encoder.push_symbol(&'b').unwrap();
+/// encoder.push_symbol(&'b').unwrap();
+/// encoder.push_symbol(&'a').unwrap();
 /// let compressed2 = encoder.finish();
 ///
 /// assert_eq!(compressed1, compressed2);
@@ -462,14 +462,14 @@ impl<Symbol: Hash + Eq, O: EntropyModelOptions> EncoderModel<O, Symbol> {
 ///
 /// This is the only struct that exposes the stack ("first-in-first-out") nature of
 /// the underlying entropy coding algorithm to the user: symbols put on the stack
-/// (via the method [`put_symbol`]) can be decoded from the compressed data in
+/// (via the method [`push_symbol`]) can be decoded from the compressed data in
 /// *reverse* order.
 ///
 /// # Example
 ///
 /// See documentation of [`EncoderModel`].
 ///
-/// [`put_symbol`]: #method.put_symbol
+/// [`push_symbol`]: #method.push_symbol
 /// [`EncoderModel::encode`]: struct.EncoderModel.html#method.encode
 /// [`EncoderModel`]: struct.EncoderModel.html
 pub struct Encoder<'model, O: EntropyModelOptions, Symbol>
