@@ -1,19 +1,25 @@
-use std::error::Error;
-use std::fs::{File, OpenOptions};
-use std::io::{prelude::*, BufWriter};
-use std::path::PathBuf;
+use ndarray::{Array0, Array3};
+use ndarray_npy::NpzReader;
+
+use std::{
+    error::Error,
+    fs::{File, OpenOptions},
+    io::BufReader,
+    io::BufWriter,
+    path::PathBuf,
+};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use log::info;
 use structopt::StructOpt;
 
 use compressed_dynamic_word_embeddings::{
-    embedding_file::{EmbeddingData, EmbeddingFile},
+    embedding_file::{builder::write_compressed_dwe_file, EmbeddingFile, FileHeader, HEADER_SIZE},
     tensors::RankThreeTensor,
 };
 
 #[derive(StructOpt)]
-#[structopt(about = r#"TODO"#)]
+#[structopt(about = "TODO")]
 enum Opt {
     /// Creates a compressed dynamic embedding file from an uncompressed quantized
     /// tensor.
@@ -28,38 +34,23 @@ enum Opt {
 
 #[derive(StructOpt)]
 struct CreateOpt {
-    /// Number of time steps.
-    #[structopt(long, short = "T")]
-    num_timesteps: u32,
-
-    /// Vocabulary size.
-    #[structopt(long, short = "V")]
-    vocab_size: u32,
-
-    /// Embedding dimension.
-    #[structopt(long, short = "K")]
-    embedding_dim: u32,
-
     /// Number of words that comprise a compressed chunk. For now, this must be a
     /// divisor of the vocabulary size. Larger chunk sizes slightly improve
     /// compression rate but slow down tasks that don't need access to all
     /// embedding vectors in a time step.
     #[structopt(long, short = "C", default_value = "100")]
-    chunk_size: u32,
+    jump_interval: u32,
 
-    /// Scale factor: the number by which dot products of the integer quantized
-    /// word embeddings has to be multiplied to approximate the original dot
-    /// product (i.e., one divided by the square of the coefficient that was
-    /// multiplied to the embedding vectors before they were rounded to integers).
-    #[structopt(long, short = "s")]
-    scale_factor: f32,
-
-    /// Path to output file. [defaults to input file with extension replaced by
-    /// ".dwe"]
+    /// Path to output file [defaults to input file with extension replaced by
+    /// ".dwe"].
     #[structopt(long, short)]
     output: Option<PathBuf>,
 
-    /// Path to uncompressed input file.
+    /// Path to a `.npz` file containing a rank-three tensor `uncompressed_quantized`
+    /// with dtype `numpy.int16` and a 32-bit precision float scalar value
+    /// `scale_factor` (which is typically < 1). Create with:
+    /// `np.savez_compressed('filename.npz', scale_factor=scale_factor,
+    /// uncompressed_quantized=uncompressed_quantized)`.
     input: PathBuf,
 }
 
@@ -105,51 +96,60 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
-    info!(
-        "Loading uncompressed tensor from file at {} ...",
-        opt.input.display()
-    );
-    let mut input_file = File::open(&opt.input).unwrap();
-
-    // Fail early if we cannot open output file (e.g., if it already exists).
-    let input_path = &mut opt.input;
-    let output_path = opt.output.as_ref().unwrap_or_else(|| {
-        input_path.set_extension("dwe");
-        input_path
+    // Fail early if we can't open output file (e.g., if it already exists).
+    let output_path = opt.output.take().unwrap_or_else(|| {
+        let mut output_path = opt.input.clone();
+        output_path.set_extension("dwe");
+        output_path
     });
     let output_file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(output_path)?;
-
-    let mut input_buf = Vec::new();
-    input_file.read_to_end(&mut input_buf).unwrap();
-    std::mem::drop(input_file);
-    if input_buf.len() != (opt.num_timesteps * opt.vocab_size * opt.embedding_dim) as usize {
-        return Err("File size does not match product of parameters -T, -V, and -K.".into());
-    }
-
-    let uncompressed = RankThreeTensor::from_flattened(
-        u8_slice_to_i8_slice(&input_buf).to_vec(),
-        opt.num_timesteps as usize,
-        opt.vocab_size as usize,
-        opt.embedding_dim as usize,
-    );
-
-    info!("Building compressed representation ...");
-    let compressed = EmbeddingFile::from_uncompressed_quantized(
-        uncompressed.as_view(),
-        opt.chunk_size,
-        opt.scale_factor,
-    )
-    .map_err(|()| "Error when compressing file")?;
+        .open(&output_path)?;
 
     info!(
-        "Saving compressed representation to {} ...",
+        "Loading uncompressed tensor from file at {} ...",
+        opt.input.display()
+    );
+
+    let mut npz_reader = NpzReader::new(File::open(&opt.input)?)?;
+
+    let uncompressed: Array3<i16> = npz_reader.by_name("uncompressed_quantized.npy")?;
+    if !uncompressed.is_standard_layout() {
+        Err("Tensor `uncompressed_quantized` must be stored in standard layout.")?;
+    }
+    let (num_timesteps, vocab_size, embedding_dim) = uncompressed.dim();
+    info!(
+        "Found `uncompressed_quantized` tensor with {} time steps, \
+            vocabulary size {}, and embedding dimension {}.",
+        num_timesteps, vocab_size, embedding_dim
+    );
+    let uncompressed = RankThreeTensor::from_flattened(
+        uncompressed.into_raw_vec(),
+        num_timesteps,
+        vocab_size,
+        embedding_dim,
+    );
+
+    let scale_factor: Array0<f32> = npz_reader.by_name("scale_factor.npy")?;
+    let scale_factor = scale_factor.into_scalar();
+    info!("scale_factor = {}", scale_factor);
+
+    std::mem::drop(npz_reader);
+
+    info!(
+        "Building compressed representation and saving to {}...",
         output_path.display()
     );
+
     let output_file = BufWriter::new(output_file);
-    compressed.write_to(output_file)?;
+    write_compressed_dwe_file(
+        uncompressed.as_view(),
+        opt.jump_interval,
+        scale_factor,
+        output_file,
+    )
+    .map_err(|()| "Error when compressing file")?;
 
     info!("Done.");
     Ok(())
@@ -160,7 +160,7 @@ fn pairwise_trajectories(opt: PairwiseTrajectoriesOpt) -> Result<(), Box<dyn Err
         "Loading compressed dynamic embeddings from {} ...",
         opt.input.display()
     );
-    let file = File::open(opt.input)?;
+    let file = BufReader::new(File::open(opt.input)?);
     let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
 
     info!("Calculating trajectories ...");
@@ -186,16 +186,13 @@ fn inspect(opt: InspectOpts) -> Result<(), Box<dyn Error>> {
         opt.input.display()
     );
     let mut file = File::open(opt.input)?;
-    let mut buf = [0u32; EmbeddingData::HEADER_SIZE];
+    let mut buf = [0u32; HEADER_SIZE as usize];
     file.read_u32_into::<LittleEndian>(&mut buf)?;
-    println!("{:#?}", EmbeddingData::header_from_raw(&buf).unwrap());
+    let header = unsafe {
+        // SAFETY: `buf` has correct size.
+        FileHeader::memory_map_unsafe(&buf)
+    };
+    println!("{:#?}", header);
 
     Ok(())
-}
-
-fn u8_slice_to_i8_slice(data: &[u8]) -> &[i8] {
-    unsafe {
-        let ptr = data.as_ptr();
-        std::slice::from_raw_parts_mut(ptr as *mut i8, data.len())
-    }
 }

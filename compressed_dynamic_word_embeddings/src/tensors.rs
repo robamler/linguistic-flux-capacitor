@@ -54,6 +54,14 @@ pub struct RankThreeTensorView<'a, T> {
 }
 
 impl<'a, T> RankThreeTensorView<'a, T> {
+    fn from_raw_parts(stride0: usize, stride1: usize, data: &'a [T]) -> Self {
+        Self {
+            stride0,
+            stride1,
+            data,
+        }
+    }
+
     pub fn shape(self) -> (usize, usize, usize) {
         (
             self.data.len() / self.stride0,
@@ -126,6 +134,10 @@ impl<'a, T> RankThreeTensorViewMut<'a, T> {
             )
         }
     }
+
+    pub fn downgrade(&self) -> RankThreeTensorView<T> {
+        RankThreeTensorView::from_raw_parts(self.stride0, self.stride1, self.data)
+    }
 }
 
 pub struct RankTwoTensor<T> {
@@ -141,6 +153,16 @@ impl<T: Default> RankTwoTensor<T> {
 
         Self {
             stride0: shape1,
+            data: data.into(),
+        }
+    }
+
+    pub fn from_flattened(data: Vec<T>, shape0: usize, shape1: usize) -> Self {
+        let stride0 = shape1;
+        assert_eq!(data.len(), shape0 * stride0);
+
+        Self {
+            stride0,
             data: data.into(),
         }
     }

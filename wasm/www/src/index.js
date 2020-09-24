@@ -1,6 +1,6 @@
 import './styles.css';
 
-import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000";
+import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize30000.bin";
 //import FaceBookIcon from './facebook-icon.png'
 //import TwitterIcon from './facebook-icon.png'
 
@@ -133,7 +133,7 @@ let backendPromise = import("./backend.js");
     wordInput.onkeydown = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
-    
+
 
     let pinWordButton = document.getElementById('pinWordButton');
     pinWordButton.onclick = pinWord;
@@ -150,47 +150,46 @@ let backendPromise = import("./backend.js");
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
-    
+
     let DEBUG_history_count = 0;
     window.addEventListener('popstate', on_popstate);
-    
+
     wordInput.focus();
     history.pushState(0, "some useless title", "");
 
-    let colorsAvail = ['color6','color7','color8','color9'];
-    
+    let colorsAvail = ['color6', 'color7', 'color8', 'color9'];
+
     setTimeout(on_popstate, 0);
 
-    function shareFaceBook(){
-    	//console.log("//TODO: copy current link to url2");
-    	window.open(
-      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href), 
-      'facebook-share-dialog', 
-      'width=626,height=436'); 
+    function shareFaceBook() {
+        //console.log("//TODO: copy current link to url2");
+        window.open(
+            'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(location.href),
+            'facebook-share-dialog',
+            'width=626,height=436');
     }
 
-    function shareTwitter(){
-    	//console.log("//TODO: copy current link to url");
-    	window.open(
-      "https://twitter.com/intent/tweet?text=check this out! -> "+encodeURIComponent(location.href), 
-      'facebook-share-dialog', 
-      'width=626,height=436'); 
+    function shareTwitter() {
+        //console.log("//TODO: copy current link to url");
+        window.open(
+            "https://twitter.com/intent/tweet?text=check this out! -> " + encodeURIComponent(location.href),
+            'facebook-share-dialog',
+            'width=626,height=436');
     }
 
-    function showUrl(){
-    	//console.log("//TODO: copy show this url to user");
-    	alert("copy this link to share -> ".concat(location.href.toString()));
+    function showUrl() {
+        //console.log("//TODO: copy show this url to user");
+        alert("copy this link to share -> ".concat(location.href.toString()));
     }
 
     function on_popstate() {
-        DEBUG_history_count --;
+        DEBUG_history_count--;
         //console.log("handle url: ", window.location.href);
         let cropped = window.location.hash.substr(1);
         let configs = cropped.split('_@_');
         let mw = configs[0];
         let mi = configs.length < 2 ? [] : configs[1].split('&');
-        if (mw == "")
-        {
+        if (mw == "") {
             //console.log("empty");
             mainLegend.style.visibility = 'hidden';
             mainPlot.clear();
@@ -204,14 +203,13 @@ let backendPromise = import("./backend.js");
         //console.log("end decision loop");
     }
 
-    function restoreState(savedMainWord, savedOtherWords)
-    {
+    function restoreState(savedMainWord, savedOtherWords) {
         mustIncludeWordList = savedOtherWords;
         mustIncludeListUpdated = true;
         wordInput.value = savedMainWord;
         exploreWord(savedMainWord, mustIncludeWordList, true);
     }
-    
+
     function wordChanged() {
         console.log("word changed: main input changed to: ", wordInput.value);
         // Wait for next turn in JS executor to let change take effect.
@@ -226,15 +224,13 @@ let backendPromise = import("./backend.js");
         mustIncludeListUpdated = true;
     }
 
-    function pinWord(){
+    function pinWord() {
         //this function is called when the pin word button is called
         var word = mustIncludeInput.value;
-        if (word == "")
-        {
+        if (word == "") {
             return;
         }
-        if (mustIncludeWordList.length == 4)
-        {
+        if (mustIncludeWordList.length == 4) {
             alert("must included word approached threshhold");
             return;
         }
@@ -242,17 +238,18 @@ let backendPromise = import("./backend.js");
         if (typeof wordId === 'undefined') {
             mustIncludeInput.classList.add('invalid');
             return;
-        } 
+        }
         else {
-            mustIncludeInput.classList.remove('invalid');}
-            
+            mustIncludeInput.classList.remove('invalid');
+        }
+
         mustIncludeWordList.push(word);
         mustIncludeChanged();
         exploreWord(wordInput.value, mustIncludeWordList);
         mustIncludeInput.value = '';
     }
 
-    function removeWordButtonCallback(removeWordButton){
+    function removeWordButtonCallback(removeWordButton) {
         var word2Remove = removeWordButton.getAttribute("name");
         //remove word from must included list
         mustIncludeWordList = mustIncludeWordList.filter(e => e !== word2Remove);
@@ -262,14 +259,14 @@ let backendPromise = import("./backend.js");
     }
 
 
-    function assembleMainLegendDOM(colorIndex){
+    function assembleMainLegendDOM(colorIndex) {
         /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
         //var colorString = colorsAvail[colorsUsed];
         var html = '<li id=\'dynamicLiObj\' class=\'_COLORNUM_\'><span></span> : <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
-        if (colorIndex ==null){
+        if (colorIndex == null) {
             html = html.replace("_COLORNUM_", "color6");
         }
-        else{
+        else {
             html = html.replace("_COLORNUM_", colorsAvail[colorIndex]);
         }
         //console.log("Assembled: ", html);
@@ -278,7 +275,7 @@ let backendPromise = import("./backend.js");
         var el = template.content.firstChild;
         el.querySelectorAll('.removeWordButton').forEach(el => {
             //relatedRemoveButtons.push(el);
-            el.setAttribute("name","defaultRemoval");
+            el.setAttribute("name", "defaultRemoval");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
@@ -288,9 +285,9 @@ let backendPromise = import("./backend.js");
         return el;
     }
 
-    
 
-    function addSlotToMainLegend(colorIndex){
+
+    function addSlotToMainLegend(colorIndex) {
         /*add a new empty DOM li to main legend ul, the content is set in exploreword*/
         var ul = document.getElementById("plotUL");
         var el = assembleMainLegendDOM(colorIndex);
@@ -301,19 +298,18 @@ let backendPromise = import("./backend.js");
         mainLegendItems = mainLegend.querySelectorAll('li');
     }
 
-    function removeSlotFromMainLegend(){
+    function removeSlotFromMainLegend() {
         /*in case other operations is needed in the future*/
         mainLegendItems.pop();
     }
 
-    function cleanMainLegend(){
+    function cleanMainLegend() {
 
         /*remove all dynamically added slot from main legend*/
         var numToIter = dynamicMainLegendDOMs.length;
 
-        for (let i = numToIter; i>0; i--)
-        {
-            var victim = dynamicMainLegendDOMs[i-1];
+        for (let i = numToIter; i > 0; i--) {
+            var victim = dynamicMainLegendDOMs[i - 1];
             victim.parentNode.removeChild(victim);
         }
         //force refresh main plot;
@@ -323,26 +319,24 @@ let backendPromise = import("./backend.js");
         dynamicMainLegendDOMs.length = 0;
     }
 
-    function saveHistoryState(){
+    function saveHistoryState() {
         //save current state of webpage
-    }   
+    }
 
 
-    
+
     function exploreWord(word, mustIncludeList, surpress_save_state = false) {
 
-    	if(wordInput.value == "")
-        {
-        	//console.log("detected empty in wordchanged");
-        	mainPlot.clear();
-        	mustIncludeWordList = [];
-        	mainLegend.style.visibility = 'hidden';
+        if (wordInput.value == "") {
+            //console.log("detected empty in wordchanged");
+            mainPlot.clear();
+            mustIncludeWordList = [];
+            mainLegend.style.visibility = 'hidden';
         }
 
         //console.log("exploreWord called, word: ", word, " ,mustIncludeList: ", mustIncludeList);
         //corner case: infinite loop
-        if (surpress_save_state == false)
-        {
+        if (surpress_save_state == false) {
             let stateUrl = "#".concat(word).concat("_@_").concat(mustIncludeList.join("&"));
             history.pushState(DEBUG_history_count++, "some useless title", stateUrl);
             //console.log("state pushed, total states: ", DEBUG_history_count);
@@ -350,21 +344,18 @@ let backendPromise = import("./backend.js");
 
         var totalWordNum = 6
         cleanMainLegend();
-        if(mustIncludeListUpdated == true||mustIncludeListUpdated == false)
-        {
+        if (mustIncludeListUpdated == true || mustIncludeListUpdated == false) {
             //console.log("detected must include list updating")
             totalWordNum = 6 + mustIncludeList.length;
             var currentLegendLength = mainLegendItems.length;
             // this is to show how many slot are different
-            var slotNumDiff = mustIncludeList.length-(currentLegendLength-6);
+            var slotNumDiff = mustIncludeList.length - (currentLegendLength - 6);
 
-            if (slotNumDiff>0)
-            {
+            if (slotNumDiff > 0) {
                 let curColorIndex = 0; //starting from 0
-                for (let i=slotNumDiff; i>0; i--)
-                {
+                for (let i = slotNumDiff; i > 0; i--) {
                     addSlotToMainLegend(curColorIndex++);
-                    
+
                 }
                 //console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
                 dynamicMainLegendDOMs.forEach((element, index) => {
@@ -388,8 +379,8 @@ let backendPromise = import("./backend.js");
             }
 
         }
-        
-        if (word !== currentWord||mustIncludeListUpdated == true) {
+
+        if (word !== currentWord || mustIncludeListUpdated == true) {
             currentWord = word;
             mustIncludeListUpdated = false;
             mainLegendItems.forEach(el => el.classList.remove('hovering'));
@@ -403,20 +394,18 @@ let backendPromise = import("./backend.js");
                     wordInput.value = word;
                 }
                 mainPlot.clear();
-                
+
                 //other words contains the most interesting words, returned by handle
                 let suggestedWords = handle.largest_changes_wrt(wordId, 6, 2, 2);
                 let otherWords = handle.largest_changes_wrt(wordId, totalWordNum, 2, 2);
 
                 //replace last k interesting word to must included words 
-                for (var i = 0; i<=5; i++)
-                {
+                for (var i = 0; i <= 5; i++) {
                     otherWords[i] = suggestedWords[i];
                 }
-                
-                for (var i=0; i<mustIncludeWordList.length; i++)
-                {
-                    otherWords[6+i] = inverseVocab[mustIncludeWordList[i]];
+
+                for (var i = 0; i < mustIncludeWordList.length; i++) {
+                    otherWords[6 + i] = inverseVocab[mustIncludeWordList[i]];
                 }
                 //to handle pair wise traj, a repetition is created; since handle.pairwise_trjectories must use array operation
                 let wordIdRepeated = Array(totalWordNum).fill(wordId);
@@ -442,12 +431,11 @@ let backendPromise = import("./backend.js");
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
                     //console.log("legendWodLebl", legendWordLabel);
                     legendWordLabel.textContent = word;
-                    
+
                     legendWordLabel.nextElementSibling.textContent = otherWord;
-                    if (legendWordLabel.nextElementSibling.nextElementSibling != null)
-                    {
+                    if (legendWordLabel.nextElementSibling.nextElementSibling != null) {
                         //console.log("setting name of button");
-                        legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name",otherWord);
+                        legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name", otherWord);
                     }
                 });
                 mainLegend.style.visibility = 'visible';
@@ -456,5 +444,3 @@ let backendPromise = import("./backend.js");
     }
 
 }())
-
-

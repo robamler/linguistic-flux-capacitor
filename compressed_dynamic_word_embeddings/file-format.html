@@ -3,467 +3,809 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Word History Explorer File Format</title>
+    <title>Compressed Dynamic Word Embeddings File Format</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
             padding: 1em;
         }
 
-        .pageContainer {
-            max-width: 60em;
-            margin: 0 auto;
-        }
-
         h2,
-        h3 {
+        h2 {
             margin: 2em 0 1em 0;
         }
 
         table {
             border-collapse: collapse;
+            border: 0 solid black;
         }
 
         td,
         th {
             border: 0.1em solid #ccc;
-            padding: 8px;
+            padding: 0.5em;
         }
 
         th {
             font-weight: bold;
             background-color: #f0f1f3;
         }
+
+        .code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #ccc;
+            padding: 0 0.1em;
+            border-radius: 0.15em;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        td.empty {
+            border: none;
+        }
+
+        td.separator {
+            border: none;
+            height: 0.5em;
+            padding: 0;
+        }
+
+        th.loop {
+            width: 1em;
+        }
+
+        th.loop>div {
+            width: 0;
+            transform: rotate(-90deg);
+        }
+
+        th.loop>div>div {
+            transform: translateX(-50%);
+            white-space: nowrap;
+            display: inline-block;
+            padding-top: 1em;
+        }
+
+        blockquote {
+            background-color: inherit;
+            margin: 0.7em 0 0.7em 0.3em;
+            padding: 0 0 0 1.5em;
+        }
+
+        blockquote>blockquote {
+            margin: 0 0 0.4em 0.3em;
+            border-left: solid 0.1em #ddd;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #333;
+                color: white;
+            }
+
+            a {
+                color: #acf;
+            }
+
+            a:visited {
+                color: #eaf;
+            }
+
+            th {
+                background-color: #626262;
+            }
+
+            td,
+            th {
+                border-color: #555;
+            }
+
+            blockquote>blockquote {
+                border-left-color: #666;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class='pageContainer'>
-        <h1>Word History Explorer File Format</h1>
-        <h2>Compression Strategy</h2>
-        <ul>
-            <li>TODO (bisect in a tree and store compressed diffs compared to average of parents)</li>
-        </ul>
-        <h2>Binary Format</h2>
-        <h3 id="Overall-Layout">Overall Layout</h3>
-        <ul>
-            <li>The file is a tree of blocks that are linked together.</li>
-            <li>All blocks are aligned to multiples of 4 bytes from the beginning of the file.</li>
-            <li>The file size must be a multiple of 4 bytes.</li>
-            <li>Essentially, we treat the file as an array of 32-bit integers.</li>
-            <li>When addressing a child block from a parent block, we specify its start position measured from the
-                beginning of the file in units of 4 bytes.</li>
-            <li>Except for the root block, which must start at the beginning of the file, the encoder may place all
-                other blocks at arbitrary (non-overlapping) positions in the file. The encoder <em>should</em>
-                choose
-                block placements to optimize for cache locality on the decoder side, and it <em>should</em> avoid
-                gaps
-                between blocks unless needed for alignment or for future features (see minor_version field in root
-                block).</li>
-            <li>All fields are stored in little-endian byte order because WebAssembly (as well as the rest of the
-                world)
-                is little-endian.</li>
-        </ul>
-        <h3 id="Root-Block-(File-Header)">Root Block (File Header)</h3>
-        <ul>
-            <li>The root block always starts at address zero, i.e., at the beginning of the file.</li>
-        </ul>
-        <table>
-            <tbody>
-                <tr>
-                    <th>Name</th>
-                    <th>Length (bytes)</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td>
-                        magic
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        [u8; 4]
-                    </td>
-                    <td>
-                        Magic number to detect file type. Set to a constant to be defined later.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        major_version
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Major version of the file format. Set to zero for now and used for future compatibility. A
-                        possible future change in the major version will indicate that decoders not familiar with
-                        the
-                        new major version will likely not be able to correctly parse the file.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        minor_version
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Set to one (1) for now. Used for future compatibility. A possible future change in just the
-                        minor version (and not the major version) will indicate that decoders not familiar with the
-                        new
-                        minor version will still be able to parse the file correctly (with some definition of
-                        correctness) but they will miss out on some new features.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        file_size
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        The total file size, in units of 4 bytes (i.e., the file size in bytes, which must be a
-                        multiple
-                        of 4, divided by 4).
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        num_timesteps
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Number of time steps.
-                        <ul>
-                            <li>
-                                Must be at least 2.
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        vocab_size
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Number of words in the vocabulary.
-                        <ul>
-                            <li>
-                                Must be nonzero.
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        embedding_dim
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Embedding dimension.
-                        <ul>
-                            <li>
-                                Must be nonzero.
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                vocab_size * embedding_dim must be a multiple of 4.
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        chunk_size
-                    </td>
-                    <td>
-                        4
-                    </td>
-                    <td>
-                        u32
-                    </td>
-                    <td>
-                        Number of words that are compressed in a single chunk.
-                        <ul>
-                            <li>
-                                Must be nonzero and a divisor of vocab_size.
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                Can be 1, but that&rsquo;s not recommended.
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                Can be vocab_size.
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        timestep_addrs
-                    </td>
-                    <td>
-                        4 * (num_timesteps - 2)
-                    </td>
-                    <td>
-                        [u32]
-                    </td>
-                    <td>
-                        Addresses (in units of 4 bytes, see <a href="#Overall-Layout">
-                            Overall Layout</a>) of the time step meta data blocks (for each time step
-                        except
-                        the zeroth and last one, which are stored in uncompressed form). See <a
-                            href="#Time-Step-Meta-Data-Blocks">
-                            below</a> for the layout of the time step meta data.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        vec[0, :, :]
-                    </td>
-                    <td>
-                        vocab_size * embedding_dim (which is a multiple of 4)
-                    </td>
-                    <td>
-                        [i8]
-                    </td>
-                    <td>
-                        Clear text form of the embedding vectors for the zeroth time step. Encoded as a sequence of
-                        vocab_size arrays of embedding_dim bytes.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        vec[num_timesteps-1, :, :]
-                    </td>
-                    <td>
-                        vocab_size * embedding_dim (which is a multiple of 4)
-                    </td>
-                    <td>
-                        [i8]
-                    </td>
-                    <td>
-                        Clear text form of the embedding vectors for the last time step. Encoded as a sequence of
-                        vocab_size arrays of embedding_dim bytes.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <h3 id="Time-Step-Meta-Data-Blocks">Time Step Meta Data Blocks</h3>
-        <ul>
-            <li>There are (root_block.num_timestep - 2) time step meta data blocks. They start at the addresses
-                given in
-                root_block.timestep_addrs.</li>
-        </ul>
-        <table>
-            <tbody>
-                <tr>
-                    <th>Name</th>
-                    <th>Length (bytes)</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td>
-                        smallest_symbol
-                    </td>
-                    <td>
-                        1
-                    </td>
-                    <td>
-                        i8
-                    </td>
-                    <td>
-                        The smallest symbol with nonzero frequency.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        largest_symbol
-                    </td>
-                    <td>
-                        1
-                    </td>
-                    <td>
-                        i8
-                    </td>
-                    <td>
-                        The largest symbol with nonzero frequency (inclusively).
-                        <ul>
-                            <li>
-                                Must be larger than smallest_symbol. Setting largest_symbol equal to smallest_symbol
-                                is
-                                not allowed because the compression algorithm cannot deal with a degenerate
-                                frequency
-                                distribution that puts all its mass on a single symbol. In the highly unlikely case
-                                that
-                                all symbols in the payload really are identical, the encoder should approximate the
-                                distribution of symbols with a distribution that has (scaled) frequency 255 for the
-                                true
-                                symbol and frequency 1 for either neighboring symbol
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        frequencies
-                    </td>
-                    <td>
-                        largest_symbol - smallest_symbol + 1
-                    </td>
-                    <td>
-                        [u8]
-                    </td>
-                    <td>
-                        The frequencies of symbols in the payload, scaled by a factor of 256.
-                        <ul>
-                            <li>
-                                Must sum up to 256.
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                Must not start or end in a zero (because that&rsquo;s what the fields
-                                smallest_symbol
-                                and largest_symbol are for).
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                The distribution specified by frequencies, smallest_symbol, and largest_symbol must
-                                not
-                                assign a zero frequency to any symbol that appears in the payload (because this
-                                would
-                                make it impossible to encode the symbol).
-                            </li>
-                        </ul>
-                        <ul>
-                            <li>
-                                The specified distribution should approximate the true frequencies (multiplied by
-                                256)
-                                of symbols in the payload in order to achieve optimal compression ratio. More
-                                precisely,
-                                the encoder should minimize the cross entropy of the distribution specified here
-                                relative to the true frequencies of symbols.
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        (padding)
-                    </td>
-                    <td>
-                        at most 3
-                    </td>
-                    <td>
-                        &mdash;
-                    </td>
-                    <td>
-                        Unused padding bytes to restore 4-byte alignment.
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        chunk_addrs
-                    </td>
-                    <td>
-                        4 * root_block.vocab_size / root_block.chunk_size (which is an integer multiple of 4, since
-                        root_block.chunk_size must be a divisor of root_block.vocab_size)
-                    </td>
-                    <td>
-                        [u32]
-                    </td>
-                    <td>
-                        Addresses (in units of 4 bytes, see <a href="#Overall-Layout">
-                            Overall Layout</a>) of the compressed chunks. See <a href="#Chunk-Blocks">
-                            below</a> for the layout of chunks.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <h3 id="Chunk-Blocks">Chunk Blocks</h3>
-        <ul>
-            <li>There are (root_block.num_timestep - 2) * root_block.vocab_size / root_block.chunk_size chunk
-                blocks.</li>
-            <li>The chunk blocks start at the addresses given in time_step_meta_data_block.chunk_addrs, which are
-                multiples of four.</li>
-            <li>Chunk blocks contain a compressed stream that uncompresses to an array of size root_block.chunk_size
-                *
-                root_block.embedding_dim.</li>
-            <li>The uncompressed representation of a chunk block contains root_block.chunk_size concatenated
-                difference
-                vectors, where each difference vector is a sequence of root_node.embedding_dim signed bytes (i.e.,
-                i8s).</li>
-        </ul>
-        <table>
-            <tbody>
-                <tr>
-                    <th>Name</th>
-                    <th>Length (bytes)</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td>
-                        compressed_data
-                    </td>
-                    <td>
-                        Variable, detected upon decoding (since the size of the uncompressed data is known).
-                    </td>
-                    <td>
-                        [u16]
-                    </td>
-                    <td>
-                        A compressed data stream, see below.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <h3 id="Compression">Compression</h3>
-        We use an <a href="https://en.wikipedia.org/wiki/Asymmetric_numeral_systems">asymmetric numeral
-            system</a> for lossless compression. The encoding and decoding algorithms use a buffer of 32 bits, and
-        they
-        transfer
-        data between this buffer and the compressed data source/sink at a granularity of 16 bits. This is why the
-        compressed_data field of chunk blocks is of type [u16].
-        TODO: precise specification of the compression algorithm.
-    </div>
+    <h1>Compressed Dynamic Word Embeddings File Format</h1>
+    <ul>
+        <li><strong>Version:</strong> 1.0</li>
+    </ul>
+
+
+    <h2 id="Overall-Layout">Overall Layout</h2>
+
+    <p>
+        A compressed Dynamic Word Embeddings (DWE) fils is binary file whose file size in bytes is a multiple of four.
+        The file contents is a concatenation of four sections:
+    <ol>
+        <li><a href="#header">A fixed-size header.</a></li>
+        <li><a href="#entropy-models">A definition of the entropy models for each time step.</a></li>
+        <li><a href="#jump-table">A table of jump addresses and decoder states to speed up random access.</a></li>
+        <li><a href="#compressed-data">The compressed word embeddings.</a></li>
+    </ol>
+    <p>
+        The three sections are described in detail below.
+        All fields are encoded in little endian byte order.
+    </p>
+
+
+    <h2 id="header">Section 1: File Header</h2>
+
+    <p>
+        The file begins with a fixed-size header, which is a concatenation of the fields described in the table below.
+        All fields stored in little endian byte order.
+        Note that, since the length of each field is an integer multiple of four, all fields are aligned to multiples of
+        four bytes.
+    </p>
+
+    <table>
+        <tbody>
+            <tr>
+                <th>Field Name</th>
+                <th>Length (bytes)</th>
+                <th>Data Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>magic</code></td>
+                <td>4</td>
+                <td><code class="nowrap">[u8; 4]</code></td>
+                <td>
+                    Magic number that allows other programs to detect the file type.
+                    Has to be set to the byte sequence <code>[0x00, 0x64, 0x77, 0x65]</code> (note that
+                    this is <code>0x65776400</code> in
+                    little-endian encoding). This is a zero byte followed by
+                    the ASCII (or UTF-8) encoding of the string "dwe".
+                    In particular, the initial zero byte makes it easy to detect the file as a binary file.
+                </td>
+            </tr>
+            <tr>
+                <td><code>major_version</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    Major version of the file format.
+                    This document describes version 1.0 of the file format, so this field should be set to
+                    <code>1</code> for
+                    files following this version of the format.
+                    Increasing the major version indicates that decoders not familiar with
+                    the new major version will likely not be able to correctly parse the file.
+                </td>
+            </tr>
+            <tr>
+                <td><code>minor_version</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    Minor version of the file format.
+                    This document describes version 1.0 of the file format, so this field should be set to
+                    <code>0</code> for files following this version of the format.
+                    Increasing the minor version only (as opposed to the major version) means that that decoders not
+                    familiar with the
+                    new minor version will still be able to parse the file correctly (with some definition of
+                    correctness) but they will miss out on some new features.
+                </td>
+            </tr>
+            <tr>
+                <td><code>file_size</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    The total file size, in units of 4 bytes (i.e., the file size in bytes divided by 4, which must
+                    result in an integer number as the file size must be a multiple of 4).
+                </td>
+            </tr>
+            <tr>
+                <td><code>jump_table_address</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    The position of the beginning of the <a href="#jump-table">jump addresses table</a>, measured in
+                    units of 4 bytes from the beginning of the file.
+                    This is equal to the size of only the first two sections of the file (header and entropy model
+                    definitions) in bytes divided by 4.
+                    While this information is strictly speaking redundant, it may be used for streaming decoding:
+                    efficient decoding requires building some lookup tables for
+                    the entropy coder.
+                    The information required to construct these lookup tables typically takes up only a small portion of
+                    the file.
+                    Thus, once the first <code>jump_table_address * 4</code> bytes of the file have been received, a
+                    streaming decoder has all
+                    necessary information to construct these lookup tables while the rest of the file is still being
+                    downloaded in the background.
+                </td>
+            </tr>
+            <tr>
+                <td><code>num_timesteps</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    Number of time steps.
+                    <ul>
+                        <li>
+                            Must be at least 2.
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><code>vocab_size</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>Number of words in the vocabulary.
+                    <ul>
+                        <li>
+                            Must be nonzero.
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><code>embedding_dim</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    Embedding dimension.
+                    <ul>
+                        <li>
+                            Must be nonzero.
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><code>jump_interval</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>
+                    Number of consecutive embedding vectors that are addressable as a group via random access.
+                    <ul>
+                        <li>
+                            Must be at least one and at most <code>vocab_size</code>.
+                        </li>
+                        <li>
+                            For optimal efficiency, jump_interval is recommended but not required to be a divisor of
+                            <code>vocab_size</code> (or slightly above a fractional divisor of <code>vocab_size</code>,
+                            see next item).
+                        </li>
+                        <li>
+                            Small jump intervals make random access across the vocabulary dimension faster,
+                            but excessively small jump intervals lead to an overhead in file size (the overhead in bytes
+                            for random access
+                            is <code>8 * num_timesteps * ceil(vocab_size / jump_size)</code>).
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><code>scale_factor</code></td>
+                <td>4</td>
+                <td><code>f32</code></td>
+                <td>
+                    Scalar factor (typically <code>&lt; 1.0</code>) to map the encoded integer embedding vectors back to
+                    their continuous representations.
+                    Thus, to calculate the scalar product between two embedding vectors, one has to first calculate the
+                    scalar product of the encoded integer representations and then multiply it with the <em>square</em>
+                    of scale_factor.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <h2 id="entropy-models">Section 2: Definitions of Entropy Models</h2>
+
+    <p>
+        The next section of the file is a sequence of definitions of entropy models.
+        This section immediately follows the <a href="#header">header section</a>.
+        There is one entropy model definition per time step, and the definitions are concatenated in the order of the
+        time series.
+        Each entropy model is defined by a concatenation of the fields in the below table where each field is encoded in
+        little endian byte order.
+    </p>
+    <p>
+        Note that, since the length of the file header is a multiple of four and each field in the entropy model
+        definitions
+        has an even length, all fields in the table below are aligned to multiples of two bytes.
+        If the concatenation of all <code>num_timesteps</code> entropy model definitions has a length in
+        bytes that is not an integer multiple of four then we append two bytes of unused padding to ensure that the next
+        section of the file is aligned to a multiple of four bytes.
+    </p>
+
+    <table>
+        <tbody>
+            <tr>
+                <td class="empty"></td>
+                <th>Field Name</th>
+                <th>Length (bytes)</th>
+                <th>Data Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <th rowspan="3" class="loop">
+                    <div>
+                        <div>for each time step <em>t</em> ∊ {0, ..., <code>num_timesteps - 1</code>}</div>
+                    </div>
+                </th>
+                <td><code>num_symbols</code></td>
+                <td>2</td>
+                <td><code>u16</code></td>
+                <td>
+                    The number of distinct symbols that appear in the uncompressed data stream.
+                    This is sometimes also called the size of the code book.
+                    <ul>
+                        <li>
+                            Must be larger than one since the decompression algorithm cannot deal with a degenerate
+                            frequency distribution that puts all its mass on a single symbol.
+                            In the highly unlikely case
+                            that all entries of the payload are the same symbol, the encoder should
+                            approximate the distribution of symbols with a distribution that has (scaled) frequency
+                            4095 for the true symbol and frequency 1 for an arbitrary other symbol.
+                        </li>
+                        <li>
+                            Must not be larger than 4096 (= 2<sup>12</sup>) since each symbol must have a nonzero
+                            frequency
+                            and we encode frequencies with 12 bit precision.
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><code>symbols</code></td>
+                <td><code>2 * num_symbols</code></td>
+                <td><code>[i16]</code></td>
+                <td>
+                    A concatenation of all distinct symbols that appear in the uncompressed payload.
+                </td>
+            </tr>
+            <tr>
+                <td><code>frequencies</code></td>
+                <td><code class="nowrap">2 * floor(<br>&nbsp;&nbsp;3 * num_symbols / 4)</code></td>
+                <td><code>[u16]</code></td>
+                <td>The frequencies of symbols in the payload, scaled by a factor of 4096 (= 2<sup>12</sup>).
+                    <ul>
+                        <li>
+                            Must sum up to less than 4096.
+                        </li>
+                        <li>
+                            Must not contain any zeros.
+                        </li>
+                        <li>
+                            The frequencies are stored in the same order as their corresponding symbols in the previous
+                            field.
+                        </li>
+                        <li>
+                            The frequency of the last symbol is not stored in the file as it can be inferred from
+                            the condition that the sum of all scaled frequencies must be 4096 (and the decoder has
+                            to calculate this sum anyway to construct the cumulative distribution).
+                            Thus, if <code>num_symbols = 1</code> then the <code>frequencies</code> field is empty.
+                        </li>
+                        <li>
+                            The frequencies are stored in a compact representation, obtained by writing out each
+                            frequency in binary, zero-padding each frequency to 12 binary digits if necessary,
+                            concatenating, zero-padding the concatenation to a multiple of 16 bits if necessary, and
+                            then splitting it into chunks of 16 bits.
+                            For example, for an entropy model with six symbols where the frequencies of the first five
+                            symbols are <code>0x167</code>, <code>0x289</code>, <code>0x3ab</code>,
+                            <code>0x0cd</code>, and <code>0x5ef</code> in hexadecimal notation, the
+                            <code>frequencies</code> field would hold the following sequence of four unsigned 16-bit
+                            integers, each encoded in little-endian byteorder:
+                            <code>[0x0167, 0x2893, 0xab0c, 0xd5ef]</code>.
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="5" class="separator"></td>
+            </tr>
+            <tr>
+                <td colspan="2"><code>padding</code></td>
+                <td>0 or 2</td>
+                <td>&mdash;</td>
+                <td>Unused padding bytes to ensure 4-byte alignment of the <a href="#jump-table">jump addresses (see
+                        below)</a>.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <h2 id="jump-table">Section 3: Jump Table</h2>
+
+    <p>
+        The next section of the file is a table of jump addresses and decoder states that can be used to speed up random
+        access into the <a href="#compressed-data">compressed data</a> section.
+        This jump table follows immediately the <a href="#entropy-models">entropy model definitions</a> section and is
+        therefore aligned to a multiple of four bytes.
+    </p>
+    <p>
+        The jump table contains a sequence of table rows with the fields outlined below.
+        For each one of the <code>num_timesteps</code> time steps&nbsp;<code>t</code>, there is a block of
+        <code>ceil(vocab_size / jump_interval)</code> table rows where the <code>k</code><sup>th</sup> row (for
+        <code>k</code> starting at zero) within each
+        block points to the beginning of the <code>(k * jump_interval)</code><sup>th</sup> embedding vector for time
+        step&nbsp;<code>t</code>. The blocks for all time steps are concatenated in order from <code>t = 0</code> to
+        <code>t = num_timesteps - 1</code>.
+    </p>
+
+    <table>
+        <tbody>
+            <tr>
+                <td class="empty"></td>
+                <td class="empty"></td>
+                <th>Field Name</th>
+                <th>Length (bytes)</th>
+                <th>Data Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <th rowspan="4" class="loop">
+                    <div>
+                        <div>for each time step</div>
+                    </div>
+                </th>
+                <td colspan="5" class="separator"></td>
+            </tr>
+            <tr>
+                <th rowspan="2" class="loop" style="height:12em">
+                    <div>
+                        <div>for each jump target</div>
+                    </div>
+                </th>
+                <td><code>offset</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>Offset into the compressed data, measured in units of two bytes from the beginning of the <a
+                        href="#compressed-data">compressed data section</a> of the file.</td>
+            </tr>
+            <tr>
+                <td><code>state</code></td>
+                <td>4</td>
+                <td><code>u32</code></td>
+                <td>State of the entropy coder at the jump position (see <a href="#entropy-coding">entropy coding</a>
+                    below).</td>
+            </tr>
+            <tr>
+                <td colspan="5" class="separator"></td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <h2 id="compressed-data">Section 4: Compressed Data</h2>
+
+    <p>
+        The final section of the file contains the compressed dynamic word embeddings.
+        This is typically by far the largest section of the file.
+        The compression scheme employs two layers to reduce the file size:
+    </p>
+    <ol>
+        <li>a convenient representation of the embedding vectors that removes some of the temporal correlations while
+            still enabling efficient random access across the time axis; and</li>
+        <li>entropy coding using asymmetric numeral systems.</li>
+    </ol>
+    <p>
+        The following subsections describe the two layers in more detail.
+    </p>
+
+    <h3 id="data-representation">Layer 1: Decorrelated Data Representation</h3>
+
+    <p>
+        Dynamic Word Embeddings is a nonparametric model that represents each word&nbsp;<code>i</code> from a vocabulary
+        for each time step&nbsp;<code>t</code> by some embedding vector
+        <code>u<sub>t,i</sub> ∊ ℝ<sup>embedding_dim</sup></code>. The trajectories across time are smooth for most
+        words&nbsp;<code>i</code>, which means that embedding vectors <code>u<sub>t,i</sub></code> and
+        <code>u<sub>t+1,i</sub></code> for the same word and neighboring time steps are often very similar. To
+        decorrelate embedding vectors and reduce the marginal entropy within each time step, we map the data to a more
+        convenient representation defined as follows,
+    </p>
+    <ul>
+        <li>
+            All word embedding vectors are scaled by a global scalar factor (<code>1.0 / scale_factor</code>) such that
+            all entries can be represented by a signed 16-bit integer and the square norm of each word embedding is no
+            larger than 2<sup>31</sup> - 1 (the largest value that can be represented by a signed 32-bit integer).
+            The latter condition ensures that the scalar product of any two scaled embedding vectors can also be
+            represented in a signed 32-bit integer (by Cauchy Schwartz inequality).
+        </li>
+        <li>
+            For the first time step <code>t = 0</code> and the last time step <code>t = num_timesteps - 1</code>, no
+            further transformation is performed before entropy coding.
+        </li>
+        <li>
+            For the center time step <code>t = floor( (0 + (num_timesteps - 1)) / 2 )</code>, we first calculate a
+            prediction <code>w<sub>i,t</sub></code> for each word <code>i</code> by averaging the embedding vectors
+            <code>u<sub>0,i</sub></code> and <code>u<sub>num_timesteps-1,i</sub></code>, rounding to integers towards
+            zero (note that, when calculating the average <code>(a + b) / 2</code> of two 16-bit integers <code>a</code>
+            and <code>b</code>, the intermediate value <code>(a + b)</code> may exceed 16-bit integer space).
+            Then, instead of encoding <code>u<sub>t,i</sub></code>, we encode the residual
+            <code>(u<sub>t,i</sub> ⊖ w<sub>t,i</sub>)</code> where <code>⊖</code> denotes wrapping subtraction in signed
+            16-bit integer space.
+        </li>
+        <li>
+            We continue with this mapping by recursively bisecting the time range
+            <code>{0, ..., num_timesteps - 1}</code>.
+            Each bisection starts from two (distinct) parents <code>t<sub>left</sub></code> and
+            <code>t<sub>right</sub></code> for which we have already found a decorrelated
+            representation (which includes the first and last time step for the purpose of this algorithm), and produces
+            a decorrelated representation for the center time step
+            <code>t = floor( (t<sub>left</sub> + t<sub>right</sub>) / 2 )</code>.
+            The decorrelated representation of embedding <code>u<sub>t,i</sub></code> for word&nbsp;<code>i</code> is
+            <code>(u<sub>t,i</sub> ⊖ w<sub>t,i</sub>)</code> where we obtain the prediction <code>w<sub>t,i</sub></code>
+            by averaging the word embedding vectors (note: <em>not</em> their decorrelated representations)
+            <code>u<sub>t<sub>left</sub>,i</sub></code> and <code>u<sub>t<sub>right</sub>,i</sub></code> and rounding
+            towards zero.
+        </li>
+        <li>
+            The entries of all decorrelated representations <code>(u<sub>t,i</sub> - w<sub>t,i</sub>)</code> have to be
+            representable by signed 16-bit integers.
+            In the unlikely case that the subtraction overflows for some entries, the encoder must use a larger
+            <code>scale_factor</code> to fit the decorrelated representation into <code>i16</code> space.
+        </li>
+        <li>
+            The inverse mapping from the decorrelated representation back to the word embedding vectors can be performed
+            by by bisecting the time interval <code>{0, ..., num_timesteps - 1}</code>, calculating the prediction
+            <code>w<sub>t,i</sub></code> for each bisection, and then <em>adding</em> to it the value encoded in the
+            file (using wrapping addition in signed 16-bit integer space).
+            This can be done in <code>O(log(num_timesteps))</code> time and constant memory.
+        </li>
+    </ul>
+    <p>
+        The decorrelated representation defined by this mapping is stored in compressed form as described below.
+    </p>
+
+    <h3 id="entropy-coding">Layer 2: Entropy Coding</h3>
+
+    <p>
+        The decorrelated representation defined above is stored in compressed form using an
+        <a href="https://en.wikipedia.org/wiki/Asymmetric_numeral_systems">Asymmetric Numeral System</a>.
+        The compressed data section is an array of unsigned 16-bit integers (<code>u16</code>'s, called "compressed
+        words"
+        in the following), padded by zero or two unused bytes so that its length is a multiple of four bytes.
+        Each compressed word is encoded in little endian byte order.
+    </p>
+    <table>
+        <tbody>
+            <tr>
+                <th>Field Name</th>
+                <th>Length (bytes)</th>
+                <th>Data Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>compressed_data</code></td>
+                <td>even</td>
+                <td><code>[u16]</code></td>
+                <td>
+                    Compressed data stream, see "decoding" and "encoding" sections below.
+                    The length of this field depends on the information content of the decorrelated representation of
+                    the word embedding vectors.
+                </td>
+            </tr>
+            <tr>
+                <td><code>padding</code></td>
+                <td>0 or 2</td>
+                <td><code>&mdash;</code></td>
+                <td>
+                    Unused padding to ensure the file size in bytes is a multiple of 4.
+                    This simplifies processing.
+                    For example, the decoder can allocate an array of <code>u32</code>'s to hold the file contents.
+                    This ensures proper alignment of all <code>u32</code> and <code>f32</code> fields in the header and
+                    jump table sections, thus enabling efficient access via memory mapping.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>
+        We describe decoding first, as it is slightly simpler than encoding (by design).
+    </p>
+
+    <h4>a) Decoding</h4>
+
+    <p>
+        To decode the decorrelated representation of the embedding vector of word&nbsp;<code>i</code> in time
+        step&nbsp;<code>t</code>, a decoder conceptionally follows these steps:
+    </p>
+    <ol>
+        <li>
+            Look up the entropy model for this time step from the <a href="#entropy-models">entropy model definition
+                section</a>.
+            Then calculate the following lookup tables (in practice, these lookup tables may be precalculated as soon as
+            the entropy model definition section is available).
+            <ul>
+                <li>
+                    Store the signed 16-bit symbols of the entropy model in an array <code>symbols</code> of length
+                    <code>num_symbols</code> in the order in which they are listed in the model definition (this can be
+                    directly memory mapped into the model definition section).
+                </li>
+                <li>
+                    Store the unsigned nonzero 12-bit frequencies of the entropy model in an array
+                    <code>frequencies</code> in corresponding order, including the last frequency, which can be inferred
+                    from the constraint on the sum of all frequencies.
+                </li>
+                <li>
+                    Calculate a lookup table <code>cdf</code> with <code>num_symbols</code> unsigned 12-bit values
+                    defined as <code>cdf[i] = ∑<sub>j∊{0,…,i-1}</sub> frequencies[j]</code> (thus,
+                    <code>cdf[0] = 0</code>).
+                </li>
+                <li>
+                    Calculate a lookup table <code>inverse_cdf</code> with 2<sup>12</sup> entries such that, for any
+                    <code>f ∊ {0, ..., 2<sup>12</sup> - 1}</code>, we have <code>inverse_cdf[f] = i</code> with
+                    <code>i ∊ {0, ..., num_symbols - 1}</code> such that <code>cdf[i] ≤ f &lt; cdf[i + 1]</code> (where,
+                    for the purpose of this definition, <code>cdf[num_symbols] = 2<sup>12</sup></code>).
+                </li>
+            </ul>
+        </li>
+        <li>
+            Initialize variables <code>offset</code> and <code>state</code> from the closest jump address pointing
+            before or at the desired word&nbsp;<code>i</code> in time step&nbsp;<code>t</code>.
+            These are stored in row number
+            <code>t * ceil(vocab_size / jump_interval) + floor(i / jump_interval)</code> in the
+            <a href="#jump-table">jump table</a>.
+        </li>
+        <li>
+            Decode a sequence of symbols, discarding the first <code>embedding_dim * (i mod jump_interval)</code>
+            symbols and then collecting the next <code>embedding_dim</code> symbols into a vector.
+            The following pseudocode describes the decoding algorithm:
+            <blockquote>
+                Repeat until enough symbols are decoded:
+                <blockquote>
+                    Set <code>prefix ← floor(state / 2<sup>12</sup>)</code><br>
+                    Set <code>suffix ← state mod 2<sup>12</sup></code><br>
+                    Set <code>index ← inverse_cdf[suffix]</code><br>
+                    Update <code>state ← frequencies[index] * prefix + (suffix - cdf[index])</code> (where the
+                    parenthesis
+                    ensure that the calculation never exceeds unsigned 32-bit integer space)<br>
+                    If <code>state &lt; 2<sup>16</sup></code> then:
+                    <blockquote>
+                        Read the <code>offset</code><sup>th</sup> compressed word (unsigned 16-bit value) from the
+                        compressed word section of the file and store it in variable <code>new_word</code>.<br>
+                        Update <code>state ← state * 2<sup>16</sup> + new_word</code><br>
+                        Update <code>offset ← offset + 1</code>
+                    </blockquote>
+                    Emit symbol <code>symbols[index]</code>
+                </blockquote>
+            </blockquote>
+        </li>
+    </ol>
+
+    <p>
+        The decoder may exploit the following additional guarantee:
+        the decorrelated representations of all word embeddings for a given time step&nbsp;<code>t</code> are encoded in
+        order without any gaps or resets of the entropy coder state.
+        Thus, if the task is to decode <em>all</em> decorrelated representations for a given time
+        step&nbsp;<code>t</code>, then a
+        decoder needs to access the jump table only once to look up <code>offset</code> and <code>state</code> for word
+        <code>i = 0</code> in time step&nbsp;<code>t</code>.
+        After this initial lookup, all decorrelated representations for this time step can be encoded by executing the
+        above pseudocode <code>vocab_size * embedding_dim</code> times.
+    </p>
+    <p>
+        Note that a corresponding guarantee does <em>not</em> hold for the order across the time axis: an encoder may
+        choose to encode time steps in any order (e.g., to optimize for cache locality when bisecting through the time
+        interval).
+        Decoders thus have to look up the new <code>offset</code> and <code>state</code> in the
+        <a href="#jump-addresse">jump table section</a> when reading across time step boundaries (besides having
+        to switch out the entropy model).
+    </p>
+
+    <h4>b) Encoding</h4>
+
+    <p>
+        This section is purely informative.
+        Technically, an encoder is not required to follow the specific algorithm suggested here.
+        Instead, any encoding algorithm is considered compliant to this file format specification if it generates a
+        compressed data stream that the above described decoding algorithm would decode to the desired decorrelated
+        representation (i.e., encoding is
+        inference over a decoder).
+        In practice, however, any compliant encoder will likely be very similar to the algorithm described below.
+    </p>
+    <p>
+        Encoding starts from the decorrelated representation of Dynamic Word Embeddings (see
+        <a href="#data-representation">Layer&nbsp;1</a>).
+        We denote the <code>k</code><sup>th</sup> component of the decorrelated representation of the embedding vector
+        for the <code>i</code><sup>th</sup> word at time step <code>t</code> by <code>uncompressed[t, i, k]</code>,
+        which is a signed 16-bit integer (<code>i16</code>).
+    </p>
+    <p>
+        We assume that the encoder has already created a valid entropy model for each time step&nbsp;<code>t</code> and
+        serialized these encoder models to a file (with appropriate padding) as described under
+        <a href="#entropy-models">entropy model definition section</a>.
+        For each time step&nbsp;<code>t</code>, the encoder derives the following lookup tables from the serialized
+        entropy models:
+    </p>
+    <ul>
+        <li>
+            a mapping from all values ("symbols") that appear in the tensor <code>uncompressed</code> for time
+            step&nbsp;<code>t</code> to a scaled and quantized "frequency";
+            we denote the frequency of symbol&nbsp;<code>s</code> under the entropy model for
+            time step&nbsp;<code>t</code> by <code>freq[t, s]</code>.
+            All frequencies are nonnegative integer values below 2<sup>12</sup>.
+            As described under <a href="#entropy-models">entropy model definition section</a>, for each time
+            step&nbsp;<code>t</code>, the frequencies of all symbols (including the implicitly defined frequency of the
+            last symbol, which does not get serialized to the file) have to sum up to 2<sup>12</sup>.
+            Further, any symbol&nbsp;<code>s</code> that appears in <code>uncompressed[t, i, k]</code> for at least
+            one combination of <code>i</code> and&nbsp;<code>k</code> has to be nonzero.
+            Near-optimal compression performance can be expected if the frequencies for each time
+            step&nbsp;<code>t</code> are chosen such that they minimize the cross-entropy,
+            <code>-∑<sub>i,k</sub> log(freq[t, uncompressed[t, i, k]])</code>.
+        </li>
+        <li>
+            an ordering of all symbols&nbsp;<code>s</code> for which <code>freq[t, s] ≠ 0</code>, as defined by the
+            order in which the symbols are serialized in the
+            <a href="#entropy-models">entropy model definition section</a>;
+            We denote the fact that some symbol&nbsp;<code>s'</code> is serialized before another
+            symbol&nbsp;<code>s</code> in the entropy model for some time step&nbsp;<code>t</code> by the notation
+            <code>s' ≺<sub>t</sub> s</code>.
+        </li>
+        <li>
+            using the above two definitions, we define a cumulative distribution function (CDF) for each time
+            step&nbsp;<code>t</code> as <code>cdf[t, s] = ∑<sub>s'≺<sub>t</sub>s</sub> freq[t, s']</code>.
+            Note that <code>cdf[t, s] &lt; 2<sup>12</sup></code> for all symbols&nbsp;<code>s</code> that appear in the
+            entropy model since the sum never contains the last symbol, which must have a nonzero frequency.
+        </li>
+    </ul>
+    <p>
+        The encoder uses the above lookup tables to compress the data in the tensor <code>uncompressed</code> using an
+        Asymmetric Numeral System (ANS).
+        Since ANS is a stack-based entropy coding algorithm, the encoder processes the uncompressed data for each time
+        step in reverse order, creates a stack of compressed words, and reverses the compressed words once all data is
+        compressed.
+        The following pseudocode describes encoding in detail:
+    </p>
+    <blockquote>
+        Initialize an empty stack for unsigned 16-bit integers.<br>
+        Allocate space for a <a href="#jump-table">jump table</a> with
+        <code>num_timesteps * ceil(vocab_size / jump_interval)</code> rows.<br>
+        Initialize an unsigned 32-bit integer variable <code>state ← 2<sup>16</sup></code>.<br>
+        For each time step <code>t ∊ {0, ..., num_timesteps - 1}</code> in arbitrary order:
+        <blockquote>
+            For each word <code>i ∊ {0, ..., vocab_size - 1}</code> in <em>descending</em> order:
+            <blockquote>
+                For each vector component <code>k ∊ {0, ..., embedding_dim - 1}</code> in <em>descending</em> order:
+                <blockquote>
+                    Read uncompressed symbol: <code>s ← uncompressed[t, i, k]</code><br>
+                    Look up the symbol's frequency under the relevant entropy model: <code>f ← freq[t, s]</code><br>
+                    If <code>state ≥ f * 2<sup>20</sup></code>:
+                    <blockquote>
+                        Push the unsigned 16-bit word <code>(state mod 2<sup>16</sup>)</code> on the stack.<br>
+                        Update <code>state ← floor(state / 2<sup>16</sup>)</code>
+                    </blockquote>
+                    Set <code>prefix ← floor(state / f)</code><br>
+                    Set <code>suffix ← (state mod f) + cdf[t, s]</code><br>
+                    Update <code>state ← prefix * 2<sup>12</sup> + suffix</code><br>
+                    If <code>i mod jump_interval = 0</code>:
+                    <blockquote>
+                        Set the <code>state</code> field of the row with (zero based) index
+                        <code>t * ceil(vocab_size / jump_interval) + i / jump_interval</code> of the jump table to the
+                        current value of <code>state</code> and set the <code>offset</code> field of the same row to the
+                        current size of the stack (i.e., the number of unsigned 16-bit words that have been pushed on
+                        the stack stack so far; the value of this field will be changed below).
+                    </blockquote>
+                </blockquote>
+            </blockquote>
+        </blockquote>
+        For each row in the jump table:
+        <blockquote>
+            Replace the value of the row's <code>offset</code> field by <code>(final_stack_size - offset)</code> where
+            <code>offset</code> is the previous value and <code>final_stack_size</code> is the final size of the stack
+            (i.e., the total number of 16-bit words that were pushed on it).<br>
+            Serialize the row as described under <a href="#jump-table">jump table</a> and append it to the file.
+        </blockquote>
+        While the stack is not empty:
+        <blockquote>
+            Pop off the last compressed word from the stack and append it to the file as an unsigned 16-bit integer in
+            little-endian byte order.
+        </blockquote>
+        If the file size in bytes is not a multiple of 4:
+        <blockquote>
+            Append two arbitrary additional bytes to the file so that its size becomes a multiple of 4.
+        </blockquote>
+    </blockquote>
 </body>
 
 </html>
