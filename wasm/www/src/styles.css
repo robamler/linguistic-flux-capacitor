@@ -30,6 +30,46 @@ h2 {
     margin: 0.4em 0
 }
 
+.splashScreen {
+    text-align: center;
+    font-size: 150%;
+    margin: 5em 0;
+}
+
+#app {
+    display: none;
+}
+
+.progressBarContainer {
+    margin: 0.7em;
+    border: #36864e solid 0.1em;
+    border-radius: 0.3em;
+    position: relative;
+    height: 1.5em;
+}
+
+.progressBar {
+    background: #bfdfc9;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    z-index: 0;
+    border-radius: 0.15em;
+    transition: width 0.5s;
+}
+
+.progressText {
+    position: absolute;
+    margin: auto;
+    left: 0;
+    right: 0;
+    top: 0.17em;
+    text-shadow: 0 0 0.2em #fff;
+    color: #0d441d;
+}
+
 .plotAndLegend {
     position: relative
 }
@@ -147,11 +187,14 @@ h2 {
 .tooltipContent .right {
     text-align: right;
 }
-.tooltipContent .removeWordButton{
-  background-color: #BCB8AE; /*Mindful Gray*/
-  color: white;
-  font-size: 16px;  
+
+.tooltipContent .removeWordButton {
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    color: white;
+    font-size: 16px;
 }
+
 .tooltipContent a {
     text-decoration: none;
     color: #152d74;
@@ -247,23 +290,27 @@ h2 {
 .legend>ul>li.color10::before {
     color: #666666;
 }
+
 .pinWordButton {
-  background-color: #BCB8AE; /*Mindful Gray*/
-  border: none;
-  color: white;
-  padding: 10px 32px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    border: none;
+    color: white;
+    padding: 10px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
 }
+
 .getUrlButton {
-  background-color: #BCB8AE; /*Mindful Gray*/
-  border: none;
-  color: white;
-  padding: 5px 5px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    border: none;
+    color: white;
+    padding: 5px 5px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
 }

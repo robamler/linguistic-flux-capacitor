@@ -2,20 +2,21 @@ import * as wasm from "word-history-explorer-backend";
 import { memory } from "word-history-explorer-backend/word_history_explorer_backend_bg";
 
 // import file from "../assets/random_6_100_16.dwe";
-import file from "../assets/step34000_T209_V30000_K100.dwe";
-
-console.log(file);
+import dweFile from "../assets/step34000_T209_V30000_K100.dwe";
 
 wasm.set_panic_hook();
 
 export async function loadFile() {
     const builder = wasm.EmbeddingFileBuilder.new();
 
-    let response = await fetch(file);
+    let response = await fetch(dweFile);
     let fileSizeStr = response.headers.get('content-length');
     let pointerAndLen = undefined;
     let totalWritten = 0;
     let reader = response.body.getReader();
+
+    let progressBar = document.getElementById('downloadProgressBar');
+    let progressText = document.getElementById('downloadProgressText');
 
     while (typeof pointerAndLen === 'undefined') {
         let { value, done } = await reader.read();
@@ -43,6 +44,10 @@ export async function loadFile() {
     let targetArray = new Uint8Array(memory.buffer, pointerAndLen.pointer, pointerAndLen.len);
 
     while (true) {
+        let progressPercent = 100 * totalWritten / pointerAndLen.len;
+        progressBar.style.width = progressPercent + "%";
+        progressText.innerText = Math.floor(progressPercent) + " %";
+
         let { value, done } = await reader.read();
         if (done) {
             break;

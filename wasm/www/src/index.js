@@ -121,9 +121,13 @@ let backendPromise = import("./backend.js");
         });
     });
 
-    let backend = await backendPromise;
-    let handle = await backend.loadFile();
-    let metaData = await (await fetch(metaDataFile)).json();
+    let [handle, metaData] = await Promise.all([
+        backendPromise.then(backend => backend.loadFile()),
+        fetch(metaDataFile).then(file => file.json())
+    ]);
+    document.getElementById('downloadProgressPane').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
     let inverseVocab = {};
     metaData.vocab.forEach((word, index) => inverseVocab[word] = index);
 
