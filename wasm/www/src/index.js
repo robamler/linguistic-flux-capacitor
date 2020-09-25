@@ -44,7 +44,11 @@ let backendPromise = import("./backend.js");
         let relatedPlaceholders = [];
         let relatedRemoveButtons = [];
         let relatedTimeout = null;
-        let relatedCache = {};
+        let relatedCache = [{}, {}];
+        let relatedCacheFilling = [0, 0];
+        let relatedCacheGeneration = 0;
+        const MAX_CACHE_FILLING = 1024;
+
         tooltip.querySelectorAll('.suggestion.left>a').forEach(el => {
             relatedPlaceholders.push(el);
             el.addEventListener('click', ev => {
@@ -75,23 +79,43 @@ let backendPromise = import("./backend.js");
             word2Placeholder.innerText = payload.word2;
 
             // TODO: look up word1 and word2 in cache independently.
-            // TODO: clear old entries from cache at some point.
             let cacheKey = payload.word1Id + '-' + payload.word2Id + '-' + indexX;
-            let cached = relatedCache[cacheKey];
-            if (typeof (cached) !== 'undefined') {
+            let cachedCurrent = relatedCache[relatedCacheGeneration][cacheKey];
+            let cached = cachedCurrent || relatedCache[1 - relatedCacheGeneration][cacheKey];
+            if (typeof cached !== 'undefined') {
                 cached.forEach((r, i) => {
                     relatedPlaceholders[i].innerText = metaData.vocab[r];
                 });
                 tooltipContent.classList.remove('waiting');
+
+                if (typeof cachedCurrent === 'undefined') {
+                    // Entry was found in old generation of the cache. Copy it over to the current
+                    // generation so that it continues to stay cached for a while. If this would
+                    // overflow the current generation of the cache then flip generation instead.
+                    if (relatedCacheFilling[relatedCacheGeneration] === MAX_CACHE_FILLING) {
+                        relatedCacheGeneration = 1 - relatedCacheGeneration;
+                        relatedCache[relatedCacheGeneration] = {};
+                        relatedCacheFilling[relatedCacheGeneration] = 0;
+                    }
+                    relatedCache[relatedCacheGeneration][cacheKey] = cached;
+                    relatedCacheFilling[relatedCacheGeneration] += 1;
+                }
             } else {
                 tooltipContent.classList.add('waiting');
                 relatedTimeout = setTimeout(() => {
-                    tooltipContent.classList.remove('waiting');
                     let related = handle.most_related_to_at_t([payload.word1Id, payload.word2Id], indexX, 7);
-                    relatedCache[cacheKey] = related;
                     related.forEach((r, i) => {
                         relatedPlaceholders[i].innerText = metaData.vocab[r];
                     });
+                    tooltipContent.classList.remove('waiting');
+
+                    if (relatedCacheFilling[relatedCacheGeneration] == MAX_CACHE_FILLING) {
+                        relatedCacheGeneration = 1 - relatedCacheGeneration;
+                        relatedCache[relatedCacheGeneration] = {};
+                        relatedCacheFilling[relatedCacheGeneration] = 0;
+                    }
+                    relatedCache[relatedCacheGeneration][cacheKey] = related;
+                    relatedCacheFilling[relatedCacheGeneration] += 1;
                 }, 0);
             }
         };
