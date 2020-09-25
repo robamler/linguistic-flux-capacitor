@@ -20,6 +20,8 @@ impl EmbeddingFileBuilder {
         Self::default()
     }
 
+    /// Reserves space to write at least `additional_bytes` more bytes.
+    ///
     /// # Returns
     ///
     /// A pointer to the *start* of the buffer (which may have changed since the
@@ -47,35 +49,42 @@ impl EmbeddingFileBuilder {
     ///
     /// # Returns
     ///
-    /// `Some(file_size)` if the written data completed the file header. In this
-    /// case, the buffer has been resized to the exact file size, which is returned
-    /// inside the `Option`. The builder will report a `Some` value only once.
-    /// After it reported a `Some` value, `reserve` should not be called any more
-    /// and, in total, exactly `file_size` bytes have to be written to the builder
-    /// (including the ones already written).
+    /// `Some(pointer_and_len)` if the written data completed the file header. In
+    /// this case, the buffer has been resized to the exact file size, which is
+    /// returned as `pointer_and_len.len`. Further, `pointer_and_len.pointer` will
+    /// point to the new start of the allocated buffer.
+    ///
+    /// The builder will report a `Some` value only once. After it reported a `Some`
+    /// value, `reserve` should not be called any more  and, in total, exactly
+    /// `file_size` bytes have to be written to the builder (including the ones
+    /// already written).
     ///
     /// # Safety
     ///
-    /// The builder will trust the caller that `amt` bytes really have been
-    /// initialized before this method is called.
+    /// The builder trusts the caller that it really has initialized `amt`
+    /// additional bytes before this method is called.
     pub fn avail(&mut self, amt: usize) -> Option<PointerAndLen> {
+        self.bytes_initialized += amt;
+
         unsafe {
             const HEADER_BYTES: usize = HEADER_SIZE as usize * 4;
-            if self.bytes_initialized + amt >= HEADER_BYTES {
+            if self.bytes_initialized >= HEADER_BYTES {
                 let ptr = self.buf.as_ptr();
                 let header_u32s =
                     std::slice::from_raw_parts(ptr as *const u32, HEADER_SIZE as usize);
                 let file_size = FileHeader::memory_map_unsafe(header_u32s).file_size;
-                self.buf.reserve_exact(file_size as usize - self.buf.len());
-                self.buf
-                    .resize_with(file_size as usize, MaybeUninit::uninit);
+
+                if file_size as usize >= self.buf.len() {
+                    self.buf.reserve_exact(file_size as usize - self.buf.len());
+                    self.buf
+                        .resize_with(file_size as usize, MaybeUninit::uninit);
+                }
 
                 Some(PointerAndLen {
                     pointer: self.buf.as_mut_ptr() as *mut u8,
                     len: file_size as usize * 4,
                 })
             } else {
-                self.bytes_initialized += amt;
                 None
             }
         }

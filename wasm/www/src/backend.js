@@ -12,9 +12,9 @@ export async function loadFile() {
     const builder = wasm.EmbeddingFileBuilder.new();
 
     let response = await fetch(file);
-    let file_size_str = response.headers.get('content-length');
+    let fileSizeStr = response.headers.get('content-length');
     let pointerAndLen = undefined;
-    let total_written = 0;
+    let totalWritten = 0;
     let reader = response.body.getReader();
 
     while (typeof pointerAndLen === 'undefined') {
@@ -23,18 +23,20 @@ export async function loadFile() {
             throw "Exited before header was read";
         }
 
-        let ptr = builder.reserve(value.length);
-        let targetArray = new Uint8Array(memory.buffer, ptr, value.length);
-        targetArray.set(value, total_written);
-        total_written += value.length;
-        pointerAndLen = builder.avail(value.length);
+        if (value.length !== 0) {
+            let ptr = builder.reserve(value.length);
+            let targetArray = new Uint8Array(memory.buffer, ptr, totalWritten + value.length);
+            targetArray.set(value, totalWritten);
+            totalWritten += value.length;
+            pointerAndLen = builder.avail(value.length);
+        }
     }
 
-    if ((pointerAndLen.len != file_size_str)) {
+    if (!!fileSizeStr && (fileSizeStr != pointerAndLen.len)) {
         throw "File size in HTTP header does not match file size in file header.";
     }
 
-    if (total_written > pointerAndLen.len) {
+    if (totalWritten > pointerAndLen.len) {
         throw "File larger than expected.";
     }
 
@@ -46,21 +48,21 @@ export async function loadFile() {
             break;
         }
 
-        if (total_written + value.length > pointerAndLen.len) {
+        if (totalWritten + value.length > pointerAndLen.len) {
             throw "File larger than expected.";
         }
 
         if (targetArray.length === 0) {
             // `targetArray` got detached because the wasm memory grew for some reason, 
             // so we have to reattach it (`pointerAndLen.pointer` is still valid, though).
-            targetArray = new Uint8Array(memory.buffer, pointerAndLen.pointer, file_size);
+            targetArray = new Uint8Array(memory.buffer, pointerAndLen.pointer, pointerAndLen.len);
         }
 
-        targetArray.set(value, total_written);
-        total_written += value.length;
+        targetArray.set(value, totalWritten);
+        totalWritten += value.length;
     }
 
-    if (total_written != pointerAndLen.len) {
+    if (totalWritten != pointerAndLen.len) {
         throw "File smaller than expected.";
     }
 
