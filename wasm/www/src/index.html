@@ -11,93 +11,103 @@
 
 <body>
     <div class='pageContainer'>
-        <h1>The Linguistic Time Capsule</h1>
+        <div class='appContainer'>
+            <h1>The Linguistic Time Capsule</h1>
 
-        <div class='splashScreen' id='downloadProgressPane'>
-            <div>Downloading compressed machine learning model&nbsp;...</div>
-            <div class="progressBarContainer">
-                <div class="progressBar" id="downloadProgressBar"></div>
-                <div class="progressText" id="downloadProgressText">0 %</div>
-            </div>
-        </div>
-        <div id='app'>
-            <h2>Explore words related to:</h2>
-            <div class='centered'><input class='wordInput' type='text'></div>
-            <div class='plotAndLegend'>
-                <div id='mainLegend' class='legend'>
-                    <div class='centered'>
-                        <div class='legendText'>must include: </div>
-                        <input class='mustIncludeInput' type='text'>
-                        <button id='pinWordButton' class='pinWordButton'>pin</button>
-                    </div>
-                    <ul id='plotUL'>
-                        <li class='color0'><span></span> ↔ <a href='#'></a></li>
-                        <li class='color1'><span></span> ↔ <a href='#'></a></li>
-                        <li class='color2'><span></span> ↔ <a href='#'></a></li>
-                        <li class='color3'><span></span> ↔ <a href='#'></a></li>
-                        <li class='color4'><span></span> ↔ <a href='#'></a></li>
-                        <li class='color5'><span></span> ↔ <a href='#'></a></li>
-                    </ul>
-                    <div class='legendText'>Hover mouse over plot and click on a line to explore more.</div>
+            <div class='splashScreen' id='downloadProgressPane'>
+                <div>Downloading compressed machine learning model&nbsp;...</div>
+                <div class="progressBarContainer">
+                    <div class="progressBar" id="downloadProgressBar"></div>
+                    <div class="progressText" id="downloadProgressText">0 %</div>
                 </div>
-                <div id='mainPlot' class='plotContainer'>
-                    <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
-                        <div id='tooltipTemplate' class='tooltipInnerContainer'>
-                            <div class='tooltipMain'>
-                                <div class='tooltipContent'>
-                                    <div class='explanation'>In <span class='year'>1804</span>,</div
-                                        class='explanation'>
-                                    <table>
-                                        <tr>
-                                            <th class='word1 left'>broadcast</th>
-                                            <td>and</td>
-                                            <th class='word2 right'><a href='#'>radio</a></th>
-                                        </tr>
-                                    </table>
-                                    <div class='explanation interleave'>were most related to:
-                                        <div class='hint'>(click on a word to explore it)</div>
+            </div>
+            <div class='app'>
+                <h2>Explore words related to:</h2>
+                <div class='centered'><input class='wordInput' type='text'></div>
+                <div class='centered hint'>
+                    (hint: try
+                    “<a href="#c=en&w=file">file</a>”,
+                    “<a href="#c=en&w=surgery">surgery</a>”,
+                    “<a href="#c=en&w=peer">peer</a>”,
+                    “<a href="#c=en&w=gay">gay</a>”, or
+                    “<a href="#c=en&w=novel">novel</a>”)
+                </div>
+                <div class='plotAndLegend'>
+                    <div id='mainLegend' class='legend'>
+                        <div class='centered'>
+                            <div>must include: </div>
+                            <input class='mustIncludeInput' type='text'>
+                            <button id='pinWordButton' class='pinWordButton'>pin</button>
+                        </div>
+                        <ul id='plotUL'>
+                            <li class='color0'><span></span> ↔ <a href='#'></a></li>
+                            <li class='color1'><span></span> ↔ <a href='#'></a></li>
+                            <li class='color2'><span></span> ↔ <a href='#'></a></li>
+                            <li class='color3'><span></span> ↔ <a href='#'></a></li>
+                            <li class='color4'><span></span> ↔ <a href='#'></a></li>
+                            <li class='color5'><span></span> ↔ <a href='#'></a></li>
+                        </ul>
+                        <div class='hint'>Hover mouse over plot area and click on a line to see related words.</div>
+                    </div>
+                    <div id='mainPlot' class='plotContainer'>
+                        <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
+                            <div id='tooltipTemplate' class='tooltipInnerContainer'>
+                                <div class='tooltipMain'>
+                                    <div class='tooltipContent'>
+                                        <div class='explanation'>In <span class='year'>1804</span>,</div
+                                            class='explanation'>
+                                        <table>
+                                            <tr>
+                                                <th class='word1 left'>broadcast</th>
+                                                <td>and</td>
+                                                <th class='word2 right'><a href='#'>radio</a></th>
+                                            </tr>
+                                        </table>
+                                        <div class='explanation interleave'>were most related to:
+                                            <div class='hint'>(click on a word to explore it)</div>
+                                        </div>
+                                        <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]
+                                        </div>
+                                        <table class='suggestionsTable'>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word1a</a></td>
+                                                <td class='suggestion right'><a href='#'>word1b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word2a</a></td>
+                                                <td class='suggestion right'><a href='#'>word2b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word3a</a></td>
+                                                <td class='suggestion right'><a href='#'>word3b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word4a</a></td>
+                                                <td class='suggestion right'><a href='#'>word4b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word5a</a></td>
+                                                <td class='suggestion right'><a href='#'>word5b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word6a</a></td>
+                                                <td class='suggestion right'><a href='#'>word6b</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td class='suggestion left'><a href='#'>word7a</a></td>
+                                                <td class='suggestion right'><a href='#'>word7b</a></td>
+                                            </tr>
+                                        </table>
                                     </div>
-                                    <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]</div>
-                                    <table class='suggestionsTable'>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word1a</a></td>
-                                            <td class='suggestion right'><a href='#'>word1b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word2a</a></td>
-                                            <td class='suggestion right'><a href='#'>word2b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word3a</a></td>
-                                            <td class='suggestion right'><a href='#'>word3b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word4a</a></td>
-                                            <td class='suggestion right'><a href='#'>word4b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word5a</a></td>
-                                            <td class='suggestion right'><a href='#'>word5b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word6a</a></td>
-                                            <td class='suggestion right'><a href='#'>word6b</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td class='suggestion left'><a href='#'>word7a</a></td>
-                                            <td class='suggestion right'><a href='#'>word7b</a></td>
-                                        </tr>
-                                    </table>
                                 </div>
-                            </div>
-                            <div class='tooltipPointer'>
+                                <div class='tooltipPointer'>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 </body>
 

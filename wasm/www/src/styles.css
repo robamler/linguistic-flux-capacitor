@@ -1,5 +1,6 @@
 body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
     position: absolute;
     left: 0;
     right: 0;
@@ -8,36 +9,60 @@ body {
 }
 
 .pageContainer {
-    width: 48em;
+    width: 52em;
     position: absolute;
     left: 50%;
-    transform: translateX(-70%);
+    transform: translateX(-50%);
 }
 
 h1 {
     text-align: center;
     font-weight: normal;
-    font-size: 350%;
+    font-size: 280%;
     font-family: 'DM Serif Display', serif;
     margin: 0.3em 0 0.7em 0;
     padding: 0;
 }
 
-h2 {
+.app>h2 {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-weight: normal;
     text-align: center;
-    font-size: 200%;
-    margin: 0.4em 0
+    font-size: 160%;
+    margin: 0.2em 0;
+}
+
+h2 {
+    font-size: 230%;
+    font-weight: normal;
+    font-family: 'DM Serif Display', serif;
+    margin: 1em 0 0em 0;
+}
+
+.prose {
+    color: #333;
+}
+
+.subtitle {
+    font-size: 60%;
 }
 
 .splashScreen {
     text-align: center;
-    font-size: 150%;
-    margin: 5em 0;
+    font-size: 120%;
+    margin: 4em 2em 7em 2em;
 }
 
-#app {
+.appContainer {
+    width: 40em;
+}
+
+.app {
     display: none;
+}
+
+#downloadProgressPane {
+    color: #0d441d;
 }
 
 .progressBarContainer {
@@ -64,19 +89,19 @@ h2 {
     margin: auto;
     left: 0;
     right: 0;
-    top: 0.17em;
+    top: 0.1em;
     text-shadow: 0 0 0.2em #fff;
-    color: #0d441d;
 }
 
 .plotAndLegend {
-    position: relative
+    position: relative;
+    margin-top: 1.3em;
 }
 
 .plotContainer {
-    position: absolute;
+    position: relative;
     left: -2em;
-    width: 48em;
+    width: 41em;
 }
 
 .centered {
@@ -84,30 +109,38 @@ h2 {
 }
 
 .wordInput {
-    margin: 0 0 1em 0;
-    font-size: 200%;
+    margin: 0 0 0.1em 0;
+    font-size: 160%;
     width: 40%;
     text-align: center;
+}
+
+input {
     border: solid 0.05em #ccc;
+    border-radius: 0.3em;
     padding: 0.2em;
 }
 
-.mustIncludeInput {
-    margin: 0 0 1em 0;
-    font-size: 150%;
-    width: 60%;
-    text-align: center;
-    border: solid 0.05em #ccc;
-    padding: 0.2em;
-}
-
-.wordInput:focus {
+input:focus {
     border-color: #86bdf0;
     outline: none;
 }
 
-.wordInput.invalid {
+input.invalid {
     background-color: #fdebeb;
+}
+
+input.invalid:focus {
+    border-color: #9c5555;
+}
+
+.mustIncludeInput {
+    margin: 0 0 1em 0;
+    font-size: 120%;
+    width: 60%;
+    text-align: center;
+    border: solid 0.05em #ccc;
+    padding: 0.2em;
 }
 
 .tooltipContent .explanation {
@@ -136,10 +169,10 @@ h2 {
 }
 
 .tooltipContent .interleave {
-    padding: 0 0 0.3em 0;
+    padding: 0.2em 0 0.5em 0;
 }
 
-.tooltipContent .hint {
+.hint {
     opacity: 0.7;
     font-size: 80%;
     margin-top: 0.1em;
@@ -176,7 +209,7 @@ h2 {
 
 .tooltipContent .suggestion {
     padding: 0.05em 0;
-    font-size: 80%;
+    font-size: 90%;
 }
 
 .tooltipContent .left {
@@ -191,10 +224,10 @@ h2 {
     background-color: #BCB8AE;
     /*Mindful Gray*/
     color: white;
-    font-size: 16px;
+    font-size: 80%;
 }
 
-.tooltipContent a {
+a {
     text-decoration: none;
     color: #152d74;
 }
@@ -207,25 +240,20 @@ h2 {
     padding: 0.7em 0.9em;
     width: auto;
     position: absolute;
-    left: 47em;
+    left: 40em;
     top: 0;
     min-width: 10em;
-}
-
-.legendText {
-    color: #333333;
 }
 
 .legend>ul {
     list-style-type: none;
     margin: 0 0 0.5em 0;
     padding: 0;
-    font-size: 120%;
 }
 
 .legend>ul>li {
-    margin: -0.2em -0.4em 0.2em -0.4em;
-    padding: 0.2em 0.4em 0.4em 0.4em;
+    margin: -0.2em -0.4em 0.0em -0.4em;
+    padding: 0.2em 0.4em 0.3em 0.4em;
     border-radius: 0.2em;
     white-space: nowrap;
     cursor: default;
@@ -299,7 +327,7 @@ h2 {
     text-align: center;
     text-decoration: none;
     display: inline-block;
-    font-size: 16px;
+    font-size: 80%;
 }
 
 .getUrlButton {
@@ -311,5 +339,5 @@ h2 {
     text-align: center;
     text-decoration: none;
     display: inline-block;
-    font-size: 16px;
+    font-size: 80%;
 }

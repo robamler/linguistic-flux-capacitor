@@ -177,7 +177,6 @@ svg.plot .lineGroup.color10>.line {
     stroke: #666666;
 }
 
-
 svg.plot .hoverCursor.color0 {
     fill: #f94a01;
 }
@@ -213,18 +212,21 @@ svg.plot .hoverCursor.color7 {
 svg.plot .hoverCursor.color8 {
     fill: #ffd8b1;
 }
+
 svg.plot .hoverCursor.color9 {
     fill: #808000;
 }
+
 svg.plot .hoverCursor.color10 {
     fill: #666666;
 }
+
 .plot.tooltip {
     position: relative;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16pt;
     transition: opacity 0.4s cubic-bezier(.75, 0, .84, .05);
-    opacity: 0.95;
+    opacity: 0.97;
     width: 0;
     /* (Setting `width` to zero prevents spurious horizontal scroll bar from appearing.) */
 }
@@ -260,7 +262,7 @@ svg.plot .hoverCursor.color10 {
     position: relative;
     z-index: 2;
     border-radius: 0.5em;
-    padding: 0.5em 0.8em 0.7em 0.8em;
+    padding: 0.5em 0.7em;
     white-space: nowrap;
     text-align: center;
 }
@@ -363,7 +365,6 @@ svg.plot .hoverCursor.color10 {
     background-color: #ffd8b1;
 }
 
-
 .plot.tooltip.color9>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
     background-color: #808000;
 }
@@ -372,7 +373,6 @@ svg.plot .hoverCursor.color10 {
     background-color: #808000;
 }
 
-
 .plot.tooltip.color10>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
     background-color: #888888;
 }
@@ -380,7 +380,6 @@ svg.plot .hoverCursor.color10 {
 .plot.tooltip.color10>.tooltipInnerContainer>.tooltipPointer {
     background-color: #888888;
 }
-
 
 .plot.tooltip .lineDescription {
     font-weight: bold;

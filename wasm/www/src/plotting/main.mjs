@@ -210,7 +210,7 @@ export function createPlot(
         containerElement.appendChild(svg);
     }
 
-    function plotLine(valuesY, colorIndex, styleIndex, payload, isMainLine) {
+    function plotLine(valuesY, colorIndex, styleIndex, payload, isMainLine, title) {
         isMainLine = !!isMainLine || lines.length === 0;
         const cur10MinYValue = 10 * Math.min(...valuesY);
         const cur10MaxYValue = 10 * Math.max(...valuesY);
@@ -312,11 +312,14 @@ export function createPlot(
                 d: pathD
             })
         );
-        lineGroup.appendChild(
-            createSvgElement('path', 'mouseCapture', {
-                d: pathD
-            })
-        );
+
+        let mouseCapture = createSvgElement('path', 'mouseCapture', {
+            d: pathD,
+        });
+        let hoverTitle = createSvgElement('title');
+        hoverTitle.appendChild(document.createTextNode(title));
+        mouseCapture.appendChild(hoverTitle)
+        lineGroup.appendChild(mouseCapture);
 
         let line = {
             valuesY,

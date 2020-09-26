@@ -439,6 +439,7 @@ let backendPromise = import("./backend.js");
                     );
                     const legendWordLabel = mainLegendItems[index].firstElementChild;
                     legendWordLabel.textContent = currentWord;
+                    legendWordLabel.nextElementSibling.textContent = otherWord;
                 });
                 mainLegend.style.visibility = 'visible';
             }
