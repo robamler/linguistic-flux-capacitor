@@ -16,24 +16,20 @@ let backendPromise = import("./backend.js");
     }
 
     let years = [];
-    let pointsY1 = [];
-    let pointsY2 = [];
     let ticksX = [];
     for (let year = 1800; year <= 2008; year += 1) {
         years.push(year);
         if (year % 20 === 0) {
             ticksX.push(year);
         }
-
-        pointsY1.push(0.3 * Math.sin(0.1 * year));
-        pointsY2.push(0.2 * Math.sin(0.2 * year) + 0.002 * (year - 1900));
     }
 
-    let currentWord = null;
+    let currentWord = ''; // Invariant: `currentWord` is always either '' or a valid word from the vocabulary.
     let mustIncludeWordList = [];
 
     let mainLegend = document.getElementById('mainLegend');
     let mainLegendItems = mainLegend.querySelectorAll('li');
+    const NUM_SUGGESTIONS = mainLegendItems.length;
 
     let updateTooltip = (function () {
         let tooltip = document.getElementById('tooltipTemplate');
@@ -89,7 +85,7 @@ let backendPromise = import("./backend.js");
                 tooltipContent.classList.remove('waiting');
 
                 if (typeof cachedCurrent === 'undefined') {
-                    // Entry was found in old generation of the cache. Copy it over to the current
+                    // Entry was found in old generation of the cache. Add it also to the current
                     // generation so that it continues to stay cached for a while. If this would
                     // overflow the current generation of the cache then flip generation instead.
                     if (relatedCacheFilling[relatedCacheGeneration] === MAX_CACHE_FILLING) {
@@ -150,19 +146,24 @@ let backendPromise = import("./backend.js");
         fetch(metaDataFile).then(file => file.json())
     ]);
     document.getElementById('downloadProgressPane').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
+    document.querySelector('.app').style.display = 'block';
 
     let inverseVocab = {};
     metaData.vocab.forEach((word, index) => inverseVocab[word] = index);
 
 
     let wordInput = document.querySelector('.wordInput');
-    // TODO: explain
+    // We listen to several events to make the UI snappier. For example,
+    // `onkeydown` fires earlier than `onchange` but it misses some changes such
+    // as "right-click --> paste". Listening to several events does not
+    // significantly increase  computational cost because the event handler
+    // performs expensive calculations only if anything actually changed.
     wordInput.onkeydown = wordChanged;
     wordInput.onchange = wordChanged;
+    wordInput.onclick = wordChanged;
+    wordInput.onblur = wordChanged;
 
     let mustIncludeInput = document.querySelector('.mustIncludeInput');
-
 
     let pinWordButton = document.getElementById('pinWordButton');
     pinWordButton.onclick = pinWord;
@@ -179,16 +180,14 @@ let backendPromise = import("./backend.js");
 
     let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
 
-
-    let DEBUG_history_count = 0;
     window.addEventListener('popstate', on_popstate);
-
-    wordInput.focus();
-    history.pushState(0, "some useless title", "");
+    setTimeout(() => {
+        on_popstate();
+        wordInput.selectionStart = wordInput.selectionEnd = wordInput.value.length;
+        wordInput.focus();
+    }, 0);
 
     let colorsAvail = ['color6', 'color7', 'color8', 'color9'];
-
-    setTimeout(on_popstate, 0);
 
     function shareFaceBook() {
         //console.log("//TODO: copy current link to url2");
@@ -212,7 +211,6 @@ let backendPromise = import("./backend.js");
     }
 
     function on_popstate() {
-        DEBUG_history_count--;
         let mw = "";
         let mi = [];
         for (let url_component of window.location.hash.substr(1).split("&")) {
@@ -224,25 +222,19 @@ let backendPromise = import("./backend.js");
             }
         }
 
-        if (mw == "") {
+        if (mw === "") {
             mainLegend.style.visibility = 'hidden';
             mainPlot.clear();
-            restoreState(mw, []);
-            return;
+            mi = [];
         }
 
-        restoreState(mw, mi);
-    }
-
-    function restoreState(savedMainWord, savedOtherWords) {
-        wordInput.value = savedMainWord;
-        exploreWord(savedMainWord, savedOtherWords, true);
+        wordInput.value = mw;
+        exploreWord(mw, mi, true);
     }
 
     function wordChanged() {
-        console.log("word changed: main input changed to: ", wordInput.value);
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => exploreWord(wordInput.value, null), 0);
+        setTimeout(() => exploreWord(wordInput.value.trim(), null), 0);
     }
 
     function pinWord() {
@@ -282,13 +274,9 @@ let backendPromise = import("./backend.js");
     function assembleMainLegendDOM(colorIndex) {
         /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
         //var colorString = colorsAvail[colorsUsed];
-        var html = '<li id=\'dynamicLiObj\' class=\'_COLORNUM_\'><span></span> ↔ <a href=\'#\'></a>&nbsp&nbsp<button id=\'rmBtn6\' class=\"tooltipContent removeWordButton\" name="na" style="position: absolute; right: 0;">x</button></li>'
-        if (colorIndex == null) {
-            html = html.replace("_COLORNUM_", "color6");
-        }
-        else {
-            html = html.replace("_COLORNUM_", colorsAvail[colorIndex]);
-        }
+        let html = '<li id="dynamicLiObj" class="' +
+            (colorIndex === null ? "color6" : colorsAvail[colorIndex]) +
+            '"><span></span> ↔ <a href="#"></a>&nbsp&nbsp<button id="rmBtn6" class="tooltipContent removeWordButton" name="na" style="position: absolute; right: 0;">x</button></li>';
         //console.log("Assembled: ", html);
         var template = document.createElement('template');
         template.innerHTML = html;
@@ -338,62 +326,64 @@ let backendPromise = import("./backend.js");
         dynamicMainLegendDOMs.length = 0;
     }
 
-    function saveHistoryState() {
-        //save current state of webpage
-    }
-
     function exploreWord(newMainWord, newMustIncludeWordList, suppress_save_state = false) {
-        // Check if either the word or the include list actually changed.
-        // If both are still the old ones then we don't do anything here.
         let mainWordChanged = (newMainWord !== null && newMainWord !== currentWord);
+        let wordId = null;
+        if (newMainWord === '') {
+            currentWord = '';
+            mainPlot.clear();
+            mainLegend.style.visibility = 'hidden';
+            wordInput.classList.remove('invalid');
+            if (mainWordChanged && !suppress_save_state) {
+                history.pushState(null, "The Linguistic Time Capsule", "#");
+            }
+            return;
+        } else if (mainWordChanged) {
+            wordId = inverseVocab[newMainWord];
+            if (typeof wordId === 'undefined') {
+                wordInput.classList.add('invalid');
+                // Leave `currentWord` at previous value (which must be either "" or a valid word from the vocabulary.)
+                return;
+            }
+            currentWord = newMainWord;
+        } else {
+            wordId = inverseVocab[currentWord];
+        }
+
+        wordInput.classList.remove('invalid');
+
         let mustIncludeWordListChanged = (newMustIncludeWordList !== null &&
             newMustIncludeWordList !== mustIncludeWordList);
+        if (mustIncludeWordListChanged) {
+            mustIncludeWordList = newMustIncludeWordList;
+        }
 
+        // Do the expensive stuff only if anything actually changed. This allows us to
+        // fire attach this function on many events to catch changes as early as
+        // possible without firing multiple times on the same change.
         if (mainWordChanged || mustIncludeWordListChanged) {
-            if (newMainWord !== null) {
-                currentWord = newMainWord;
-            }
-            if (newMustIncludeWordList !== null) {
-                mustIncludeWordList = newMustIncludeWordList;
-            }
-
             mainLegendItems.forEach(el => el.classList.remove('hovering'));
 
-            console.log("exploreWord called, word: ", currentWord, " ,mustIncludeWordList: ", mustIncludeWordList);
-            //corner case: infinite loop
             if (!suppress_save_state) {
-                let stateUrl = "#";
-                if (currentWord !== "") {
-                    stateUrl = stateUrl + "c=en&w=" + encodeURIComponent(currentWord);
-                    if (mustIncludeWordList.length != 0) {
-                        stateUrl = stateUrl + "&o=" + mustIncludeWordList.map(encodeURIComponent).join("+");
-                    }
+                let stateUrl = "#c=en&w=" + encodeURIComponent(currentWord);
+                if (mustIncludeWordList.length != 0) {
+                    stateUrl = stateUrl + "&o=" + mustIncludeWordList.map(encodeURIComponent).join("+");
                 }
-                history.pushState(DEBUG_history_count++, "some useless title", stateUrl); // TODO: set title
-                //console.log("state pushed, total states: ", DEBUG_history_count);
-            }
-
-            if (currentWord == "") {
-                //console.log("detected empty in wordchanged");
-                mainPlot.clear();
-                mustIncludeWordList = [];
-                mainLegend.style.visibility = 'hidden';
-                return;
+                history.pushState(null, "The Linguistic Time Capsule: " + currentWord, stateUrl);
             }
 
             if (mustIncludeWordListChanged) {
-                //console.log("detected must include list updating")
                 cleanMainLegend();
 
                 var currentLegendLength = mainLegendItems.length;
-                let newLegendLength = 6 + mustIncludeWordList.length;
+                let newLegendLength = NUM_SUGGESTIONS + mustIncludeWordList.length;
                 for (let i = currentLegendLength; i <= newLegendLength; i += 1) {
-                    addSlotToMainLegend(i - 6);
+                    addSlotToMainLegend(i - NUM_SUGGESTIONS);
                 }
 
                 //console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
                 dynamicMainLegendDOMs.forEach((element, index) => {
-                    let actualMainplotIndex = index + 6;
+                    let actualMainplotIndex = index + NUM_SUGGESTIONS;
                     element.removeEventListener('mouseover', null);
                     element.removeEventListener('mouseout', null);
                     element.addEventListener('mouseover', () => mainPlot.hoverLine(actualMainplotIndex));
@@ -412,60 +402,46 @@ let backendPromise = import("./backend.js");
             }
 
             if (mainWordChanged) {
-                let wordId = inverseVocab[currentWord];
-                if (typeof wordId === 'undefined') {
-                    wordInput.classList.add('invalid');
-                } else {
-                    wordInput.classList.remove('invalid');
-                    if (wordInput.value !== currentWord) {
-                        wordInput.value = currentWord;
-                    }
-                    mainPlot.clear();
-
-                    // `handle.largest_change_wrt` returns a `Uint32Array`, which does not have
-                    // a `push` method, so we turn it into a regular JS array.
-                    let otherWords = Array.prototype.slice.call(handle.largest_changes_wrt(wordId, 6, 2, 2));
-                    for (var i = 0; i < mustIncludeWordList.length; i++) {
-                        otherWords.push(inverseVocab[mustIncludeWordList[i]]);
-                    }
-
-                    // `handle.pairwise_trajectories` expects two arrays of word IDs, which it
-                    // zips into an array of word ID pairs. The frontend currently only supports plots
-                    // where the first word of each pair is the same for all pairs, so we have to
-                    // copy the ID of the first word for each pair.
-                    let wordIdRepeated = Array(otherWords.length).fill(wordId);
-                    let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
-                    let trajectoryLength = concatenatedTrajectories.length / otherWords.length;
-
-                    otherWords.forEach((otherWordId, index) => {
-                        let otherWord = metaData.vocab[otherWordId];
-                        //console.log("plotting against ",otherWord);
-                        mainPlot.plotLine(
-                            concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
-                            index,
-                            0,
-                            {
-                                word1: currentWord,
-                                word2: otherWord,
-                                word1Id: wordId,
-                                word2Id: otherWordId
-                            },
-                            false
-                        );
-                        const legendWordLabel = mainLegendItems[index].firstElementChild;
-                        //console.log("legendWodLebl", legendWordLabel);
-                        legendWordLabel.textContent = currentWord;
-
-                        legendWordLabel.nextElementSibling.textContent = otherWord;
-                        if (legendWordLabel.nextElementSibling.nextElementSibling != null) {
-                            //console.log("setting name of button");
-                            legendWordLabel.nextElementSibling.nextElementSibling.setAttribute("name", otherWord);
-                        }
-                    });
-                    mainLegend.style.visibility = 'visible';
+                if (wordInput.value.trim() !== currentWord) {
+                    wordInput.value = currentWord;
                 }
+                mainPlot.clear();
+
+                // `handle.largest_change_wrt` returns a `Uint32Array`, which does not have
+                // a `push` method, so we turn it into a regular JS array.
+                let otherWords = Array.prototype.slice.call(handle.largest_changes_wrt(wordId, NUM_SUGGESTIONS, 2, 2));
+                for (otherWordId of mustIncludeWordList) {
+                    otherWords.push(inverseVocab[otherWordId]);
+                }
+
+                // `handle.pairwise_trajectories` expects two arrays of word IDs, which it
+                // zips into an array of word ID pairs. The frontend currently only supports plots
+                // where the first word of each pair is the same for all pairs, so we have to
+                // copy the ID of the first word for each pair.
+                let wordIdRepeated = Array(otherWords.length).fill(wordId);
+                let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
+                let trajectoryLength = concatenatedTrajectories.length / otherWords.length;
+
+                otherWords.forEach((otherWordId, index) => {
+                    let otherWord = metaData.vocab[otherWordId];
+                    mainPlot.plotLine(
+                        concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
+                        index,
+                        0,
+                        {
+                            word1: currentWord,
+                            word2: otherWord,
+                            word1Id: wordId,
+                            word2Id: otherWordId,
+                        },
+                        false,
+                        '"' + currentWord + '" ↔ "' + otherWord + '"\n(click on line to explore relationship)'
+                    );
+                    const legendWordLabel = mainLegendItems[index].firstElementChild;
+                    legendWordLabel.textContent = currentWord;
+                });
+                mainLegend.style.visibility = 'visible';
             }
         }
-
     }
 }())
