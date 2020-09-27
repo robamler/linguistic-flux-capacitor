@@ -26,11 +26,12 @@
                 <div class='centered'><input class='wordInput' type='text'></div>
                 <div class='centered hint'>
                     (hint: try
-                    “<a href="#c=en&w=file">file</a>”,
-                    “<a href="#c=en&w=surgery">surgery</a>”,
-                    “<a href="#c=en&w=peer">peer</a>”,
-                    “<a href="#c=en&w=gay">gay</a>”, or
-                    “<a href="#c=en&w=novel">novel</a>”)
+                    “<a href="#v=0&c=en&w=file">file</a>”,
+                    “<a href="#v=0&c=en&w=surgery">surgery</a>”,
+                    “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
+                    “<a href="#v=0&c=en&w=peer">peer</a>”,
+                    “<a href="#v=0&c=en&w=gay">gay</a>”, or
+                    “<a href="#v=0&c=en&w=novel">novel</a>”)
                 </div>
                 <div class='plotAndLegend'>
                     <div id='mainLegend' class='legend'>
@@ -63,7 +64,7 @@
                                                 <th class='word2 right'><a href='#'>radio</a></th>
                                             </tr>
                                         </table>
-                                        <div class='explanation interleave'>were most related to:
+                                        <div class='explanation interleave'>used to be associated with:
                                             <div class='hint'>(click on a word to explore it)</div>
                                         </div>
                                         <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]
@@ -108,6 +109,199 @@
                 </div>
             </div>
         </div>
+
+        <div class="prose">
+            <h2>What is This?</h2>
+            <p>
+                This app lets you explore how the meaning of individual words in the English language has changed over
+                the past two centuries.
+            </p>
+            <p>
+            <h3>Try it out:</h3>
+            enter the word
+            “<a href="#v=0&c=en&w=surgery"
+                onclick="document.querySelector('.app').scrollIntoView({ behavior: 'smooth', block:'nearest' })">surgery</a>”
+            into the text box at the top of the page.
+            You'll see a diagram with several lines that compare the word “surgery” to other words.
+            Some lines go up and others go down.
+            Look at the legend on the right.
+            It says that the orange line, for example, measures similarity between the words “surgery” and
+            “anesthesia”.
+            This similarity stays close to zero until about 1850, suggesting that people didn't associate surgeries
+            with anesthetics until the middle of the 19th century⸺a gruesome thought from today's perspective.
+            </p>
+            <p>
+                Now look at the pink line.
+                It measures similarity between the words “surgery” and “morality”, and it goes down.
+                Could this mean that society used to be critical of the thought of doctors intervening with peoples
+                destiny, and has since become more supportive of this idea?
+                Or does it mean that society has just lost interest in discussing the moral implications of surgeries?
+                <em>I don't know the answer,</em> but it would sure be an interesting question to research (if you know
+                the answer, please <a href="https://robamler.github.io">reach out to me</a>).
+            </p>
+
+            <p>
+            <h3>Your turn:</h3>
+            click on a line and move your mouse across the diagram to dive in deeper.
+            You'll see a popup that shows how word associations changed over time.
+            Click on a word in the popup or enter a different word in the input box to continue your journey back in
+            time.
+            </p>
+
+            <p>
+            <h3>A word of warning:</h3>
+            remember that this is just a tool for <em>hypothesis generation</em>.
+            Our language model is far from perfect, so take all diagrams with a grain of salt.
+            Most importantly, please remember that all diagrams are generated automatically by a computer program and do
+            not reflect political opinions of the authors of this app.
+            Nevertheless, if you play with this app for a while you'll likely find something that's
+            <em>interesting</em>.
+            Formulate your findings as a hypothesis and use complementary tools to research it.
+            </p>
+
+            <h2>What Do You Mean With “Word Similarity”?</h2>
+            <p>
+                The lines in the above diagram measure a very specific notion of “word similarity” that may be
+                counterintuitive in some cases.
+                Like most of the so-called word embedding models, our model defines word similarity according to the
+                so-called Distributional Hypothesis:
+                two words are considered similar if they can appear in a similar context.
+            </p>
+            <p>
+                For example, the model considers the words “driving” and “walking” to be similar (and indeed, both are
+                means of transportation) because either word can fill the blank in the sentence “I am ___ to the grocery
+                store”.
+                Similarly, the model also considers opposites such as “small” and “large” to be somewhat similar
+                (indeed, both are adjectives that describe size) because both words can appear in sentences such as
+                “This shirt is too ___ for you”.
+            </p>
+            <p>
+                By contrast, the model does not care whether two words appear in context <em>with each other</em>, and
+                it does not use this as a signal for their similarity.
+                This makes sense: for example, the sentence you are currently reading contains the two words “you” and
+                “are” directly next to each other⸺“you are” is in fact a quite common two-gram in the English language.
+                But the two words are very different: “you” is a pronoun and “are” is a verb, so we can't even compare
+                them.
+            </p>
+
+            <h2>Who Built This?</h2>
+            <p>
+                Several researchers were involved in the development of this app:
+            </p>
+            <ul>
+                <li>
+                    <a target="_blank" href="https://robamler.github.io/">Robert Bamler</a>:
+                    natural language model, compression method, and main development of the app.
+                </li>
+                <li>
+                    <a target="_blank" href="https://yiboyang.com/">Yibo Yang</a>:
+                    compression method.
+                </li>
+                <li>
+                    <a target="_blank" href="https://www.linkedin.com/in/zhouhang-xie-1872011a6/">Zhouhang Xie</a>:
+                    frontend development.
+                </li>
+                <li>
+                    <a target="_blank" href="http://www.stephanmandt.com/">Stephan Mandt</a>:
+                    natural language model and compression method.
+                </li>
+            </ul>
+            <p>
+                You can read more about the natural language model and the compression method in the scientific papers
+                listed in the next section below.
+            </p>
+
+            <h2>
+                How Does This Work?
+                <div class="subtitle">(and how can I cite it?)</div>
+            </h2>
+            <p>
+                This app is a technical demonstration of both a natural language model and a compression method for
+                machine learning models.
+                The natural language model is a probabilistic time series model that represents each word in a
+                vocabulary by a trajectory in a semantic vector space.
+                The model is trained on digitized historic books from the <a
+                    href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
+                    Books</a> corpus (about 10 billion words).
+                Details of the model and training procedure are described in the following two papers:
+            </p>
+            <ul>
+                <li>
+                    R.&nbsp;Bamler and S.&nbsp;Mandt,
+                    <em>Dynamic Word Embeddings</em>.
+                    ICML 2017
+                    (<a href="https://robamler.github.io/files/bamler-dynamic-word-embeddings-icml-2017.pdf"
+                        target="_blank">PDF</a>)
+                </li>
+                <li>
+                    R.&nbsp;Bamler and S.&nbsp;Mandt,
+                    <em>Improving Optimization for Models With Continuous Symmetry Breaking</em>.
+                    ICML 2018
+                    (<a href="https://robamler.github.io/files/bamler-goldstone-gd-icml-2018.pdf"
+                        target="_blank">PDF</a>)
+                </li>
+            </ul>
+            <p>
+                An unusual approach in this app is that all model predictions are calculated on the client side, i.e.,
+                <em>the model runs directly inside your browser</em>.
+                This is why predictions appear almost instantly: we don't have to send a request to some server every
+                time you press a key or move your mouse across the diagram.
+                However, the trained model has about 600&nbsp;million parameters.
+                So how can we run such a large model in your browser without forcing a giant download upon you?
+            </p>
+            <p>
+                The answer lies in a novel compression algorithm for Bayesian machine learning models, which packs the
+                600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size (about 0.34&nbsp;bits per
+                model parameter).
+                A WebAssembly module decompresses parts of the model lazily just when they're needed, and it discards
+                the decompressed data immediately after the calculation.
+                Details of this novel compression method are described in the following paper:
+            </p>
+            <ul>
+                <li>
+                    Y.&nbsp;Yang, R.&nbsp;Bamler and S.&nbsp;Mandt,
+                    <em>Variational Bayesian Quantization</em>.
+                    ICML 2020
+                    (<a href="https://robamler.github.io/files/yang-vbq-icml-2020.pdf" target="_blank">PDF</a>)
+                </li>
+            </ul>
+            <p>
+                If this app is useful for your research, please consider citing one of the above papers (if you're not
+                sure which one, choose the first one).
+            </p>
+
+            <h2>Could You Add Language X or Feature Y?</h2>
+            <p>
+                Yes, we can ... <em>with your help!</em>
+            </p>
+            <p>
+                Do you have an interesting data set of historic documents or an idea for a cool new feature?
+                Please <a href="https://robamler.github.io/" target="_blank">reach out</a>!
+            </p>
+            <p>
+                Don't have a specific idea but looking for an interesting semester project?
+                Please <a href="https://robamler.github.io/" target="_blank">reach out</a>, too.
+                I have several exciting ideas for promising followup projects, for example:
+            </p>
+            <ul>
+                <li>
+                    exploring gender bias, racial bias, or sentiment bias over time (see our
+                    <a target="_blank"
+                        href="https://cseweb.ucsd.edu/~jmcauley/workshops/scmls20/papers/scmls20_paper_26.pdf">workshop
+                        paper</a>);
+                </li>
+                <li>
+                    adding specialized corpora to analyze how language evolves within a specific community (e.g.,
+                    scientific communities, courts, or parliaments);
+                </li>
+                <li>
+                    adding more languages (maybe one you speak?).
+                </li>
+            </ul>
+        </div>
+        <footer>
+            &copy; 2020&mdash;<a href="https://robamler.github.io/" target="_blank">Robert Bamler</a>
+        </footer>
     </div>
 </body>
 
