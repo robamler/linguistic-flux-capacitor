@@ -239,25 +239,18 @@ let backendPromise = import("./backend.js");
     }
 
     function on_popstate() {
-        let mw = "";
-        let mi = [];
+        let newMainWord = "";
+        let newManualComparisons = [];
         for (let url_component of window.location.hash.substr(1).split("&")) {
             let [key, value] = url_component.split("=");
             if (key === "w") {
-                mw = decodeURIComponent(value);
+                newMainWord = decodeURIComponent(value);
             } else if (key === "o" && value !== "") {
-                mi = value.split("+").map(decodeURIComponent);
+                newManualComparisons = value.split("+").map(decodeURIComponent);
             }
         }
 
-        if (mw === "") {
-            legend.style.visibility = 'hidden';
-            mainPlot.clear();
-            mi = [];
-        }
-
-        wordInput.value = mw;
-        updatePlot(mw, mi, true);
+        updatePlot(newMainWord, newManualComparisons, true);
     }
 
     function wordChanged() {
