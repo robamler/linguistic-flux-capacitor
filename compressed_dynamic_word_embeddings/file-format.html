@@ -286,13 +286,11 @@
                 <td>4</td>
                 <td><code>f32</code></td>
                 <td>
-                    Scalar factor (typically <code>&lt; 1.0</code>) to map the encoded integer embedding
-                    vectors back to their
-                    continuous representations. Thus, to calculate the scalar product between two embedding
-                    vectors,
-                    one has to first calculate the scalar product of the encoded integer representations and
-                    then
-                    multiply it with the <em>square</em> of scale_factor.
+                    Scalar factor (typically <code>&lt; 1.0</code>) to map the encoded integer embedding vectors back to
+                    their continuous representations.
+                    Thus, to calculate the scalar product between two embedding vectors, one has to first calculate the
+                    scalar product of the encoded integer representations and then multiply it with the <em>square</em>
+                    of scale_factor.
                 </td>
             </tr>
         </tbody>
@@ -342,8 +340,7 @@
                     <ul>
                         <li>
                             Must be larger than one since the decompression algorithm cannot deal with a degenerate
-                            frequency distribution that puts all its mass on a single symbol
-                            [<em>TODO:</em> this should actually work just fine].
+                            frequency distribution that puts all its mass on a single symbol.
                             In the highly unlikely case
                             that all entries of the payload are the same symbol, the encoder should
                             approximate the distribution of symbols with a distribution that has (scaled) frequency
@@ -385,10 +382,19 @@
                             The frequency of the last symbol is not stored in the file as it can be inferred from
                             the condition that the sum of all scaled frequencies must be 4096 (and the decoder has
                             to calculate this sum anyway to construct the cumulative distribution).
+                            Thus, if <code>num_symbols = 1</code> then the <code>frequencies</code> field is empty.
                         </li>
                         <li>
-                            The frequencies are stored in a compact representation.
-                            TODO: describe packing scheme.
+                            The frequencies are stored in a compact representation, obtained by writing out each
+                            frequency in binary, zero-padding each frequency to 12 binary digits if necessary,
+                            concatenating, zero-padding the concatenation to a multiple of 16 bits if necessary, and
+                            then splitting it into chunks of 16 bits.
+                            For example, for an entropy model with six symbols where the frequencies of the first five
+                            symbols are <code>0x167</code>, <code>0x289</code>, <code>0x3ab</code>,
+                            <code>0x0cd</code>, and <code>0x5ef</code> in hexadecimal notation, the
+                            <code>frequencies</code> field would hold the following sequence of four unsigned 16-bit
+                            integers, each encoded in little-endian byteorder:
+                            <code>[0x0167, 0x2893, 0xab0c, 0xd5ef]</code>.
                         </li>
                     </ul>
                 </td>
@@ -512,10 +518,12 @@
         <li>
             For the center time step <code>t = floor( (0 + (num_timesteps - 1)) / 2 )</code>, we first calculate a
             prediction <code>w<sub>i,t</sub></code> for each word <code>i</code> by averaging the embedding vectors
-            <code>u<sub>0,i</sub></code> and <code>u<sub>num_timesteps-1,i</sub></code> (rounding to integers towards
-            zero).
+            <code>u<sub>0,i</sub></code> and <code>u<sub>num_timesteps-1,i</sub></code>, rounding to integers towards
+            zero (note that, when calculating the average <code>(a + b) / 2</code> of two 16-bit integers <code>a</code>
+            and <code>b</code>, the intermediate value <code>(a + b)</code> may exceed 16-bit integer space).
             Then, instead of encoding <code>u<sub>t,i</sub></code>, we encode the residual
-            <code>(u<sub>t,i</sub> - w<sub>t,i</sub>)</code>.
+            <code>(u<sub>t,i</sub> ⊖ w<sub>t,i</sub>)</code> where <code>⊖</code> denotes wrapping subtraction in signed
+            16-bit integer space.
         </li>
         <li>
             We continue with this mapping by recursively bisecting the time range
@@ -526,7 +534,7 @@
             a decorrelated representation for the center time step
             <code>t = floor( (t<sub>left</sub> + t<sub>right</sub>) / 2 )</code>.
             The decorrelated representation of embedding <code>u<sub>t,i</sub></code> for word&nbsp;<code>i</code> is
-            <code>(u<sub>t,i</sub> - w<sub>t,i</sub>)</code> where we obtain the prediction <code>w<sub>t,i</sub></code>
+            <code>(u<sub>t,i</sub> ⊖ w<sub>t,i</sub>)</code> where we obtain the prediction <code>w<sub>t,i</sub></code>
             by averaging the word embedding vectors (note: <em>not</em> their decorrelated representations)
             <code>u<sub>t<sub>left</sub>,i</sub></code> and <code>u<sub>t<sub>right</sub>,i</sub></code> and rounding
             towards zero.
@@ -541,7 +549,7 @@
             The inverse mapping from the decorrelated representation back to the word embedding vectors can be performed
             by by bisecting the time interval <code>{0, ..., num_timesteps - 1}</code>, calculating the prediction
             <code>w<sub>t,i</sub></code> for each bisection, and then <em>adding</em> to it the value encoded in the
-            file.
+            file (using wrapping addition in signed 16-bit integer space).
             This can be done in <code>O(log(num_timesteps))</code> time and constant memory.
         </li>
     </ul>

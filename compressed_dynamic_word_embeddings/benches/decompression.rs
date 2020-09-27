@@ -3,10 +3,13 @@ extern crate criterion;
 
 use std::{fs::File, io::BufReader};
 
+use byteorder::{LittleEndian, ReadBytesExt};
 use criterion::{black_box, Criterion};
 use rand::prelude::*;
 
-use compressed_dynamic_word_embeddings::embedding_file::{EmbeddingFile, TimestepReader};
+use compressed_dynamic_word_embeddings::embedding_file::{
+    EmbeddingFile, FileHeader, TimestepReader, HEADER_SIZE,
+};
 
 fn decompress(c: &mut Criterion) {
     let file_name = format!(
@@ -44,8 +47,7 @@ fn decompress(c: &mut Criterion) {
     // trajectories (multiply it with `num_timesteps * jump_interval / vocab_size`).
     c.bench_function("decompress_random", |b| {
         b.iter(|| {
-            let checksum = decompress_t(rng.next_u32() % num_timesteps);
-            black_box(checksum);
+            black_box(decompress_t(black_box(rng.next_u32() % num_timesteps)));
         })
     });
 
@@ -54,7 +56,7 @@ fn decompress(c: &mut Criterion) {
     // to the root (which tend to be more expensive) are needed more often.
     c.bench_function("decompress_bisect", |b| {
         b.iter(|| {
-            let target_t = rng.next_u32() % num_timesteps;
+            let target_t = black_box(rng.next_u32() % num_timesteps);
 
             let checksum = if target_t == 0 || target_t == num_timesteps - 1 {
                 decompress_t(target_t)
@@ -80,5 +82,37 @@ fn decompress(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, decompress);
+fn construct_decoder_models(c: &mut Criterion) {
+    let file_name = format!(
+        "{}/../cli/stream-based/vbq_q32.0_b12_c100.dwe",
+        env!("CARGO_MANIFEST_DIR"),
+    );
+
+    let mut file = BufReader::new(File::open(file_name).unwrap());
+    let mut buf = Vec::new();
+    buf.resize(HEADER_SIZE as usize, 0);
+    file.read_u32_into::<LittleEndian>(&mut buf[..]).unwrap();
+
+    let header = unsafe {
+        // SAFETY: We made sure that buf.len() == HEADER_SIZE
+        FileHeader::memory_map_unsafe(&buf)
+    };
+    let file_size = header.file_size;
+
+    buf.reserve_exact((file_size - HEADER_SIZE) as usize);
+    for _ in HEADER_SIZE..file_size {
+        buf.push(file.read_u32::<LittleEndian>().map_err(|_| ()).unwrap());
+    }
+    let mut buf_container = Some(buf.into());
+
+    c.bench_function("construct_decoder_models", |b| {
+        b.iter(|| {
+            let buf = buf_container.take().unwrap();
+            let embedding_file = black_box(EmbeddingFile::new(black_box(buf)).unwrap());
+            buf_container = Some(embedding_file.into_inner())
+        })
+    });
+}
+
+criterion_group!(benches, decompress, construct_decoder_models);
 criterion_main!(benches);

@@ -155,7 +155,6 @@ impl RandomAccessReader {
     ) -> RankTwoTensor<u32> {
         let embeddings = self.get_embeddings_at(t);
         let embeddings = embeddings.as_view();
-        // MostRelatedToAtT::new(target_words, amt).run(t, &self);
 
         let mut unique_words = target_words
             .iter()
@@ -264,7 +263,7 @@ impl RandomAccessReader {
                     .streaming_decode(
                         buf.iter_mut().zip(buf_left.iter().zip(buf_right.iter())),
                         |&s, (target, (&l, &r))| {
-                            *target = ((l as i32 + r as i32) / 2 + s as i32) as i16;
+                            *target = s.wrapping_add(((l as i32 + r as i32) / 2) as i16);
                         },
                     )
                     .unwrap();
@@ -414,63 +413,6 @@ impl Default for FrontRunnerCandidate {
     }
 }
 
-trait TraversalTask {
-    type Output: Default + Clone;
-
-    /// Returns the number of embedding vectors needed in some scratch space.
-    fn scratch_size(&self) -> usize;
-
-    /// Returns the number of `Self::Output` values calculated per time step.
-    fn output_size(&self) -> usize;
-
-    /// Called once per time step. Expects `callback` to be called exactly
-    /// `scratch_size` times per time step with arguments (word indices) in strictly
-    /// ascending order. The order of words must be the same on each time step.
-    fn iter_words(&mut self, callback: impl FnMut(u32));
-
-    /// Called once per time step, after `iter_words`. Provides the embedding
-    /// vectors of the words used in calls to `callback` of the `iter_words` method,
-    /// in the same order. The slice `output` is of size `self.output_size()` and is
-    /// intended to be used to write out results for this time step.
-    fn finalize_timestep(
-        &mut self,
-        t: u32,
-        embeddings: RankTwoTensorView<i16>,
-        output: &mut [Self::Output],
-    );
-}
-
-// struct BufReader<'a> {
-//     buf: RankTwoTensorView<'a, i16>,
-//     word_index: u32,
-// }
-
-// impl<'a> BufReader<'a> {
-//     fn new(buf: RankTwoTensorView<'a, i16>) -> Self {
-//         Self { buf, word_index: 0 }
-//     }
-// }
-
-// impl<'a> TimestepReader for BufReader<'a> {
-//     fn read_single_embedding_vector<I: Iterator>(
-//         &mut self,
-//         dest_iter: I,
-//         callback: impl FnMut(i16, I::Item),
-//     ) -> Result<(), ()> {
-//         for (&s, d) in self.buf.subview(self.word_index as usize).iter().zip(dest_iter) {
-//             callback(s, d);
-//         }
-//         self.word_index += 1;
-
-//         Ok(())
-//     }
-
-//     fn jump_to(&mut self, word_index: u32) -> Result<(), ()> {
-//         self.word_index = word_index;
-//         Ok(())
-//     }
-// }
-
 struct AccumulatingReader<R: TimestepReader, LI: Iterator<Item = i16>, RI: Iterator<Item = i16>> {
     inner: R,
     left_parent: LI,
@@ -510,8 +452,8 @@ impl<R: TimestepReader, LI: Iterator<Item = i16>, RI: Iterator<Item = i16>> Time
                 .zip(&mut self.left_parent)
                 .zip(&mut self.right_parent),
             |center, ((dest, left), right)| {
-                let value = center as i32 + (left as i32 + right as i32) / 2;
-                callback(value as i16, dest);
+                let value = center.wrapping_add(((left as i32 + right as i32) / 2) as i16);
+                callback(value, dest);
             },
         )
     }

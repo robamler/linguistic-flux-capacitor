@@ -1,5 +1,6 @@
 body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
     position: absolute;
     left: 0;
     right: 0;
@@ -8,36 +9,126 @@ body {
 }
 
 .pageContainer {
-    width: 48em;
+    width: 50em;
     position: absolute;
     left: 50%;
-    transform: translateX(-70%);
+    transform: translateX(-50%);
 }
 
 h1 {
     text-align: center;
     font-weight: normal;
-    font-size: 350%;
+    font-size: 280%;
     font-family: 'DM Serif Display', serif;
     margin: 0.3em 0 0.7em 0;
     padding: 0;
 }
 
-h2 {
+.app>h2 {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-weight: normal;
     text-align: center;
-    font-size: 200%;
-    margin: 0.4em 0
+    font-size: 160%;
+    margin: 0.2em 0;
+}
+
+.legend>h3 {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 110%;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 0.3em 0;
+    display: block;
+    white-space: nowrap;
+}
+
+h2 {
+    font-size: 230%;
+    font-weight: normal;
+    font-family: 'DM Serif Display', serif;
+    margin: 1.4em 0 0.6em 0;
+    line-height: 100%;
+}
+
+h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 125%;
+    font-weight: 700;
+    margin: 1em 0.4em -0.3em 0;
+    padding: 0;
+    display: inline;
+}
+
+.prose {
+    color: #333;
+    line-height: 150%;
+}
+
+footer {
+    opacity: 0.7;
+    font-size: 80%;
+    margin: 2em 0 1em 0;
+}
+
+.subtitle {
+    font-size: 60%;
+}
+
+.splashScreen {
+    text-align: center;
+    font-size: 120%;
+    margin: 4em 2em 7em 2em;
+}
+
+.appContainer {
+    width: 40em;
+}
+
+.app {
+    display: none;
+}
+
+#downloadProgressPane {
+    color: #0d441d;
+}
+
+.progressBarContainer {
+    margin: 0.7em;
+    border: #36864e solid 0.1em;
+    border-radius: 0.3em;
+    position: relative;
+    height: 1.5em;
+}
+
+.progressBar {
+    background: #bfdfc9;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    z-index: 0;
+    border-radius: 0.15em;
+}
+
+.progressText {
+    position: absolute;
+    margin: auto;
+    left: 0;
+    right: 0;
+    top: 0.1em;
+    text-shadow: 0 0 0.2em #fff;
 }
 
 .plotAndLegend {
-    position: relative
+    position: relative;
+    margin-top: 1.3em;
 }
 
 .plotContainer {
-    position: absolute;
+    position: relative;
     left: -2em;
-    width: 48em;
+    width: 41em;
 }
 
 .centered {
@@ -45,21 +136,30 @@ h2 {
 }
 
 .wordInput {
-    margin: 0 0 1em 0;
-    font-size: 200%;
+    margin: 0 0 0.1em 0;
+    font-size: 160%;
     width: 40%;
     text-align: center;
+}
+
+input {
     border: solid 0.05em #ccc;
+    border-radius: 0.2em;
     padding: 0.2em;
 }
 
-.wordInput:focus {
+input:focus {
     border-color: #86bdf0;
+    background: #fafbfd;
     outline: none;
 }
 
-.wordInput.invalid {
+input.invalid {
     background-color: #fdebeb;
+}
+
+input.invalid:focus {
+    border-color: #9c5555;
 }
 
 .tooltipContent .explanation {
@@ -88,10 +188,10 @@ h2 {
 }
 
 .tooltipContent .interleave {
-    padding: 0 0 0.3em 0;
+    padding: 0.2em 0 0.5em 0;
 }
 
-.tooltipContent .hint {
+.hint {
     opacity: 0.7;
     font-size: 80%;
     margin-top: 0.1em;
@@ -128,7 +228,7 @@ h2 {
 
 .tooltipContent .suggestion {
     padding: 0.05em 0;
-    font-size: 80%;
+    font-size: 90%;
 }
 
 .tooltipContent .left {
@@ -139,38 +239,39 @@ h2 {
     text-align: right;
 }
 
-.tooltipContent a {
+.tooltipContent .removeWordButton {
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    color: white;
+    font-size: 80%;
+}
+
+a {
     text-decoration: none;
-    color: #152d74;
+    color: #1135a0;
 }
 
 .legend {
-    visibility: hidden;
-    display: table-caption;
+    display: none;
     background-color: #e8e8e8;
     border-radius: 0.5em;
-    padding: 0.7em 0.9em;
+    padding: 0.6em 0.7em;
     width: auto;
     position: absolute;
-    left: 47em;
+    left: 40em;
     top: 0;
     min-width: 10em;
-}
-
-.legendText {
-    color: #333333;
 }
 
 .legend>ul {
     list-style-type: none;
     margin: 0 0 0.5em 0;
     padding: 0;
-    font-size: 120%;
 }
 
 .legend>ul>li {
-    margin: -0.2em -0.4em 0.2em -0.4em;
-    padding: 0.2em 0.4em 0.4em 0.4em;
+    margin: -0.2em -0.4em 0.0em -0.4em;
+    padding: 0.2em 0.4em 0.3em 0.4em;
     border-radius: 0.2em;
     white-space: nowrap;
     cursor: default;
@@ -220,5 +321,62 @@ h2 {
 }
 
 .legend>ul>li.color7::before {
+    color: #fabebe;
+}
+
+.legend>ul>li.color8::before {
+    color: #ffd8b1;
+}
+
+.legend>ul>li.color9::before {
+    color: #808000;
+}
+
+.legend>ul>li.color10::before {
     color: #666666;
+}
+
+.legend input[type="text"] {
+    font-size: 80%;
+    min-width: 5.2em;
+}
+
+.legend input[type="button"] {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 90%;
+    width: 1.4em;
+    height: 1.4em;
+    line-height: 0;
+}
+
+.inputWidthMeasure {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 90%;
+    white-space: nowrap;
+    position: absolute;
+    opacity: 0;
+}
+
+.pinWordButton {
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    border: none;
+    color: white;
+    padding: 10px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 80%;
+}
+
+.getUrlButton {
+    background-color: #BCB8AE;
+    /*Mindful Gray*/
+    border: none;
+    color: white;
+    padding: 5px 5px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 80%;
 }
