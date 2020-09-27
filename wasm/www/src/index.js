@@ -25,11 +25,18 @@ let backendPromise = import("./backend.js");
     }
 
     let currentWord = ''; // Invariant: `currentWord` is always either '' or a valid word from the vocabulary.
-    let mustIncludeWordList = [];
+    let manualComparisons = [];
+    let manualComparisonIds = [];
 
-    let mainLegend = document.getElementById('mainLegend');
-    let mainLegendItems = mainLegend.querySelectorAll('li');
-    const NUM_SUGGESTIONS = mainLegendItems.length;
+    let legend = document.getElementById('mainLegend');
+    let suggestedComparisonItems = document.getElementById('suggestedComparisons').querySelectorAll('li');
+    let manualComparisonItems = document.getElementById('manualComparisons').querySelectorAll('li');
+    let suggestedComparisonIds = null;
+    let manualComparisonInputs = [];
+    let manualComparisonRemoveButtons = [];
+    let allComparisonItems = [...suggestedComparisonItems, ...manualComparisonItems];
+
+    let inputWidthMeasure = document.querySelector('.inputWidthMeasure');
 
     let updateTooltip = (function () {
         let tooltip = document.getElementById('tooltipTemplate');
@@ -50,7 +57,7 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                exploreWord(el.innerText, null);
+                updatePlot(el.innerText, null);
             });
         });
         tooltip.querySelectorAll('.suggestion.right>a').forEach(el => {
@@ -58,13 +65,13 @@ let backendPromise = import("./backend.js");
             el.addEventListener('click', ev => {
                 ev.preventDefault();
                 el.blur();
-                exploreWord(el.innerText, null);
+                updatePlot(el.innerText, null);
             });
         });
         word2Placeholder.addEventListener('click', ev => {
             ev.preventDefault();
             word2Placeholder.blur();
-            exploreWord(word2Placeholder.innerText, null);
+            updatePlot(word2Placeholder.innerText, null);
         });
 
         return function (tooltip, line, indexX) {
@@ -118,27 +125,53 @@ let backendPromise = import("./backend.js");
     }());
 
     let lineMouseover = function (lineId) {
-        mainLegendItems[lineId].classList.add('hovering');
+        allComparisonItems[lineId].classList.add('hovering');
     };
 
     let lineMouseout = function (lineId) {
-        mainLegendItems[lineId].classList.remove('hovering');
+        allComparisonItems[lineId].classList.remove('hovering');
     };
 
     const mainPlot = Plotter.createPlot(
         document.getElementById('mainPlot'), years, ticksX, updateTooltip,
         document.getElementById('tooltipTemplate'), lineMouseover, lineMouseout);
 
-    mainLegendItems.forEach((element, index) => {
+    allComparisonItems.forEach((element, index) => {
         element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
         element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
+        element.addEventListener('click', () => mainPlot.setMainLine(index));
 
         const legendLink = element.querySelector('a');
-        legendLink.addEventListener('click', ev => {
-            ev.preventDefault();
-            legendLink.blur();
-            exploreWord(legendLink.innerText, null);
-        });
+        if (legendLink) {
+            legendLink.addEventListener('click', ev => {
+                ev.preventDefault();
+                legendLink.blur();
+                updatePlot(legendLink.innerText, null);
+            });
+        }
+
+        const inputs = element.querySelectorAll('input');
+        if (inputs.length !== 0) {
+            const [otherWordInput, removeButton] = inputs;
+            let manualIndex = manualComparisonInputs.length;
+            manualComparisonInputs.push(otherWordInput);
+            manualComparisonRemoveButtons.push(removeButton);
+
+            let inputEventHandler = () => manualComparisonChanged(otherWordInput, manualIndex);
+            otherWordInput.onkeydown = inputEventHandler;
+            otherWordInput.onchange = inputEventHandler;
+            otherWordInput.onclick = inputEventHandler;
+            otherWordInput.onblur = inputEventHandler;
+
+            removeButton.onclick = () => removeManualComparison(manualIndex);
+
+            if (manualIndex === 0) {
+                otherWordInput.style.width = '0';
+                removeButton.style.display = 'none';
+            } else {
+                element.style.display = 'none';
+            }
+        }
     });
 
     let [handle, metaData] = await Promise.all([
@@ -162,11 +195,6 @@ let backendPromise = import("./backend.js");
     wordInput.onchange = wordChanged;
     wordInput.onclick = wordChanged;
     wordInput.onblur = wordChanged;
-
-    let mustIncludeInput = document.querySelector('.mustIncludeInput');
-
-    let pinWordButton = document.getElementById('pinWordButton');
-    pinWordButton.onclick = pinWord;
 
     let shareFacebookButton = document.getElementById('shareFacebookButton');
     shareFacebookButton.onclick = shareFaceBook;
@@ -223,226 +251,190 @@ let backendPromise = import("./backend.js");
         }
 
         if (mw === "") {
-            mainLegend.style.visibility = 'hidden';
+            legend.style.visibility = 'hidden';
             mainPlot.clear();
             mi = [];
         }
 
         wordInput.value = mw;
-        exploreWord(mw, mi, true);
+        updatePlot(mw, mi, true);
     }
 
     function wordChanged() {
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => exploreWord(wordInput.value.trim(), null), 0);
+        setTimeout(() => updatePlot(wordInput.value.trim(), null), 0);
     }
 
-    function pinWord() {
-        //this function is called when the pin word button is called
-        var word = mustIncludeInput.value;
-        if (word == "") {
-            return;
-        }
-        if (mustIncludeWordList.length == 4) {
-            alert("must included word approached threshhold");
-            return;
-        }
-        let wordId = inverseVocab[word];
-        if (typeof wordId === 'undefined') {
-            mustIncludeInput.classList.add('invalid');
-            return;
-        }
-        else {
-            mustIncludeInput.classList.remove('invalid');
-        }
+    function manualComparisonChanged(inputField, index) {
+        // Wait for next turn in JS executor to let change take effect.
+        setTimeout(() => {
+            let otherWord = inputField.value.trim();
 
-        // Make a *copy* of the array and append the new word.
-        let newMustIncludeWordList = [...mustIncludeWordList, word];
-        exploreWord(null, newMustIncludeWordList);
-        mustIncludeInput.value = '';
-    }
-
-    function removeWordButtonCallback(removeWordButton) {
-        var word2Remove = removeWordButton.getAttribute("name");
-        //remove word from must included list
-        mustIncludeWordList = mustIncludeWordList.filter(e => e !== word2Remove);
-        //notify that must included list changed
-        exploreWord(wordInput.value, null);
-    }
-
-
-    function assembleMainLegendDOM(colorIndex) {
-        /*return a li object that is similar to that of the original 6 li DOM obj in main legend*/
-        //var colorString = colorsAvail[colorsUsed];
-        let html = '<li id="dynamicLiObj" class="' +
-            (colorIndex === null ? "color6" : colorsAvail[colorIndex]) +
-            '"><span></span> ↔ <a href="#"></a>&nbsp&nbsp<button id="rmBtn6" class="tooltipContent removeWordButton" name="na" style="position: absolute; right: 0;">x</button></li>';
-        //console.log("Assembled: ", html);
-        var template = document.createElement('template');
-        template.innerHTML = html;
-        var el = template.content.firstChild;
-        el.querySelectorAll('.removeWordButton').forEach(el => {
-            //relatedRemoveButtons.push(el);
-            el.setAttribute("name", "defaultRemoval");
-            el.addEventListener('click', ev => {
-                ev.preventDefault();
-                el.blur();
-                removeWordButtonCallback(el);
-            });
-        });
-        return el;
-    }
-
-
-
-    function addSlotToMainLegend(colorIndex) {
-        /*add a new empty DOM li to main legend ul, the content is set in exploreword*/
-        var ul = document.getElementById("plotUL");
-        var el = assembleMainLegendDOM(colorIndex);
-        ul.append(el);
-        dynamicMainLegendDOMs.push(el);
-        //force refresh main plot;
-        mainLegend = document.getElementById('mainLegend');
-        mainLegendItems = mainLegend.querySelectorAll('li');
-    }
-
-    function removeSlotFromMainLegend() {
-        /*in case other operations is needed in the future*/
-        mainLegendItems.pop();
-    }
-
-    function cleanMainLegend() {
-        /*remove all dynamically added slot from main legend*/
-        var numToIter = dynamicMainLegendDOMs.length;
-
-        for (let i = numToIter; i > 0; i--) {
-            var victim = dynamicMainLegendDOMs[i - 1];
-            victim.parentNode.removeChild(victim);
-        }
-        //force refresh main plot;
-        mainLegend = document.getElementById('mainLegend');
-        mainLegendItems = mainLegend.querySelectorAll('li');
-        //notify all dynamic objects are free now
-        dynamicMainLegendDOMs.length = 0;
-    }
-
-    function exploreWord(newMainWord, newMustIncludeWordList, suppress_save_state = false) {
-        let mainWordChanged = (newMainWord !== null && newMainWord !== currentWord);
-        let wordId = null;
-        if (newMainWord === '') {
-            currentWord = '';
-            mainPlot.clear();
-            mainLegend.style.visibility = 'hidden';
-            wordInput.classList.remove('invalid');
-            if (mainWordChanged && !suppress_save_state) {
-                history.pushState(null, "The Linguistic Time Capsule", "#");
+            // Make a *copy* of the array so that `updatePlot` can check if anything changed.
+            let newManualComparisons = [...manualComparisons];
+            if (index >= newManualComparisons.length - 1 && otherWord === '') {
+                // Last nonempty input box was emptied out. Remove the word. The input box
+                // will still stick around anyway.
+                newManualComparisons.splice(index, 1);
+            } else if (index < newManualComparisons.length) {
+                newManualComparisons[index] = otherWord;
+            } else {
+                newManualComparisons.push(otherWord);
             }
-            return;
-        } else if (mainWordChanged) {
-            wordId = inverseVocab[newMainWord];
-            if (typeof wordId === 'undefined') {
+            updatePlot(null, newManualComparisons);
+            mainPlot.setMainLine(suggestedComparisonItems.length + index);
+        }, 0);
+    }
+
+    function removeManualComparison(index) {
+        // Make a *copy* of the array so that `updatePlot` can check if anything changed.
+        let newManualComparisons = [...manualComparisons];
+        if (index < newManualComparisons.length) {
+            newManualComparisons.splice(index, 1); // Removes the element.
+            updatePlot(null, newManualComparisons);
+        }
+    }
+
+    function updatePlot(newMainWord, newManualComparisons, suppress_save_state = false) {
+        let mainWordChanged = false;
+        let manualComparisonsChanged = false;
+
+        if (newMainWord !== null) {
+            if (wordInput.value.trim() !== newMainWord) {
+                wordInput.value = newMainWord;
+            }
+            let newMainWordId = inverseVocab[newMainWord];
+            if (newMainWord === '' || typeof newMainWordId !== 'undefined') {
+                wordInput.classList.remove('invalid');
+                if (newMainWord !== currentWord) {
+                    mainWordChanged = true;
+                    currentWord = newMainWord;
+                    suggestedComparisonIds = handle.largest_changes_wrt(newMainWordId, suggestedComparisonItems.length, 2, 2);
+                }
+            } else {
+                // Out of vocabulary word entered. Treat as if `currentWord` did not change. 
+                // We may still want to update the plot in case `manualComparisons` changed.
                 wordInput.classList.add('invalid');
-                // Leave `currentWord` at previous value (which must be either "" or a valid word from the vocabulary.)
-                return;
             }
-            currentWord = newMainWord;
-        } else {
-            wordId = inverseVocab[currentWord];
         }
 
-        wordInput.classList.remove('invalid');
+        if (newManualComparisons !== null) {
+            let newManualComparisonIds = [];
+            if (newManualComparisons.length > manualComparisonItems.length) {
+                newManualComparisons.splice(manualComparisonItems.length); // Removes everything that flows over.
+            }
 
-        let mustIncludeWordListChanged = (newMustIncludeWordList !== null &&
-            newMustIncludeWordList !== mustIncludeWordList);
-        if (mustIncludeWordListChanged) {
-            mustIncludeWordList = newMustIncludeWordList;
+            // Update input boxes in legend.
+            for (let i = 0; i < newManualComparisons.length; i += 1) {
+                let otherWord = newManualComparisons[i];
+                let otherWordId = inverseVocab[otherWord];
+                newManualComparisonIds.push(otherWordId);
+
+                if (i >= manualComparisons.length || manualComparisons[i] !== otherWord) {
+                    manualComparisonsChanged = true;
+                    if (typeof otherWordId === 'undefined') {
+                        manualComparisonInputs[i].classList.add('invalid');
+                    } else {
+                        manualComparisonInputs[i].classList.remove('invalid');
+                    }
+                    manualComparisonItems[i].style.display = 'list-item';
+                    manualComparisonRemoveButtons[i].style.display = 'inline';
+                    if (manualComparisonInputs[i].value.trim() !== otherWord) {
+                        manualComparisonInputs[i].value = otherWord;
+                    }
+                    inputWidthMeasure.textContent = otherWord;
+                    manualComparisonInputs[i].style.width = inputWidthMeasure.offsetWidth + 'px';
+                }
+            }
+            manualComparisonIds = newManualComparisonIds;
+
+            if (newManualComparisons.length !== manualComparisons.length) {
+                manualComparisonsChanged = true;
+
+                if (newManualComparisons.length < manualComparisonItems.length) {
+                    // There's still room for additional manual comparisons, so show an empty input box.
+                    manualComparisonItems[newManualComparisons.length].style.display = 'list-item';
+                    manualComparisonInputs[newManualComparisons.length].value = '';
+                    manualComparisonInputs[newManualComparisons.length].style.width = '0';
+                    manualComparisonInputs[newManualComparisons.length].classList.remove('invalid');
+                    manualComparisonRemoveButtons[newManualComparisons.length].style.display = 'none';
+
+                    // Remove all input boxes below.
+                    for (let i = newManualComparisons.length + 1; i < manualComparisonItems.length; i += 1) {
+                        manualComparisonItems[i].style.display = 'none';
+                    }
+                }
+            }
+
+            manualComparisons = newManualComparisons;
+            manualComparisonIds = newManualComparisonIds;
         }
 
         // Do the expensive stuff only if anything actually changed. This allows us to
-        // fire attach this function on many events to catch changes as early as
-        // possible without firing multiple times on the same change.
-        if (mainWordChanged || mustIncludeWordListChanged) {
-            mainLegendItems.forEach(el => el.classList.remove('hovering'));
+        // attach this function on lots of events to catch changes as early as possible
+        // without firing multiple times on the same change.
+        if (mainWordChanged || manualComparisonsChanged) {
+            mainPlot.clear();
+
+            if (currentWord === '') {
+                legend.style.display = 'none';
+                if (!suppress_save_state) {
+                    history.pushState(null, "The Linguistic Time Capsule", "#");
+                }
+                return;
+            }
 
             if (!suppress_save_state) {
-                let stateUrl = "#c=en&w=" + encodeURIComponent(currentWord);
-                if (mustIncludeWordList.length != 0) {
-                    stateUrl = stateUrl + "&o=" + mustIncludeWordList.map(encodeURIComponent).join("+");
+                let stateUrl = "#v=0&c=en&w=" + encodeURIComponent(currentWord);
+                if (manualComparisons.length != 0) {
+                    stateUrl = stateUrl + "&o=" + manualComparisons.map(encodeURIComponent).join("+");
                 }
                 history.pushState(null, "The Linguistic Time Capsule: " + currentWord, stateUrl);
             }
 
-            if (mustIncludeWordListChanged) {
-                cleanMainLegend();
+            legend.style.display = 'block';
+            allComparisonItems.forEach(el => {
+                el.classList.remove('hovering');
+                el.firstElementChild.textContent = currentWord;
+            });
 
-                var currentLegendLength = mainLegendItems.length;
-                let newLegendLength = NUM_SUGGESTIONS + mustIncludeWordList.length;
-                for (let i = currentLegendLength; i <= newLegendLength; i += 1) {
-                    addSlotToMainLegend(i - NUM_SUGGESTIONS);
-                }
-
-                //console.log("rebinding dynamic dom objects to lines(async), items count: ", dynamicMainLegendDOMs.length);
-                dynamicMainLegendDOMs.forEach((element, index) => {
-                    let actualMainplotIndex = index + NUM_SUGGESTIONS;
-                    element.removeEventListener('mouseover', null);
-                    element.removeEventListener('mouseout', null);
-                    element.addEventListener('mouseover', () => mainPlot.hoverLine(actualMainplotIndex));
-                    element.addEventListener('mouseout', () => mainPlot.unhoverLine(actualMainplotIndex));
-
-                    const legendLink = element.querySelector('a');
-                    legendLink.addEventListener('click', ev => {
-                        ev.preventDefault();
-                        legendLink.blur();
-                        mustIncludeWordList.splice(mustIncludeWordList.indexOf(legendLink.innerText), 1);
-                        //console.log("going to explore ", legendLink.innerText);
-                        cleanMainLegend();
-                        exploreWord(legendLink.innerText, null);
-                    });
-                });
+            let otherWordIds = [...suggestedComparisonIds];
+            let comparisonColors = [];
+            for (let i = 0; i < otherWordIds.length; i += 1) {
+                comparisonColors.push(i);
             }
-
-            if (mainWordChanged) {
-                if (wordInput.value.trim() !== currentWord) {
-                    wordInput.value = currentWord;
+            manualComparisonIds.forEach((id, index) => {
+                if (typeof id !== 'undefined') {
+                    otherWordIds.push(id)
+                    comparisonColors.push(suggestedComparisonIds.length + index);
                 }
-                mainPlot.clear();
+            });
 
-                // `handle.largest_change_wrt` returns a `Uint32Array`, which does not have
-                // a `push` method, so we turn it into a regular JS array.
-                let otherWords = Array.prototype.slice.call(handle.largest_changes_wrt(wordId, NUM_SUGGESTIONS, 2, 2));
-                for (otherWordId of mustIncludeWordList) {
-                    otherWords.push(inverseVocab[otherWordId]);
+            let mainWordId = inverseVocab[currentWord];
+            let wordIdRepeated = Array(otherWordIds.length).fill(mainWordId);
+            let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWordIds);
+            let trajectoryLength = concatenatedTrajectories.length / otherWordIds.length;
+
+            otherWordIds.forEach((otherWordId, index) => {
+                let otherWord = metaData.vocab[otherWordId];
+                mainPlot.plotLine(
+                    concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
+                    comparisonColors[index],
+                    0,
+                    {
+                        word1: currentWord,
+                        word2: otherWord,
+                        word1Id: mainWordId,
+                        word2Id: otherWordId,
+                    },
+                    false,
+                    '"' + currentWord + '" ↔ "' + otherWord + '"\n(click on line to explore relationship)'
+                );
+
+                if (index < suggestedComparisonItems.length) {
+                    allComparisonItems[index].firstElementChild.nextElementSibling.textContent = otherWord;
                 }
-
-                // `handle.pairwise_trajectories` expects two arrays of word IDs, which it
-                // zips into an array of word ID pairs. The frontend currently only supports plots
-                // where the first word of each pair is the same for all pairs, so we have to
-                // copy the ID of the first word for each pair.
-                let wordIdRepeated = Array(otherWords.length).fill(wordId);
-                let concatenatedTrajectories = handle.pairwise_trajectories(wordIdRepeated, otherWords);
-                let trajectoryLength = concatenatedTrajectories.length / otherWords.length;
-
-                otherWords.forEach((otherWordId, index) => {
-                    let otherWord = metaData.vocab[otherWordId];
-                    mainPlot.plotLine(
-                        concatenatedTrajectories.subarray(index * trajectoryLength, (index + 1) * trajectoryLength),
-                        index,
-                        0,
-                        {
-                            word1: currentWord,
-                            word2: otherWord,
-                            word1Id: wordId,
-                            word2Id: otherWordId,
-                        },
-                        false,
-                        '"' + currentWord + '" ↔ "' + otherWord + '"\n(click on line to explore relationship)'
-                    );
-                    const legendWordLabel = mainLegendItems[index].firstElementChild;
-                    legendWordLabel.textContent = currentWord;
-                    legendWordLabel.nextElementSibling.textContent = otherWord;
-                });
-                mainLegend.style.visibility = 'visible';
-            }
+            });
         }
     }
 }())

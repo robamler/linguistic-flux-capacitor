@@ -32,6 +32,16 @@ h1 {
     margin: 0.2em 0;
 }
 
+.legend>h3 {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 110%;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 0.3em 0;
+    display: block;
+    white-space: nowrap;
+}
+
 h2 {
     font-size: 230%;
     font-weight: normal;
@@ -152,15 +162,6 @@ input.invalid:focus {
     border-color: #9c5555;
 }
 
-.mustIncludeInput {
-    margin: 0 0 1em 0;
-    font-size: 120%;
-    width: 60%;
-    text-align: center;
-    border: solid 0.05em #ccc;
-    padding: 0.2em;
-}
-
 .tooltipContent .explanation {
     font-size: 90%;
 }
@@ -251,11 +252,11 @@ a {
 }
 
 .legend {
-    visibility: hidden;
+    display: none;
     display: table-caption;
     background-color: #e8e8e8;
     border-radius: 0.5em;
-    padding: 0.7em 0.9em;
+    padding: 0.6em 0.7em;
     width: auto;
     position: absolute;
     left: 40em;
@@ -334,6 +335,27 @@ a {
 
 .legend>ul>li.color10::before {
     color: #666666;
+}
+
+.legend input[type="text"] {
+    font-size: 80%;
+    min-width: 5.2em;
+}
+
+.legend input[type="button"] {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 90%;
+    width: 1.4em;
+    height: 1.4em;
+    line-height: 0;
+}
+
+.inputWidthMeasure {
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 90%;
+    white-space: nowrap;
+    position: absolute;
+    opacity: 0;
 }
 
 .pinWordButton {

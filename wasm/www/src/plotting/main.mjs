@@ -36,7 +36,6 @@ export function createPlot(
     return { plotLine, setMainLine, clear, hoverLine, unhoverLine };
 
     function _initialize() {
-
         const svg = createSvgElement('svg');
         svg.classList.add('plot');
 
@@ -344,11 +343,17 @@ export function createPlot(
         if (mainLineIndex !== null) {
             lines[mainLineIndex].lineGroup.classList.remove('main');
         }
-        lines[index].lineGroup.classList.add('hovering');
+        let selectedLine = lines[index];
+        if (typeof selectedLine !== 'undefined') {
+            selectedLine.lineGroup.classList.add('hovering');
+        }
     }
 
     function unhoverLine(index) {
-        lines[index].lineGroup.classList.remove('hovering');
+        let selectedLine = lines[index];
+        if (typeof selectedLine !== 'undefined') {
+            selectedLine.lineGroup.classList.remove('hovering');
+        }
         if (mainLineIndex !== null) {
             lines[mainLineIndex].lineGroup.classList.add('main');
         }
@@ -381,18 +386,22 @@ export function createPlot(
     }
 
     function setMainLine(lineIndex) {
-        lineMouseout(lineIndex);
+        let selectedLine = lines[lineIndex];
+        if (typeof selectedLine !== 'undefined') {
+            selectedLine
+            lineMouseout(lineIndex);
 
-        for (let otherLine of lines) {
-            otherLine.lineGroup.classList.remove('main');
+            for (let otherLine of lines) {
+                otherLine.lineGroup.classList.remove('main');
+            }
+
+            const lineGroup = selectedLine.lineGroup;
+            lineGroup.classList.add('main');
+            lineGroup.remove();
+            plotPane.appendChild(lineGroup)
+
+            mainLineIndex = lineIndex;
         }
-
-        const lineGroup = lines[lineIndex].lineGroup;
-        lineGroup.classList.add('main');
-        lineGroup.remove();
-        plotPane.appendChild(lineGroup)
-
-        mainLineIndex = lineIndex;
     }
 
     function showTooltip(tooltip, line, index, showBelow) {

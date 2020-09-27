@@ -35,20 +35,52 @@
                 </div>
                 <div class='plotAndLegend'>
                     <div id='mainLegend' class='legend'>
-                        <div class='centered'>
-                            <div>must include: </div>
-                            <input class='mustIncludeInput' type='text'>
-                            <button id='pinWordButton' class='pinWordButton'>pin</button>
-                        </div>
-                        <ul id='plotUL'>
-                            <li class='color0'><span></span> ↔ <a href='#'></a></li>
-                            <li class='color1'><span></span> ↔ <a href='#'></a></li>
-                            <li class='color2'><span></span> ↔ <a href='#'></a></li>
-                            <li class='color3'><span></span> ↔ <a href='#'></a></li>
-                            <li class='color4'><span></span> ↔ <a href='#'></a></li>
-                            <li class='color5'><span></span> ↔ <a href='#'></a></li>
+                        <h3>Suggested comparisons:</h3>
+                        <ul id='suggestedComparisons'>
+                            <li class='color0' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
+                            <li class='color1' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
+                            <li class='color2' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
+                            <li class='color3' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
+                            <li class='color4' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
+                            <li class='color5' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <a href='#'></a>
+                            </li>
                         </ul>
-                        <div class='hint'>Hover mouse over plot area and click on a line to see related words.</div>
+                        <h3>Add more comparisons:</h3>
+                        <ul id='manualComparisons'>
+                            <li class='color6' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <input type="text" placeholder="enter word">
+                                <input type="button" value="×" title="remove this comparison">
+                            </li>
+                            <li class='color7' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <input type="text" placeholder="enter word">
+                                <input type="button" value="×" title="remove this comparison">
+                            </li>
+                            <li class='color8' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <input type="text" placeholder="enter word">
+                                <input type="button" value="×" title="remove this comparison">
+                            </li>
+                            <li class='color9' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <input type="text" placeholder="enter word">
+                                <input type="button" value="×" title="remove this comparison">
+                            </li>
+                            <li class='color10' title='Click and move mouse across diagram to explore further.'>
+                                <span></span> ↔ <input type="text" placeholder="enter word">
+                                <input type="button" value="×" title="remove this comparison">
+                            </li>
+                        </ul>
+                        <span class="inputWidthMeasure"></span>
+                        <div class='hint'>Move mouse across diagram to dive deeper into specific years.</div>
                     </div>
                     <div id='mainPlot' class='plotContainer'>
                         <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
