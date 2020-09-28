@@ -297,6 +297,14 @@ export function createPlot(
                 multiples.shift();
                 lowestYTick += multiples[0] - 1 - (19 + lowestYTick) % multiples[0];
             }
+            if (lowestYTick <= 0 && displayRangeTop >= 0) {
+                // Draw zero line
+                yAxis.appendChild(
+                    createSvgElement('path', 'zeroLine', {
+                        d: 'M ' + BORDERS_MIN_X + ',' + offsetY + ' h ' + (BORDERS_MAX_X - BORDERS_MIN_X)
+                    })
+                );
+            }
             for (let pos = lowestYTick; pos <= displayRangeTop; pos += multiples[0]) {
                 let tickY = 0.1 * pos * scaleY + offsetY;
                 yAxis.appendChild(
@@ -407,6 +415,11 @@ export function createPlot(
         lines = [];
         mainLineIndex = null;
 
+        while (yAxis.childNodes.length !== 0) {
+            // For some reason, this has to be called in an extra loop or else it won't
+            // remove all child nodes.
+            yAxis.childNodes.forEach(child => yAxis.removeChild(child));
+        }
         while (plotPane.childNodes.length != 0) {
             plotPane.childNodes.forEach(el => el.remove());
         }

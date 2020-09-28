@@ -34,6 +34,13 @@ svg.plot .yAxis .axisTickLabel {
     text-anchor: end;
 }
 
+svg.plot .zeroLine {
+    stroke: #ccc;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 0 4;
+}
+
 svg.plot .axisTick {
     stroke: #777;
     stroke-width: 1.5;
