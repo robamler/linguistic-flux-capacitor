@@ -158,23 +158,28 @@ svg.plot .lineGroup.color5>.line {
 }
 
 svg.plot .lineGroup.color6>.line {
-    stroke: #9ed034;
+    stroke: #b40e0e;
+    stroke-dasharray: 7;
 }
 
 svg.plot .lineGroup.color7>.line {
-    stroke: #fabebe;
+    stroke: #4257b6;
+    stroke-dasharray: 7;
 }
 
 svg.plot .lineGroup.color8>.line {
-    stroke: #ffd8b1;
+    stroke: #18a380;
+    stroke-dasharray: 7;
 }
 
 svg.plot .lineGroup.color9>.line {
-    stroke: #808000;
+    stroke: #ad27c5;
+    stroke-dasharray: 7;
 }
 
 svg.plot .lineGroup.color10>.line {
-    stroke: #666666;
+    stroke: #2e2e2e;
+    stroke-dasharray: 7;
 }
 
 svg.plot .hoverCursor.color0 {
@@ -202,23 +207,23 @@ svg.plot .hoverCursor.color5 {
 }
 
 svg.plot .hoverCursor.color6 {
-    fill: #9ed034;
+    fill: #b40e0e;
 }
 
 svg.plot .hoverCursor.color7 {
-    fill: #fabebe;
+    fill: #4257b6;
 }
 
 svg.plot .hoverCursor.color8 {
-    fill: #ffd8b1;
+    fill: #18a380;
 }
 
 svg.plot .hoverCursor.color9 {
-    fill: #808000;
+    fill: #ad27c5;
 }
 
 svg.plot .hoverCursor.color10 {
-    fill: #666666;
+    fill: #2e2e2e;
 }
 
 .plot.tooltip {
@@ -293,92 +298,48 @@ svg.plot .hoverCursor.color10 {
     top: 1.3em;
 }
 
-.plot.tooltip.color0>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #ef7e4e;
+.plot.tooltip.color0>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color0>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #e2c6ba;
 }
 
-.plot.tooltip.color0>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #ef7e4e;
+.plot.tooltip.color1>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color1>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #d0c7df;
 }
 
-.plot.tooltip.color1>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #b29fd6;
+.plot.tooltip.color2>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color2>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #bed3c7;
 }
 
-.plot.tooltip.color1>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #b29fd6;
+.plot.tooltip.color3>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color3>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #b2ced6;
 }
 
-.plot.tooltip.color2>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #419969;
+.plot.tooltip.color4>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color4>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #dbadd3;
 }
 
-.plot.tooltip.color2>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #419969;
+.plot.tooltip.color5>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color5>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #dbc587;
 }
 
-.plot.tooltip.color3>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #34849c;
+.plot.tooltip.color6>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color6>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #e4c0c0;
 }
 
-.plot.tooltip.color3>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #34849c;
+.plot.tooltip.color7>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #d5d9ee;
 }
 
-.plot.tooltip.color4>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #ad519b;
+.plot.tooltip.color8>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color8>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #b6d3cb;
 }
 
-.plot.tooltip.color4>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #ad519b;
+.plot.tooltip.color9>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color9>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #d6c2da;
 }
 
-.plot.tooltip.color5>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #e6ab02;
-}
-
-.plot.tooltip.color5>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #e6ab02;
-}
-
-.plot.tooltip.color6>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #8aa551;
-}
-
-.plot.tooltip.color6>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #8aa551;
-}
-
-.plot.tooltip.color7>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #fabebe;
-}
-
-.plot.tooltip.color7>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #fabebe;
-}
-
-.plot.tooltip.color8>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #ffd8b1;
-}
-
-.plot.tooltip.color8>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #ffd8b1;
-}
-
-.plot.tooltip.color9>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #808000;
-}
-
-.plot.tooltip.color9>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #808000;
-}
-
-.plot.tooltip.color10>.tooltipInnerContainer>.tooltipMain>.tooltipContent {
-    background-color: #888888;
-}
-
-.plot.tooltip.color10>.tooltipInnerContainer>.tooltipPointer {
-    background-color: #888888;
+.plot.tooltip.color10>.tooltipInnerContainer>.tooltipMain>.tooltipContent, .plot.tooltip.color10>.tooltipInnerContainer>.tooltipPointer {
+    background-color: #d1d1d1;
 }
 
 .plot.tooltip .lineDescription {

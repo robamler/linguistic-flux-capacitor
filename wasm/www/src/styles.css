@@ -288,8 +288,12 @@ a {
 
 .legend>ul>li::before {
     content: "⸺";
-    margin-right: 0.5em;
+    margin-right: 0.3em;
     font-weight: bold;
+}
+
+#manualComparisons>li::before {
+    content: "– –";
 }
 
 .legend>ul>li.color0::before {
@@ -317,23 +321,23 @@ a {
 }
 
 .legend>ul>li.color6::before {
-    color: #9ed034;
+    color: #b40e0e;
 }
 
 .legend>ul>li.color7::before {
-    color: #fabebe;
+    color: #4257b6;
 }
 
 .legend>ul>li.color8::before {
-    color: #ffd8b1;
+    color: #18a380;
 }
 
 .legend>ul>li.color9::before {
-    color: #808000;
+    color: #ad27c5;
 }
 
 .legend>ul>li.color10::before {
-    color: #666666;
+    color: #2e2e2e;
 }
 
 .legend input[type="text"] {

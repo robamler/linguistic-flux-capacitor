@@ -339,7 +339,6 @@ let backendPromise = import("./backend.js");
                     manualComparisonInputs[i].style.width = inputWidthMeasure.offsetWidth + 'px';
                 }
             }
-            manualComparisonIds = newManualComparisonIds;
 
             if (newManualComparisons.length !== manualComparisons.length) {
                 manualComparisonsChanged = true;

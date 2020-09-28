@@ -23,14 +23,15 @@
             </div>
             <div class='app'>
                 <h2>Explore words related to:</h2>
-                <div class='centered'><input class='wordInput' type='text'></div>
-                <div class='centered hint'>
+                <div class='centered'><input class='wordInput' type='text' tabindex='1'></div>
+                <div class=' centered hint'>
                     (hint: try
                     “<a href="#v=0&c=en&w=file">file</a>”,
                     “<a href="#v=0&c=en&w=surgery">surgery</a>”,
-                    “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
                     “<a href="#v=0&c=en&w=peer">peer</a>”,
-                    “<a href="#v=0&c=en&w=gay">gay</a>”, or
+                    “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
+                    “<a href="#v=0&c=en&w=monitor">monitor</a>”,
+                    “<a href="#v=0&c=en&w=energy">energy</a>”, or
                     “<a href="#v=0&c=en&w=novel">novel</a>”)
                 </div>
                 <div class='plotAndLegend'>
@@ -59,24 +60,24 @@
                         <h3>Add more comparisons:</h3>
                         <ul id='manualComparisons'>
                             <li class='color6' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color7' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color8' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color9' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color10' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                         </ul>
                         <span class="inputWidthMeasure"></span>
@@ -196,7 +197,7 @@
                 The lines in the above diagram measure a very specific notion of “word similarity” that may be
                 counterintuitive in some cases.
                 Like most of the so-called word embedding models, our model defines word similarity according to the
-                so-called Distributional Hypothesis:
+                <em>Distributional Hypothesis</em>:
                 two words are considered similar if they can appear in a similar context.
             </p>
             <p>
@@ -248,12 +249,15 @@
                 <div class="subtitle">(and how can I cite it?)</div>
             </h2>
             <p>
-                This app is a technical demonstration of both a natural language model and a compression method for
-                machine learning models.
-                The natural language model is a probabilistic time series model that represents each word in a
-                vocabulary by a trajectory in a semantic vector space.
-                The model is trained on digitized historic books from the <a
-                    href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
+                This app is a technical demonstration of both a natural language model and a novel compression method
+                for machine learning models.
+            </p>
+            <p>
+                <strong>The natural language model</strong> is a probabilistic time series model that represents each
+                word by a
+                trajectory in a semantic vector space.
+                The model is trained on digitized historic books from the
+                <a href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
                     Books</a> corpus (about 10 billion words).
                 Details of the model and training procedure are described in the following two papers:
             </p>
@@ -286,12 +290,15 @@
                 So how can we run such a large model in your browser without forcing a giant download on you?
             </p>
             <p>
-                The answer lies in a novel compression algorithm for Bayesian machine learning models, which packs the
+                The answer lies in a novel <strong>compression algorithm</strong> for Bayesian machine learning models,
+                which packs the
                 600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size (about 0.34&nbsp;bits per
                 model parameter).
                 A WebAssembly module decompresses parts of the model lazily just when they're needed for some
                 calculation, and it discards the decompressed data immediately after the calculation to minimize memory
                 consumption.
+                You can find the code <a href="https://github.com/robamler/linguistic-time-capsule" target="_blank">on
+                    Github</a>.
                 Details of this novel compression method are described in the following paper:
             </p>
             <ul>
@@ -333,7 +340,7 @@
                     scientific communities, courts, or parliaments);
                 </li>
                 <li>
-                    adding more languages (maybe one you speak?).
+                    adding more languages besides English (maybe one you speak?).
                 </li>
             </ul>
         </div>
