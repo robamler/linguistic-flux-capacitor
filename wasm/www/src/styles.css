@@ -197,6 +197,65 @@ input.invalid:focus {
     margin-top: 0.1em;
 }
 
+.shareContainer {
+    margin: -0.3em 0.3em 0 0;
+    white-space: nowrap;
+    color: #555;
+    font-size: 80%;
+}
+
+.shareContainer>span {
+    display: inline-block;
+    vertical-align: top;
+    padding-top: 0.1em;
+}
+
+.shareContainer>a {
+    display: inline-block;
+    vertical-align: top;
+    margin-left: 0.2em;
+}
+
+.shareContainer>a>img {
+    width: 1.5em;
+    height: 1.5em;
+    opacity: 0.6;
+    transition: opacity 0.1s;
+}
+
+.shareContainer>a:hover>img {
+    opacity: 1;
+}
+
+.toast {
+    position: relative;
+    left: -0.75em;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.8s;
+}
+
+.toast>div {
+    position: absolute;
+    top: 1.6em;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: #cddbc5;
+    border: 0.2em solid #fff;
+    border-radius: 0.4em;
+    padding: 0.3em 0.5em;
+    font-size: 110%;
+    color: #1b3e14;
+    text-align: center;
+}
+
+.wordInputError {
+    position: absolute;
+    margin: 0.65em 0 0 0.6em;
+    color: #821313;
+    display: none;
+}
+
 .tooltipContent table {
     width: 100%;
 }
@@ -255,7 +314,7 @@ a {
     display: none;
     background-color: #e8e8e8;
     border-radius: 0.5em;
-    padding: 0.6em 0.7em;
+    padding: 0.6em 0.7em 0.2em 0.6em;
     width: auto;
     position: absolute;
     left: 40em;
@@ -288,8 +347,16 @@ a {
 
 .legend>ul>li::before {
     content: "⸺";
-    margin-right: 0.5em;
+    margin-right: 0.1em;
     font-weight: bold;
+}
+
+.legend>ul>li.inactive::before {
+    visibility: hidden;
+}
+
+#manualComparisons>li::before {
+    content: "– –";
 }
 
 .legend>ul>li.color0::before {
@@ -317,23 +384,23 @@ a {
 }
 
 .legend>ul>li.color6::before {
-    color: #9ed034;
+    color: #b40e0e;
 }
 
 .legend>ul>li.color7::before {
-    color: #fabebe;
+    color: #4257b6;
 }
 
 .legend>ul>li.color8::before {
-    color: #ffd8b1;
+    color: #18a380;
 }
 
 .legend>ul>li.color9::before {
-    color: #808000;
+    color: #ad27c5;
 }
 
 .legend>ul>li.color10::before {
-    color: #666666;
+    color: #2e2e2e;
 }
 
 .legend input[type="text"] {

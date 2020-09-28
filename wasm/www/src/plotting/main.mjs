@@ -31,9 +31,12 @@ export function createPlot(
     let mainLineIndex = null;
     let hideCursorTimeout = null;
     let hoverCursorContainer = null;
+    let inputPrompt = null;
+    let mousePrompt = null;
+    let showMousePrompt = true;
 
     _initialize()
-    return { plotLine, setMainLine, clear, hoverLine, unhoverLine };
+    return { plotLine, setMainLine, clear, hoverLine, unhoverLine, lineToFront };
 
     function _initialize() {
         const svg = createSvgElement('svg');
@@ -141,10 +144,31 @@ export function createPlot(
             createSvgElement('g')
         );
 
-
         hoverCursorContainer = svg.appendChild(
             createSvgElement('g', ['hoverCursorContainer', 'hidden'])
         );
+
+        inputPrompt = createSvgElement('text', 'plotPrompt', { y: 80 });
+        ['↑', 'enter a word into', 'the above field.'].forEach((text, index) => {
+            let tspan = createSvgElement('tspan', null, { x: 347, dy: ['0', '1.2em', '1.1em'][index] });
+            tspan.appendChild(document.createTextNode(text));
+            inputPrompt.appendChild(tspan);
+        });
+        svg.appendChild(inputPrompt);
+
+        mousePrompt = createSvgElement('text', 'plotPrompt', { y: 95 });
+        ['Move mouse', 'across this area', 'to explore more.'].forEach((text, index) => {
+            let tspan = createSvgElement('tspan', null, { x: 347, dy: index === 0 ? '0' : '1.2em' });
+            tspan.appendChild(document.createTextNode(text));
+            mousePrompt.appendChild(tspan);
+        });
+        mousePrompt.addEventListener('mouseover', () => {
+            mousePrompt.style.opacity = 0;
+            showMousePrompt = false;
+            setTimeout(() => mousePrompt.style.display = 'none', 500);
+        });
+
+        svg.appendChild(mousePrompt);
 
         // Add invisible area just above or below cursor to prevent mouseover
         // events when the user moves from the cursor to the tooltip.
@@ -188,6 +212,9 @@ export function createPlot(
                     }
                     hoverCursorContainer.classList.remove('hidden');
 
+                    showMousePrompt = false;
+                    mousePrompt.style.opacity = 0;
+                    setTimeout(() => mousePrompt.style.display = 'none', 500);
                     updateTooltipContents(cursorTooltip, line, index);
                     showTooltip(cursorTooltip, line, index, mouseY < y);
                 }
@@ -211,6 +238,18 @@ export function createPlot(
 
     function plotLine(valuesY, colorIndex, styleIndex, payload, isMainLine, title) {
         isMainLine = !!isMainLine || lines.length === 0;
+
+        inputPrompt.style.opacity = 0;
+        setTimeout(() => {
+            if (inputPrompt.style.opacity == 0) { // Yes, we want == and not === here.
+                inputPrompt.style.display = 'none';
+            }
+        }, 500);
+        if (showMousePrompt) {
+            mousePrompt.style.display = 'block';
+            mousePrompt.style.opacity = 0.7;
+        }
+
         const cur10MinYValue = 10 * Math.min(...valuesY);
         const cur10MaxYValue = 10 * Math.max(...valuesY);
 
@@ -257,6 +296,14 @@ export function createPlot(
             while ((displayRangeTop - lowestYTick) / multiples[0] >= 7 && multiples.length !== 1) {
                 multiples.shift();
                 lowestYTick += multiples[0] - 1 - (19 + lowestYTick) % multiples[0];
+            }
+            if (lowestYTick <= 0 && displayRangeTop >= 0) {
+                // Draw zero line
+                yAxis.appendChild(
+                    createSvgElement('path', 'zeroLine', {
+                        d: 'M ' + BORDERS_MIN_X + ',' + offsetY + ' h ' + (BORDERS_MAX_X - BORDERS_MIN_X)
+                    })
+                );
             }
             for (let pos = lowestYTick; pos <= displayRangeTop; pos += multiples[0]) {
                 let tickY = 0.1 * pos * scaleY + offsetY;
@@ -368,9 +415,23 @@ export function createPlot(
         lines = [];
         mainLineIndex = null;
 
+        while (yAxis.childNodes.length !== 0) {
+            // For some reason, this has to be called in an extra loop or else it won't
+            // remove all child nodes.
+            yAxis.childNodes.forEach(child => yAxis.removeChild(child));
+        }
         while (plotPane.childNodes.length != 0) {
             plotPane.childNodes.forEach(el => el.remove());
         }
+
+        mousePrompt.style.opacity = 0;
+        setTimeout(() => {
+            if (mousePrompt.style.opacity == 0) { // Yes, we want == and not === here.
+                mousePrompt.style.display = 'none';
+            }
+        }, 500);
+        inputPrompt.style.display = 'block';
+        inputPrompt.style.opacity = 0.7;
     }
 
     function hideTooltip() {
@@ -388,19 +449,28 @@ export function createPlot(
     function setMainLine(lineIndex) {
         let selectedLine = lines[lineIndex];
         if (typeof selectedLine !== 'undefined') {
-            selectedLine
             lineMouseout(lineIndex);
 
-            for (let otherLine of lines) {
-                otherLine.lineGroup.classList.remove('main');
+            let previousMainLine = lines[mainLineIndex];
+            if (typeof previousMainLine !== 'undefined') {
+                previousMainLine.lineGroup.classList.remove('main');
             }
+            mainLineIndex = lineIndex;
 
+            selectedLine.lineGroup.classList.add('main');
+            lineToFront(lineIndex);
+        }
+    }
+
+    function lineToFront(lineIndex) {
+        if (typeof lineIndex === 'undefined') {
+            lineIndex = mainLineIndex;
+        }
+        let selectedLine = lines[lineIndex];
+        if (typeof selectedLine !== 'undefined') {
             const lineGroup = selectedLine.lineGroup;
-            lineGroup.classList.add('main');
             lineGroup.remove();
             plotPane.appendChild(lineGroup)
-
-            mainLineIndex = lineIndex;
         }
     }
 

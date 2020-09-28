@@ -177,7 +177,7 @@ impl RandomAccessReader {
         let target_embeddings = target_embeddings.as_view();
 
         let mut front_runners =
-            RankTwoTensor::<FrontRunnerCandidate>::new(unique_words.len(), amt as usize);
+            RankTwoTensor::<FrontRunnerCandidate<i32>>::new(unique_words.len(), amt as usize);
         let mut front_runners = front_runners.as_view_mut();
 
         for (word, embedding) in embeddings.iter_subviews().enumerate() {
@@ -316,10 +316,10 @@ impl RandomAccessReader {
         let (last_target, mut last_timestep) =
             extract_single_embedding_vector(num_timesteps - 1, target_word);
 
-        let mut increasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        let mut increasing_front_runners = Vec::<FrontRunnerCandidate<i64>>::new();
         increasing_front_runners.resize_with(amt as usize, Default::default);
 
-        let mut decreasing_front_runners = Vec::<FrontRunnerCandidate>::new();
+        let mut decreasing_front_runners = Vec::<FrontRunnerCandidate<i64>>::new();
         decreasing_front_runners.resize_with(amt as usize, Default::default);
 
         for word in 0..vocab_size {
@@ -338,7 +338,7 @@ impl RandomAccessReader {
                 .unwrap();
 
             if word != target_word {
-                let diff = last_dot_product - first_dot_product;
+                let diff = last_dot_product as i64 - first_dot_product as i64;
 
                 let increasing_last_better = increasing_front_runners
                     .iter()
@@ -399,16 +399,25 @@ impl RandomAccessReader {
 }
 
 #[derive(Copy, Clone)]
-struct FrontRunnerCandidate {
+struct FrontRunnerCandidate<T> {
     word: u32,
-    n: i32,
+    n: T,
 }
 
-impl Default for FrontRunnerCandidate {
+impl Default for FrontRunnerCandidate<i32> {
     fn default() -> Self {
         Self {
             word: std::u32::MAX,
             n: std::i32::MIN,
+        }
+    }
+}
+
+impl Default for FrontRunnerCandidate<i64> {
+    fn default() -> Self {
+        Self {
+            word: std::u32::MAX,
+            n: std::i64::MIN,
         }
     }
 }

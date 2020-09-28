@@ -15,7 +15,7 @@
             <h1>The Linguistic Time Capsule</h1>
 
             <div class='splashScreen' id='downloadProgressPane'>
-                <div>Downloading compressed machine learning model&nbsp;...</div>
+                <div>Loading compressed machine learning model&nbsp;...</div>
                 <div class="progressBarContainer">
                     <div class="progressBar" id="downloadProgressBar"></div>
                     <div class="progressText" id="downloadProgressText">0 %</div>
@@ -23,64 +23,83 @@
             </div>
             <div class='app'>
                 <h2>Explore words related to:</h2>
-                <div class='centered'><input class='wordInput' type='text'></div>
+                <div class='centered'>
+                    <input class='wordInput' type='text' tabindex='1'>
+                    <span class='wordInputError'>⚠ word not found</span>
+                </div>
                 <div class='centered hint'>
-                    (hint: try
-                    “<a href="#v=0&c=en&w=file">file</a>”,
+                    <strong>hint:</strong> try
                     “<a href="#v=0&c=en&w=surgery">surgery</a>”,
+                    “<a href="#v=0&c=en&w=file">file</a>”,
                     “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
                     “<a href="#v=0&c=en&w=peer">peer</a>”,
-                    “<a href="#v=0&c=en&w=gay">gay</a>”, or
-                    “<a href="#v=0&c=en&w=novel">novel</a>”)
+                    “<a href="#v=0&c=en&w=marginal">marginal</a>”,
+                    “<a href="#v=0&c=en&w=monitor">monitor</a>”,
+                    “<a href="#v=0&c=en&w=energy">energy</a>”, or
+                    “<a href="#v=0&c=en&w=novel">novel</a>”
                 </div>
                 <div class='plotAndLegend'>
                     <div id='mainLegend' class='legend'>
                         <h3>Suggested comparisons:</h3>
                         <ul id='suggestedComparisons'>
                             <li class='color0' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color1' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color2' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color3' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color4' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color5' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                         </ul>
                         <h3>Add more comparisons:</h3>
                         <ul id='manualComparisons'>
-                            <li class='color6' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                            <li class='color6 inactive'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    title='Enter a secondary word here.'>
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color7' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                            <li class='color7'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color8' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                            <li class='color8'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color9' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                            <li class='color9'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color10' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" placeholder="enter word">
-                                <input type="button" value="×" title="remove this comparison">
+                            <li class='color10'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                         </ul>
                         <span class="inputWidthMeasure"></span>
-                        <div class='hint'>Move mouse across diagram to dive deeper into specific years.</div>
+                        <div class='shareContainer'>
+                            <span>Share current plot on:</span>
+                            <a href="#" id="shareFacebookButton">
+                                <img src="facebook.svg" alt="Share on Facebook ..." title="Share on Facebook ..." />
+                            </a>
+                            <a href="#" id="shareTwitterButton">
+                                <img src="twitter.svg" alt="Share on Twitter ..." title="Share on Twitter ..." />
+                            </a>
+                            <a href="#" id="copyLinkButton">
+                                <img src="link.svg" alt="Copy link to clipboard." title="Copy link to clipboard." />
+                            </a><span class='toast'>
+                                <div>✓ Link copied<br>to clipboard.</div>
+                            </span>
+                        </div>
                     </div>
                     <div id='mainPlot' class='plotContainer'>
                         <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
@@ -96,39 +115,39 @@
                                                 <th class='word2 right'><a href='#'>radio</a></th>
                                             </tr>
                                         </table>
-                                        <div class='explanation interleave'>used to be associated with:
+                                        <div class='explanation interleave'>were related to:
                                             <div class='hint'>(click on a word to explore it)</div>
                                         </div>
                                         <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]
                                         </div>
                                         <table class='suggestionsTable'>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word1a</a></td>
-                                                <td class='suggestion right'><a href='#'>word1b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word2a</a></td>
-                                                <td class='suggestion right'><a href='#'>word2b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word3a</a></td>
-                                                <td class='suggestion right'><a href='#'>word3b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word4a</a></td>
-                                                <td class='suggestion right'><a href='#'>word4b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word5a</a></td>
-                                                <td class='suggestion right'><a href='#'>word5b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word6a</a></td>
-                                                <td class='suggestion right'><a href='#'>word6b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word7a</a></td>
-                                                <td class='suggestion right'><a href='#'>word7b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -196,7 +215,7 @@
                 The lines in the above diagram measure a very specific notion of “word similarity” that may be
                 counterintuitive in some cases.
                 Like most of the so-called word embedding models, our model defines word similarity according to the
-                so-called Distributional Hypothesis:
+                <em>Distributional Hypothesis</em>:
                 two words are considered similar if they can appear in a similar context.
             </p>
             <p>
@@ -248,12 +267,15 @@
                 <div class="subtitle">(and how can I cite it?)</div>
             </h2>
             <p>
-                This app is a technical demonstration of both a natural language model and a compression method for
-                machine learning models.
-                The natural language model is a probabilistic time series model that represents each word in a
-                vocabulary by a trajectory in a semantic vector space.
-                The model is trained on digitized historic books from the <a
-                    href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
+                This app is a technical demonstration of both a natural language model and a novel compression method
+                for machine learning models.
+            </p>
+            <p>
+                <strong>The natural language model</strong> is a probabilistic time series model that represents each
+                word by a
+                trajectory in a semantic vector space.
+                The model is trained on digitized historic books from the
+                <a href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
                     Books</a> corpus (about 10 billion words).
                 Details of the model and training procedure are described in the following two papers:
             </p>
@@ -286,12 +308,15 @@
                 So how can we run such a large model in your browser without forcing a giant download on you?
             </p>
             <p>
-                The answer lies in a novel compression algorithm for Bayesian machine learning models, which packs the
+                The answer lies in a novel <strong>compression algorithm</strong> for Bayesian machine learning models,
+                which packs the
                 600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size (about 0.34&nbsp;bits per
                 model parameter).
                 A WebAssembly module decompresses parts of the model lazily just when they're needed for some
                 calculation, and it discards the decompressed data immediately after the calculation to minimize memory
                 consumption.
+                You can find the code <a href="https://github.com/robamler/linguistic-time-capsule" target="_blank">on
+                    Github</a>.
                 Details of this novel compression method are described in the following paper:
             </p>
             <ul>
@@ -333,7 +358,7 @@
                     scientific communities, courts, or parliaments);
                 </li>
                 <li>
-                    adding more languages (maybe one you speak?).
+                    adding more languages besides English (maybe one you speak?).
                 </li>
             </ul>
         </div>
@@ -342,8 +367,3 @@
         </footer>
     </div>
 </body>
-
-<button id='getUrlButton' class='pinWordButton' style='display: none'>get sharable link!</button>
-<img id="shareFacebookButton" src="facebook-icon.png" alt="facebook-icon" style="width:30px;height:30px;" />
-<img id="shareTwitterButton" src="twitter-icon.png" alt="twitter-icon" style="width:30px;height:30px;" />
-<img id="showUrlButton" src="showurl-icon.png" alt="showurl-icon" style="width:30px;height:30px;" />
