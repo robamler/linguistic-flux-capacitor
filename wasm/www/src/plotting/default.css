@@ -46,6 +46,18 @@ svg.plot .invisible {
     stroke: none;
 }
 
+svg.plot .plotPrompt {
+    font-size: 55pt;
+    font-family: 'Arial', sans-serif;
+    fill: #bbb;
+    text-align: center;
+    text-anchor: middle;
+    opacity: 0;
+    display: none;
+    text-shadow: 0 0 0.1em #fff;
+    transition: opacity 0.4s;
+}
+
 svg.plot .hoverCursorContainer>.hoverCursor {
     transition: transform 0.2s cubic-bezier(.16, 1.36, .61, 1.39);
     transform: scale(1, 1);
@@ -72,7 +84,7 @@ svg.plot .lineGroup>.line {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: 0.4;
+    opacity: 0.8;
 }
 
 svg.plot .lineGroup {

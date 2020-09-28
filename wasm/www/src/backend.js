@@ -33,7 +33,7 @@ export async function loadFile() {
         }
     }
 
-    if (!!fileSizeStr && (fileSizeStr != pointerAndLen.len)) {
+    if (!!fileSizeStr && (fileSizeStr != pointerAndLen.len)) { // Yes, we want != and not !== here.
         throw "File size in HTTP header does not match file size in file header.";
     }
 

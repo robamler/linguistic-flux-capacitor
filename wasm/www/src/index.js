@@ -213,6 +213,10 @@ let backendPromise = import("./backend.js");
         on_popstate();
         wordInput.selectionStart = wordInput.selectionEnd = wordInput.value.length;
         wordInput.focus();
+        if (currentWord === '') {
+            // Explicitly clear plot so that prompt becomes visible.
+            mainPlot.clear();
+        }
     }, 0);
 
     let colorsAvail = ['color6', 'color7', 'color8', 'color9'];
