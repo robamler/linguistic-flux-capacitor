@@ -136,8 +136,12 @@ let backendPromise = import("./backend.js");
         document.getElementById('mainPlot'), years, ticksX, updateTooltip,
         document.getElementById('tooltipTemplate'), lineMouseover, lineMouseout);
 
+    document.getElementById('mainLegend').querySelectorAll('ul').forEach(
+        element => element.addEventListener('mouseout', () => mainPlot.lineToFront())
+    );
+
     allComparisonItems.forEach((element, index) => {
-        element.addEventListener('mouseover', () => mainPlot.hoverLine(index));
+        element.addEventListener('mouseover', () => { mainPlot.lineToFront(index); mainPlot.hoverLine(index) });
         element.addEventListener('mouseout', () => mainPlot.unhoverLine(index));
         element.addEventListener('click', () => mainPlot.setMainLine(index));
 

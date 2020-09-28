@@ -36,7 +36,7 @@ export function createPlot(
     let showMousePrompt = true;
 
     _initialize()
-    return { plotLine, setMainLine, clear, hoverLine, unhoverLine };
+    return { plotLine, setMainLine, clear, hoverLine, unhoverLine, lineToFront };
 
     function _initialize() {
         const svg = createSvgElement('svg');
@@ -436,19 +436,28 @@ export function createPlot(
     function setMainLine(lineIndex) {
         let selectedLine = lines[lineIndex];
         if (typeof selectedLine !== 'undefined') {
-            selectedLine
             lineMouseout(lineIndex);
 
-            for (let otherLine of lines) {
-                otherLine.lineGroup.classList.remove('main');
+            let previousMainLine = lines[mainLineIndex];
+            if (typeof previousMainLine !== 'undefined') {
+                previousMainLine.lineGroup.classList.remove('main');
             }
+            mainLineIndex = lineIndex;
 
+            selectedLine.lineGroup.classList.add('main');
+            lineToFront(lineIndex);
+        }
+    }
+
+    function lineToFront(lineIndex) {
+        if (typeof lineIndex === 'undefined') {
+            lineIndex = mainLineIndex;
+        }
+        let selectedLine = lines[lineIndex];
+        if (typeof selectedLine !== 'undefined') {
             const lineGroup = selectedLine.lineGroup;
-            lineGroup.classList.add('main');
             lineGroup.remove();
             plotPane.appendChild(lineGroup)
-
-            mainLineIndex = lineIndex;
         }
     }
 
