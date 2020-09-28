@@ -63,7 +63,7 @@
                         </ul>
                         <h3>Add more comparisons:</h3>
                         <ul id='manualComparisons'>
-                            <li class='color6'>
+                            <li class='color6 inactive'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
                                     title='Enter a secondary word here.'>
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
@@ -86,7 +86,20 @@
                             </li>
                         </ul>
                         <span class="inputWidthMeasure"></span>
-                        <div class='hint'>Move mouse across diagram to dive deeper into specific years.</div>
+                        <div class='shareContainer'>
+                            <span>Share current plot on:</span>
+                            <a href="#" id="shareFacebookButton">
+                                <img src="facebook.svg" alt="Share on Facebook ..." title="Share on Facebook ..." />
+                            </a>
+                            <a href="#" id="shareTwitterButton">
+                                <img src="twitter.svg" alt="Share on Twitter ..." title="Share on Twitter ..." />
+                            </a>
+                            <a href="#" id="copyLinkButton">
+                                <img src="link.svg" alt="Copy link to clipboard." title="Copy link to clipboard." />
+                            </a><span class='toast'>
+                                <div>✓ Link copied<br>to clipboard.</div>
+                            </span>
+                        </div>
                     </div>
                     <div id='mainPlot' class='plotContainer'>
                         <div class='plot tooltip color0 waiting' style='top:10em;left:10em'>
@@ -102,39 +115,39 @@
                                                 <th class='word2 right'><a href='#'>radio</a></th>
                                             </tr>
                                         </table>
-                                        <div class='explanation interleave'>used to be associated with:
+                                        <div class='explanation interleave'>were related to:
                                             <div class='hint'>(click on a word to explore it)</div>
                                         </div>
                                         <div class='explanation wait'>[crunching numbers, please stand by&nbsp;...]
                                         </div>
                                         <table class='suggestionsTable'>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word1a</a></td>
-                                                <td class='suggestion right'><a href='#'>word1b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word2a</a></td>
-                                                <td class='suggestion right'><a href='#'>word2b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word3a</a></td>
-                                                <td class='suggestion right'><a href='#'>word3b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word4a</a></td>
-                                                <td class='suggestion right'><a href='#'>word4b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word5a</a></td>
-                                                <td class='suggestion right'><a href='#'>word5b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word6a</a></td>
-                                                <td class='suggestion right'><a href='#'>word6b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                             <tr>
-                                                <td class='suggestion left'><a href='#'>word7a</a></td>
-                                                <td class='suggestion right'><a href='#'>word7b</a></td>
+                                                <td class='suggestion left'><a href='#'>&nbsp;</a></td>
+                                                <td class='suggestion right'><a href='#'>&nbsp;</a></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -354,8 +367,3 @@
         </footer>
     </div>
 </body>
-
-<button id='getUrlButton' class='pinWordButton' style='display: none'>get sharable link!</button>
-<img id="shareFacebookButton" src="facebook-icon.png" alt="facebook-icon" style="width:30px;height:30px;" />
-<img id="shareTwitterButton" src="twitter-icon.png" alt="twitter-icon" style="width:30px;height:30px;" />
-<img id="showUrlButton" src="showurl-icon.png" alt="showurl-icon" style="width:30px;height:30px;" />

@@ -201,17 +201,12 @@ let backendPromise = import("./backend.js");
     wordInput.onclick = wordChanged;
     wordInput.onblur = wordChanged;
 
-    let shareFacebookButton = document.getElementById('shareFacebookButton');
-    shareFacebookButton.onclick = shareFaceBook;
+    document.getElementById('shareFacebookButton').onclick = shareOnFacebook;
+    document.getElementById('shareTwitterButton').onclick = shareOnTwitter;
+    document.getElementById('copyLinkButton').onclick = copyLink;
 
     let shareTwitterButton = document.getElementById('shareTwitterButton');
-    shareTwitterButton.onclick = shareTwitter;
-
-    let showUrlButton = document.getElementById('showUrlButton');
-    //console.log("here", showUrlButton);
-    showUrlButton.onclick = showUrl;
-
-    let dynamicMainLegendDOMs = [];//to keep track of dynamically added entries
+    shareTwitterButton.onclick = shareOnTwitter;
 
     window.addEventListener('popstate', on_popstate);
     setTimeout(() => {
@@ -224,27 +219,48 @@ let backendPromise = import("./backend.js");
         }
     }, 0);
 
-    let colorsAvail = ['color6', 'color7', 'color8', 'color9'];
-
-    function shareFaceBook() {
-        //console.log("//TODO: copy current link to url2");
-        window.open(
-            'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(location.href),
-            'facebook-share-dialog',
-            'width=626,height=436');
+    function getLinkAndDescription() {
+        let link = 'https://robamler.github.io/linguistic-time-capsule';
+        if (currentWord !== '') {
+            link = link + location.hash;
+        }
+        let description = (
+            'Explore how the meaning of ' +
+            (currentWord === '' ? 'words' : 'the word "' + currentWord + '"') +
+            ' has changed over the past two centuries'
+        );
+        return [link, description];
     }
 
-    function shareTwitter() {
-        //console.log("//TODO: copy current link to url");
-        window.open(
-            "https://twitter.com/intent/tweet?text=check this out! -> " + encodeURIComponent(location.href),
-            'facebook-share-dialog',
-            'width=626,height=436');
+    function shareOnFacebook(event) {
+        event.preventDefault();
+        let [link, description] = getLinkAndDescription();
+        let url = (
+            'https://www.facebook.com/share.php?u=' + encodeURIComponent(link)
+            + '&quote=' + encodeURIComponent(description + ' using this web app.')
+        );
+        window.open(url, 'share-dialog', 'width=626,height=436');
     }
 
-    function showUrl() {
-        //console.log("//TODO: copy show this url to user");
-        alert("copy this link to share -> ".concat(location.href.toString()));
+    function shareOnTwitter(event) {
+        event.preventDefault();
+        let [link, description] = getLinkAndDescription();
+        window.open(
+            'https://twitter.com/intent/tweet?text=' + encodeURIComponent(description + ': ' + link),
+            'share-dialog',
+            'width=626,height=436'
+        );
+    }
+
+    async function copyLink(event) {
+        event.preventDefault();
+        let [link, description] = getLinkAndDescription();
+        await navigator.clipboard.writeText(description + ':\n' + link);
+        let toast = document.querySelector('.toast');
+        toast.style.display = 'inline-block';
+        toast.style.opacity = 1;
+        setTimeout(() => toast.style.opacity = 0, 3000);
+        setTimeout(() => toast.style.display = 'none', 3900);
     }
 
     function on_popstate() {

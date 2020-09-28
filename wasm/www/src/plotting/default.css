@@ -62,7 +62,7 @@ svg.plot .plotPrompt {
     opacity: 0;
     display: none;
     text-shadow: 0 0 0.1em #fff;
-    transition: opacity 0.4s;
+    transition: opacity 0.8s;
 }
 
 svg.plot .hoverCursorContainer>.hoverCursor {
