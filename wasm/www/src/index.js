@@ -340,12 +340,14 @@ let backendPromise = import("./backend.js");
                         manualComparisonInputs[i].classList.add('invalid');
                         manualComparisonInputs[i].setAttribute('title', 'word not found');
                         manualComparisonInputs[i].parentElement.removeAttribute('title');
+                        manualComparisonInputs[i].parentElement.classList.add('inactive');
                     } else {
                         manualComparisonInputs[i].classList.remove('invalid');
                         manualComparisonInputs[i].removeAttribute('title');
                         manualComparisonInputs[i].parentElement.setAttribute(
                             'title', 'Click and move mouse across diagram to explore further.'
                         );
+                        manualComparisonInputs[i].parentElement.classList.remove('inactive');
                     }
                     manualComparisonItems[i].style.display = 'list-item';
                     manualComparisonRemoveButtons[i].style.display = 'inline';
@@ -369,6 +371,7 @@ let backendPromise = import("./backend.js");
                     manualComparisonInputs[newManualComparisons.length].setAttribute(
                         'title', 'Enter a secondary word here.'
                     );
+                    manualComparisonInputs[newManualComparisons.length].parentElement.classList.add('inactive');
                     manualComparisonInputs[newManualComparisons.length].parentElement.removeAttribute('title');
                     manualComparisonRemoveButtons[newManualComparisons.length].style.display = 'none';
 

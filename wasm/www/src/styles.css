@@ -295,8 +295,12 @@ a {
 
 .legend>ul>li::before {
     content: "⸺";
-    margin-right: 0.3em;
+    margin-right: 0.1em;
     font-weight: bold;
+}
+
+.legend>ul>li.inactive::before {
+    visibility: hidden;
 }
 
 #manualComparisons>li::before {
