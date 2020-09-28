@@ -190,6 +190,7 @@ let backendPromise = import("./backend.js");
 
 
     let wordInput = document.querySelector('.wordInput');
+    let wordInputError = document.querySelector('.wordInputError');
     // We listen to several events to make the UI snappier. For example,
     // `onkeydown` fires earlier than `onchange` but it misses some changes such
     // as "right-click --> paste". Listening to several events does not
@@ -307,6 +308,7 @@ let backendPromise = import("./backend.js");
             let newMainWordId = inverseVocab[newMainWord];
             if (newMainWord === '' || typeof newMainWordId !== 'undefined') {
                 wordInput.classList.remove('invalid');
+                wordInputError.style.display = 'none';
                 if (newMainWord !== currentWord) {
                     mainWordChanged = true;
                     currentWord = newMainWord;
@@ -316,6 +318,7 @@ let backendPromise = import("./backend.js");
                 // Out of vocabulary word entered. Treat as if `currentWord` did not change. 
                 // We may still want to update the plot in case `manualComparisons` changed.
                 wordInput.classList.add('invalid');
+                wordInputError.style.display = 'inline-block';
             }
         }
 
@@ -335,8 +338,14 @@ let backendPromise = import("./backend.js");
                     manualComparisonsChanged = true;
                     if (typeof otherWordId === 'undefined') {
                         manualComparisonInputs[i].classList.add('invalid');
+                        manualComparisonInputs[i].setAttribute('title', 'word not found');
+                        manualComparisonInputs[i].parentElement.removeAttribute('title');
                     } else {
                         manualComparisonInputs[i].classList.remove('invalid');
+                        manualComparisonInputs[i].removeAttribute('title');
+                        manualComparisonInputs[i].parentElement.setAttribute(
+                            'title', 'Click and move mouse across diagram to explore further.'
+                        );
                     }
                     manualComparisonItems[i].style.display = 'list-item';
                     manualComparisonRemoveButtons[i].style.display = 'inline';
@@ -357,6 +366,10 @@ let backendPromise = import("./backend.js");
                     manualComparisonInputs[newManualComparisons.length].value = '';
                     manualComparisonInputs[newManualComparisons.length].style.width = '0';
                     manualComparisonInputs[newManualComparisons.length].classList.remove('invalid');
+                    manualComparisonInputs[newManualComparisons.length].setAttribute(
+                        'title', 'Enter a secondary word here.'
+                    );
+                    manualComparisonInputs[newManualComparisons.length].parentElement.removeAttribute('title');
                     manualComparisonRemoveButtons[newManualComparisons.length].style.display = 'none';
 
                     // Remove all input boxes below.

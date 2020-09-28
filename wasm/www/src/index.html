@@ -23,7 +23,10 @@
             </div>
             <div class='app'>
                 <h2>Explore words related to:</h2>
-                <div class='centered'><input class='wordInput' type='text' tabindex='1'></div>
+                <div class='centered'>
+                    <input class='wordInput' type='text' tabindex='1'>
+                    <span class='wordInputError'>⚠ word not found</span>
+                </div>
                 <div class='centered hint'>
                     <strong>hint:</strong> try
                     “<a href="#v=0&c=en&w=surgery">surgery</a>”,
@@ -40,43 +43,44 @@
                         <h3>Suggested comparisons:</h3>
                         <ul id='suggestedComparisons'>
                             <li class='color0' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color1' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color2' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color3' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color4' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                             <li class='color5' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#'></a>
+                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
                             </li>
                         </ul>
                         <h3>Add more comparisons:</h3>
                         <ul id='manualComparisons'>
-                            <li class='color6' title='Click and move mouse across diagram to explore further.'>
+                            <li class='color6'>
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    title='Enter a secondary word here.'>
+                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                            </li>
+                            <li class='color7'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color7' title='Click and move mouse across diagram to explore further.'>
+                            <li class='color8'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color8' title='Click and move mouse across diagram to explore further.'>
+                            <li class='color9'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
-                            <li class='color9' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                            <li class='color10' title='Click and move mouse across diagram to explore further.'>
+                            <li class='color10'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
