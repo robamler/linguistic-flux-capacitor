@@ -488,8 +488,6 @@ export function createPlot(
         tooltip.style.left = x + 'px';
         tooltip.style.top = y + 'px';
 
-        let relativeY = (coordY - MIN_Y) / (MAX_Y - MIN_Y);
-
         if (showBelow) {
             tooltip.classList.add('pointsUp');
             hoverCursorContainer.classList.add('upsideDown');
