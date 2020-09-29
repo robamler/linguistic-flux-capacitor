@@ -24,8 +24,9 @@
             <div class='app'>
                 <h2>Explore words related to:</h2>
                 <div class='centered'>
-                    <input class='wordInput' type='text' tabindex='1'>
-                    <span class='wordInputError'>⚠ word not found</span>
+                    <input class='wordInput' type='text' tabindex='1' autocapitalize="none">
+                    <span class='wordInputError'>⚠ word not found
+                        <div class='hint'>(<strong>hint:</strong> we distinguish upper/lower case)</div></span>
                 </div>
                 <div class='centered hint'>
                     <strong>hint:</strong> try
@@ -65,23 +66,27 @@
                         <ul id='manualComparisons'>
                             <li class='color6 inactive'>
                                 <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    title='Enter a secondary word here.'>
+                                    autocapitalize="none" title='Enter a secondary word here.'>
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color7'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    autocapitalize="none">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color8'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    autocapitalize="none">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color9'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    autocapitalize="none">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                             <li class='color10'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word">
+                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                    autocapitalize="none">
                                 <input type="button" tabindex="-1" value="×" title="remove this comparison">
                             </li>
                         </ul>

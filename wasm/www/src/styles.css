@@ -251,9 +251,11 @@ input.invalid:focus {
 
 .wordInputError {
     position: absolute;
-    margin: 0.65em 0 0 0.6em;
+    margin: 0.2em 0 0 0.6em;
     color: #821313;
     display: none;
+    line-height: 1.05em;
+    text-align: left;
 }
 
 .tooltipContent table {
