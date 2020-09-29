@@ -248,11 +248,11 @@
             <ul>
                 <li>
                     <a target="_blank" href="https://robamler.github.io/">Robert Bamler</a>:
-                    natural language model, compression method, and main development of the app;
+                    natural language model, compression algorithm, and main development of the app;
                 </li>
                 <li>
                     <a target="_blank" href="https://yiboyang.com/">Yibo Yang</a>:
-                    compression method;
+                    compression algorithm;
                 </li>
                 <li>
                     <a target="_blank" href="https://www.linkedin.com/in/zhouhang-xie-1872011a6/">Zhouhang Xie</a>:
@@ -260,11 +260,12 @@
                 </li>
                 <li>
                     <a target="_blank" href="http://www.stephanmandt.com/">Stephan Mandt</a>:
-                    natural language model and compression method.
+                    natural language model and compression algorithm.
                 </li>
             </ul>
             <p>
-                You can read more about the natural language model and the compression method in the scientific papers
+                You can read more about the natural language model and the compression algorithm in the scientific
+                papers
                 listed in the next section below.
             </p>
 
@@ -273,7 +274,7 @@
                 <div class="subtitle">(and how can I cite it?)</div>
             </h2>
             <p>
-                This app is a technical demonstration of both a natural language model and a novel compression method
+                This app is a technical demonstration of both a natural language model and a novel compression algorithm
                 for machine learning models.
             </p>
             <p>
@@ -318,12 +319,12 @@
                 which packs the
                 600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size (about 0.34&nbsp;bits per
                 model parameter).
-                A WebAssembly module decompresses parts of the model lazily just when they're needed for some
-                calculation, and it discards the decompressed data immediately after the calculation to minimize memory
-                consumption.
-                You can find the code <a href="https://github.com/robamler/linguistic-time-capsule" target="_blank">on
-                    Github</a>.
-                Details of this novel compression method are described in the following paper:
+                The main idea is to exploit the model's varying degree of certainty about its own parameters.
+                Some model parameters are known only up to some degree of uncertainty, and we therefore encode these
+                parameters with lower accuracy than parameters about which the model is very confident.
+                Such <em>posterior uncertainty estimates</em> can be derived in a principled way using approximate
+                Bayesian machine learning methods.
+                Details of this novel compression algorithm are described in the following paper:
             </p>
             <ul>
                 <li>
@@ -334,6 +335,14 @@
                     <a href="https://icml.cc/virtual/2020/poster/6764" target="_blank">video abstract</a>)
                 </li>
             </ul>
+            <p>
+                In this web app, a WebAssembly module decompresses parts of the model lazily just when they're needed
+                for some calculation.
+                We discard the decompressed part of the model immediately after the calculation so that we never have to
+                hold the entire uncompressed model in memory.
+                You can find the code <a href="https://github.com/robamler/linguistic-time-capsule" target="_blank">on
+                    Github</a>.
+            </p>
             <p>
                 If this app is useful for your research then please consider citing one of the above papers (if you're
                 not sure which one, choose the first one).
