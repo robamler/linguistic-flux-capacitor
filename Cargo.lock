@@ -438,6 +438,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2f02823cf78b754822df5f7f268fb59822e7296276d3e069d8e8cb26a14bd10"
 
 [[package]]
+name = "linguistic-time-capsule-backend"
+version = "0.0.1"
+dependencies = [
+ "byteorder",
+ "compressed_dynamic_word_embeddings",
+ "console_error_panic_hook",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "wee_alloc",
+]
+
+[[package]]
 name = "log"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1356,19 +1368,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "word-history-explorer-backend"
-version = "0.0.1"
-dependencies = [
- "byteorder",
- "compressed_dynamic_word_embeddings",
- "console_error_panic_hook",
- "rand",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "wee_alloc",
-]
 
 [[package]]
 name = "zip"
