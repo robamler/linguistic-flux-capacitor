@@ -279,13 +279,20 @@ let backendPromise = import("./backend.js");
     }
 
     function wordChanged() {
+        let handler = () => updatePlot(wordInput.value.trim(), null);
+
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => updatePlot(wordInput.value.trim(), null), 0);
+        setTimeout(handler, 0);
+
+        // Fire one more time with some delay. This is an ugly hack to work around an
+        // unresolved issue where sometimes the last keystroke does not get registered
+        // (mainly on Safari, but sometimes also on other browsers). The handler doesn't
+        // do much work if `updatePlot` realizes that nothing actually changed.
+        setTimeout(handler, 300);
     }
 
     function manualComparisonChanged(inputField, index) {
-        // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => {
+        let handler = () => {
             let otherWord = inputField.value.trim();
 
             // Make a *copy* of the array so that `updatePlot` can check if anything changed.
@@ -301,7 +308,16 @@ let backendPromise = import("./backend.js");
             }
             updatePlot(null, newManualComparisons);
             mainPlot.setMainLine(suggestedComparisonItems.length + index);
-        }, 0);
+        };
+
+        // Wait for next turn in JS executor to let change take effect.
+        setTimeout(handler, 0);
+
+        // Fire one more time with some delay. This is an ugly hack to work around an
+        // unresolved issue where sometimes the last keystroke does not get registered.
+        // (mainly on Safari, but sometimes also on other browsers). The handler doesn't
+        // do much work if `updatePlot` realizes that nothing actually changed.
+        setTimeout(handler, 300);
     }
 
     function removeManualComparison(index) {
