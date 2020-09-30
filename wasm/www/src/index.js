@@ -255,7 +255,7 @@ let backendPromise = import("./backend.js");
     async function copyLink(event) {
         event.preventDefault();
         let [link, description] = getLinkAndDescription();
-        await navigator.clipboard.writeText(description + ':\n' + link);
+        await navigator.clipboard.writeText(description + ': ' + link);
         let toast = document.querySelector('.toast');
         toast.style.display = 'inline-block';
         toast.style.opacity = 1;
