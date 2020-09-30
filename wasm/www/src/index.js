@@ -8,6 +8,12 @@ import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize300
 let backendPromise = import("./backend.js");
 
 (async function () {
+    if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
+        // Error message will be unveiled from main page because it's unclear whether
+        // ancient browsers that don't support WebAssembly can even parse this JS file.
+        return;
+    }
+
     const Plotter = await import('./plotting/main.mjs');
     if (document.readyState === 'loading') {
         await new Promise(function (resolve, _reject) {

@@ -23,6 +23,58 @@
                     <div class="progressText" id="downloadProgressText">0 %</div>
                 </div>
             </div>
+            <div id='wasmErrorMessage' style='display:none'>
+                <strong>We're sorry, your browser is too old to run this app.</strong>
+                <p>
+                    This app is a technical demonstration of cutting edge web technologies.
+                    As such, some very old web browsers unfortunately cannot run this app.
+                </p>
+                <p>
+                    To try out this app, please consider using a browser that support the open WebAssembly standard.
+                    Any of the following popular browsers should do the trick:
+                </p>
+                <table>
+                    <tr>
+                        <td>
+                            <a href='https://getfirefox.com'>
+                                <img id='firefox-logo' alt='Mozilla Firefox'><br>
+                                Mozilla Firefox
+                            </a>
+                        </td>
+                        <td>
+                            <a href='https://www.google.com/chrome/'>
+                                <img id='chrome-logo' alt='Google Chrome'><br>
+                                Google Chrome
+                            </a>
+                        </td>
+                        <td>
+                            <a href='https://www.apple.com/safari/'>
+                                <img id='safari-logo' alt='Apple Safari'><br>
+                                Apple Safari
+                            </a>
+                        </td>
+                        <td>
+                            <a href='https://www.microsoft.com/en-us/edge'>
+                                <img id='edge-logo' alt='Microsoft Edge (Chromium)'><br>
+                                Microsoft Edge (Chromium)
+                            </a>
+                        </td>
+                        <td>
+                            <a href='https://www.opera.com/'>
+                                <img id='opera-logo' alt='Opera (Chromium)'><br>
+                                Opera (Chromium)
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+                <p>
+                    If you're already using one of these browsers but still see this error message then you've found a
+                    bug.
+                    Please <a href='https://robamler.github.io/'>reach out</a> or
+                    <a href='https://github.com/robamler/linguistic-time-capsule/issues/new'>file an issue</a> so that
+                    we can fix it.
+                </p>
+            </div>
             <div class='app'>
                 <h2>Explore words related to:</h2>
                 <div class='centered'>
@@ -167,6 +219,18 @@
                 </div>
             </div>
         </div>
+        <script type="text/javascript">
+            // For very old browsers (mainly IE) that don't support WebAssembly.
+            if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
+                // Load browser logos only if they're needed (which is highly unlikely).
+                var browsers = ['firefox', 'chrome', 'safari', 'edge', 'opera'];
+                for (var i = 0; i < browsers.length; i += 1) {
+                    document.getElementById(browsers[i] + '-logo').src = 'browsers/' + browsers[i] + '.png';
+                }
+                document.getElementById('downloadProgressPane').style.display = 'none';
+                document.getElementById('wasmErrorMessage').style.display = 'block';
+            }
+        </script>
 
         <div class="prose">
             <h2>What is This?</h2>

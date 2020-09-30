@@ -75,6 +75,21 @@ footer {
     margin: 4em 2em 7em 2em;
 }
 
+#wasmErrorMessage {
+    text-align: center;
+}
+
+#wasmErrorMessage>table {
+    border: 0;
+    width: 100%;
+}
+
+#wasmErrorMessage td {
+    width: 20%;
+    text-align: center;
+    vertical-align: top;
+}
+
 .appContainer {
     width: 40em;
 }

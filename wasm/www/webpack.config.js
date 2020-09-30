@@ -40,6 +40,11 @@ module.exports = {
       patterns: [
         { from: 'src/favicon.png', to: 'favicon.png' },
         { from: 'src/favicon-256.png', to: 'favicon-256.png' },
+        { from: 'src/browsers/firefox.png', to: 'browsers/firefox.png' },
+        { from: 'src/browsers/chrome.png', to: 'browsers/chrome.png' },
+        { from: 'src/browsers/safari.png', to: 'browsers/safari.png' },
+        { from: 'src/browsers/edge.png', to: 'browsers/edge.png' },
+        { from: 'src/browsers/opera.png', to: 'browsers/opera.png' },
       ],
     }),
   ],
