@@ -156,12 +156,16 @@ export function createPlot(
         });
         svg.appendChild(inputPrompt);
 
-        mousePrompt = createSvgElement('text', 'plotPrompt', { y: 95 });
-        ['Move mouse', 'across this area', 'to explore more.'].forEach((text, index) => {
-            let tspan = createSvgElement('tspan', null, { x: 347, dy: index === 0 ? '0' : '1.2em' });
-            tspan.appendChild(document.createTextNode(text));
-            mousePrompt.appendChild(tspan);
-        });
+        mousePrompt = createSvgElement('g', 'plotPrompt');
+        for (let i = 0; i < 2; i += 1) {
+            let current = createSvgElement('text', i === 0 ? 'plotPromptOutline' : '', { y: 95 });
+            ['Move mouse', 'across this area', 'to explore more.'].forEach((text, index) => {
+                let tspan = createSvgElement('tspan', null, { x: 347, dy: index === 0 ? '0' : '1.2em' });
+                tspan.appendChild(document.createTextNode(text));
+                current.appendChild(tspan);
+            });
+            mousePrompt.appendChild(current);
+        }
         mousePrompt.addEventListener('mouseover', () => {
             mousePrompt.style.opacity = 0;
             showMousePrompt = false;

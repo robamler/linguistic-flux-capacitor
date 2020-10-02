@@ -62,7 +62,16 @@ svg.plot .plotPrompt {
     opacity: 0;
     display: none;
     text-shadow: 0 0 0.1em #fff;
-    transition: opacity 0.8s;
+    transition: opacity 0.4s;
+}
+
+svg.plot .plotPromptOutline {
+    stroke: #fff;
+    fill: #fff;
+    stroke-width: 5;
+    filter: blur(0.01em);
+    stroke-linecap: butt;
+    stroke-linejoin: round;
 }
 
 svg.plot .hoverCursorContainer>.hoverCursor {
