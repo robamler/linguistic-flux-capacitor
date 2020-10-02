@@ -36,7 +36,7 @@ export function createPlot(
     let showMousePrompt = true;
 
     _initialize()
-    return { plotLine, setMainLine, clear, hoverLine, unhoverLine, lineToFront };
+    return { plotLine, setMainLine, clear, showPrompt, hoverLine, unhoverLine, lineToFront };
 
     function _initialize() {
         const svg = createSvgElement('svg');
@@ -434,6 +434,9 @@ export function createPlot(
                 mousePrompt.style.display = 'none';
             }
         }, 500);
+    }
+
+    function showPrompt() {
         inputPrompt.style.display = 'block';
         inputPrompt.style.opacity = 0.7;
     }

@@ -217,12 +217,11 @@ let backendPromise = import("./backend.js");
     window.addEventListener('popstate', on_popstate);
     setTimeout(() => {
         on_popstate();
+        if (currentWord === '') {
+            mainPlot.showPrompt();
+        }
         wordInput.selectionStart = wordInput.selectionEnd = wordInput.value.length;
         wordInput.focus();
-        if (currentWord === '') {
-            // Explicitly clear plot so that prompt becomes visible.
-            mainPlot.clear();
-        }
     }, 0);
 
     function getLinkAndDescription() {
@@ -434,6 +433,7 @@ let backendPromise = import("./backend.js");
             mainPlot.clear();
 
             if (currentWord === '') {
+                mainPlot.showPrompt();
                 legend.style.display = 'none';
                 if (!suppress_save_state) {
                     history.pushState(null, "The Linguistic Time Capsule", "#");
