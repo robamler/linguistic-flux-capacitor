@@ -167,7 +167,7 @@ let backendPromise = import("./backend.js");
             manualComparisonInputs.push(otherWordInput);
             manualComparisonRemoveButtons.push(removeButton);
 
-            let inputEventHandler = () => manualComparisonChanged(otherWordInput, manualIndex);
+            let inputEventHandler = event => manualComparisonChanged(event, otherWordInput, manualIndex);
             otherWordInput.onkeydown = inputEventHandler;
             otherWordInput.onchange = inputEventHandler;
             otherWordInput.onclick = inputEventHandler;
@@ -297,7 +297,7 @@ let backendPromise = import("./backend.js");
         setTimeout(handler, 300);
     }
 
-    function manualComparisonChanged(inputField, index) {
+    function manualComparisonChanged(event, inputField, index) {
         let handler = () => {
             let otherWord = inputField.value.trim();
 
@@ -313,7 +313,10 @@ let backendPromise = import("./backend.js");
                 newManualComparisons.push(otherWord);
             }
             updatePlot(null, newManualComparisons);
-            mainPlot.setMainLine(suggestedComparisonItems.length + index);
+
+            if (event.type !== 'blur' && event.type !== 'change') {
+                mainPlot.setMainLine(suggestedComparisonItems.length + index);
+            }
         };
 
         // Wait for next turn in JS executor to let change take effect.
