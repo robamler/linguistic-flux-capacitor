@@ -433,6 +433,7 @@ let backendPromise = import("./backend.js");
             mainPlot.clear();
 
             if (currentWord === '') {
+                document.title = "The Linguistic Time Capsule";
                 mainPlot.showPrompt();
                 legend.style.display = 'none';
                 if (!suppress_save_state) {
@@ -440,6 +441,8 @@ let backendPromise = import("./backend.js");
                 }
                 return;
             }
+
+            document.title = "The Linguistic Time Capsule: " + currentWord;
 
             if (!suppress_save_state) {
                 let stateUrl = "#v=0&c=en&w=" + encodeURIComponent(currentWord);

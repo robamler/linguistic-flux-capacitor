@@ -1,14 +1,41 @@
 <!doctype html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
     <title>The Linguistic Time Capsule</title>
-    <meta name="description" content="Explore how word meanings change over centuries in an interactive web app.">
+    <meta name="description"
+        content="Explore how word meanings have changed over the past two centuries in this interactive web app.">
     <meta name="author" content="Robert Bamler">
     <link href="https://fonts.googleapis.com/css?family=DM+Serif+Display&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="favicon.png" sizes="64x64">
     <link rel="icon" type="image/png" href="favicon-256.png" sizes="256x256">
+    <meta property="og:locale" content="en-US">
+    <meta property="og:site_name" content="The Linguistic Time Capsule">
+    <meta property="og:title" content="The Linguistic Time Capsule">
+    <link rel="canonical" href="https://robamler.github.io/linguistic-time-capsule">
+    <meta property="og:url" content="https://robamler.github.io/linguistic-time-capsule">
+    <meta property="og:description"
+        content="Explore how word meanings have changed over the past two centuries in this interactive web app.">
+    <script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "The Linguistic Time Capsule",
+        "operatingSystem": "Web",
+        "applicationCategory": "Scientific",
+        "author":{
+            "@type": "Person",
+            "name": "Robert Bamler",
+            "url": "https://robamler.github.io",
+            "image": "https://robamler.github.io/robert-bamler.jpg",
+            "affiliation": {
+                "name": "University of Tubingen, Cluster of Excellence - Machine Learning for Science",
+                "url": "https://uni-tuebingen.de/en/research/core-research/cluster-of-excellence-machine-learning/home/"
+            }
+        }
+    }
+    </script>
 </head>
 
 <body>
@@ -91,8 +118,10 @@
                 <h2>Explore words related to:</h2>
                 <div class='centered'>
                     <input class='wordInput' type='text' tabindex='1' autocapitalize="none">
-                    <span class='wordInputError'>⚠ word not found
-                        <div class='hint'>(<strong>hint:</strong> we distinguish upper/lower case)</div></span>
+                    <div class='wordInputError'>
+                        ⚠ word not found
+                        <div class='hint'>(<strong>hint:</strong> we distinguish upper/lower case)</div>
+                    </div>
                 </div>
                 <div class='centered hint'>
                     <strong>hint:</strong> try
@@ -168,7 +197,7 @@
                             <a href="#" id="copyLinkButton">
                                 <img src="link.svg" alt="Copy link to clipboard." title="Copy link to clipboard." />
                             </a><span class='toast'>
-                                <div>✓ Link copied<br>to clipboard.</div>
+                                <span>✓ Link copied<br>to clipboard.</span>
                             </span>
                         </div>
                     </div>
@@ -177,8 +206,7 @@
                             <div id='tooltipTemplate' class='tooltipInnerContainer'>
                                 <div class='tooltipMain'>
                                     <div class='tooltipContent'>
-                                        <div class='explanation'>In <span class='year'>1804</span>,</div
-                                            class='explanation'>
+                                        <div class='explanation'>In <span class='year'>1804</span>,</div>
                                         <table>
                                             <tr>
                                                 <th class='word1 left'>broadcast</th>
@@ -310,8 +338,8 @@
                 “This shirt is too ___ for you”.
             </p>
             <p>
-                By contrast, the model does not care whether two words appear in context <em>with each other</em>, and
-                it does not use this as a signal for their similarity.
+                By contrast, the model does not care whether two words can appear in context <em>with each other</em>,
+                and it does not use this as a signal for their similarity.
                 This makes sense: for example, the sentence you are currently reading contains the two words “you” and
                 “are” directly next to each other&mdash;“you are” is in fact a quite common two-gram in the English
                 language.
@@ -354,6 +382,8 @@
             <p>
                 This app is a technical demonstration of both a natural language model and a novel compression algorithm
                 for machine learning models.
+                If this app is useful for your research then please consider citing one of the following papers (if
+                you're not sure which one, choose the first one).
             </p>
             <p>
                 <strong>The natural language model</strong> is a probabilistic time series model that represents each
@@ -420,10 +450,6 @@
                 hold the entire uncompressed model in memory.
                 You can find the code <a href="https://github.com/robamler/linguistic-time-capsule" target="_blank">on
                     Github</a>.
-            </p>
-            <p>
-                If this app is useful for your research then please consider citing one of the above papers (if you're
-                not sure which one, choose the first one).
             </p>
 
             <h2>Could You Add Language X or Feature Y?</h2>

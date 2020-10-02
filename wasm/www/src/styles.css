@@ -249,7 +249,8 @@ input.invalid:focus {
     transition: opacity 0.8s;
 }
 
-.toast>div {
+.toast>span {
+    display: block;
     position: absolute;
     top: 1.6em;
     transform: translateX(-50%);
