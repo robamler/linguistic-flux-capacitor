@@ -373,6 +373,13 @@ impl RandomAccessReader {
             }
         }
 
+        // In the very unlikely but possible corner case that fewer than
+        // `min_increasing` words have increasing overlap with the target word,
+        // `increasing_front_runners[..min_increasing as usize]` holds the
+        // `min_increasing` words with *least* decreasing overlap. That's OK since,
+        // in this weird situation, these words are arguably the most interesting
+        // ones (analogously for `min_decreasing`).
+
         let mut combined = Vec::with_capacity((2 * amt) as usize);
 
         // Put the required words (`min_increasing` and `min_decreasing`) first.
