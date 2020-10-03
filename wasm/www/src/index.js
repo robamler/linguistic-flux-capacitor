@@ -435,7 +435,7 @@ let backendPromise = import("./backend.js");
             if (currentWord === '') {
                 document.title = "The Linguistic Time Capsule";
                 mainPlot.showInputPrompt();
-                legend.style.display = 'none';
+                legend.classList.add('empty');
                 if (!suppress_save_state) {
                     history.pushState(null, "The Linguistic Time Capsule", "#");
                 }
@@ -452,7 +452,7 @@ let backendPromise = import("./backend.js");
                 history.pushState(null, "The Linguistic Time Capsule: " + currentWord, stateUrl);
             }
 
-            legend.style.display = 'block';
+            legend.classList.remove('empty');
             allComparisonItems.forEach(el => {
                 el.classList.remove('hovering');
                 el.firstElementChild.textContent = currentWord;

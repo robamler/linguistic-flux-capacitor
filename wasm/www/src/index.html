@@ -135,59 +135,60 @@
                     “<a href="#v=0&c=en&w=novel">novel</a>”
                 </div>
                 <div class='plotAndLegend'>
-                    <div id='mainLegend' class='legend'>
-                        <h3>Suggested comparisons:</h3>
-                        <ul id='suggestedComparisons'>
-                            <li class='color0' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                            <li class='color1' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                            <li class='color2' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                            <li class='color3' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                            <li class='color4' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                            <li class='color5' title='Click and move mouse across diagram to explore further.'>
-                                <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
-                            </li>
-                        </ul>
-                        <h3>Add more comparisons:</h3>
-                        <ul id='manualComparisons'>
-                            <li class='color6 inactive'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    autocapitalize="none" title='Enter a secondary word here.'>
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                            <li class='color7'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    autocapitalize="none">
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                            <li class='color8'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    autocapitalize="none">
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                            <li class='color9'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    autocapitalize="none">
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                            <li class='color10'>
-                                <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
-                                    autocapitalize="none">
-                                <input type="button" tabindex="-1" value="×" title="remove this comparison">
-                            </li>
-                        </ul>
-                        <span class="inputWidthMeasure"></span>
+                    <div class='legend empty' id='mainLegend'>
+                        <div class='legendItems'>
+                            <h3>Suggested comparisons:</h3>
+                            <ul id='suggestedComparisons'>
+                                <li class='color0' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                                <li class='color1' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                                <li class='color2' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                                <li class='color3' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                                <li class='color4' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                                <li class='color5' title='Click and move mouse across diagram to explore further.'>
+                                    <span></span> ↔ <a href='#' title='Click to explore this word.'></a>
+                                </li>
+                            </ul>
+                            <h3>Add more comparisons:</h3>
+                            <ul id='manualComparisons'>
+                                <li class='color6 inactive'>
+                                    <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                        autocapitalize="none" title='Enter a secondary word here.'>
+                                    <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                                </li>
+                                <li class='color7'>
+                                    <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                        autocapitalize="none">
+                                    <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                                </li>
+                                <li class='color8'>
+                                    <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                        autocapitalize="none">
+                                    <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                                </li>
+                                <li class='color9'>
+                                    <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                        autocapitalize="none">
+                                    <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                                </li>
+                                <li class='color10'>
+                                    <span></span> ↔ <input type="text" tabindex='1' placeholder="enter word"
+                                        autocapitalize="none">
+                                    <input type="button" tabindex="-1" value="×" title="remove this comparison">
+                                </li>
+                            </ul>
+                            <span class="inputWidthMeasure"></span>
+                        </div>
                         <div class='shareContainer'>
-                            <span>Share current plot on:</span>
                             <a href="#" id="shareFacebookButton">
                                 <img src="facebook.svg" alt="Share on Facebook ..." title="Share on Facebook ..." />
                             </a>
@@ -436,7 +437,7 @@
             </p>
             <ul>
                 <li>
-                    Y.&nbsp;Yang, R.&nbsp;Bamler and S.&nbsp;Mandt,
+                    Y.&nbsp;Yang, R.&nbsp;Bamler, and S.&nbsp;Mandt,
                     <em>Variational Bayesian Quantization</em>.
                     ICML 2020<br>
                     (see <a href="https://robamler.github.io/files/yang-vbq-icml-2020.pdf" target="_blank">PDF</a> or

@@ -27,7 +27,7 @@ h1 {
     margin: 0.2em 0;
 }
 
-.legend>h3 {
+.legendItems>h3 {
     font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-size: 110%;
     font-weight: bold;
@@ -218,16 +218,26 @@ input.invalid:focus {
     font-size: 80%;
 }
 
-.shareContainer>span {
+.shareContainer::before {
     display: inline-block;
     vertical-align: top;
     padding-top: 0.1em;
+    content: 'Share current plot on:';
+}
+
+.legend.empty>.shareContainer::before {
+    content: 'Share this app on:';
+    display: block;
 }
 
 .shareContainer>a {
     display: inline-block;
     vertical-align: top;
     margin-left: 0.2em;
+}
+
+.legend.empty>.shareContainer>a {
+    margin: 0.4em 0.4em 0.2em 0.4em;
 }
 
 .shareContainer>a>img {
@@ -243,7 +253,7 @@ input.invalid:focus {
 
 .toast {
     position: relative;
-    left: -0.75em;
+    left: -0.9em;
     display: none;
     opacity: 0;
     transition: opacity 0.8s;
@@ -252,7 +262,7 @@ input.invalid:focus {
 .toast>span {
     display: block;
     position: absolute;
-    top: 1.6em;
+    top: 1.1em;
     transform: translateX(-50%);
     white-space: nowrap;
     background: #cddbc5;
@@ -328,7 +338,6 @@ a {
 }
 
 .legend {
-    display: none;
     background-color: #e8e8e8;
     border-radius: 0.5em;
     padding: 0.6em 0.7em 0.2em 0.6em;
@@ -336,16 +345,23 @@ a {
     position: absolute;
     left: 40em;
     top: 0;
-    min-width: 10em;
 }
 
-.legend>ul {
+.legend.empty {
+    text-align: center;
+}
+
+.legend.empty>.legendItems {
+    display: none;
+}
+
+.legendItems>ul {
     list-style-type: none;
     margin: 0 0 0.5em 0;
     padding: 0;
 }
 
-.legend>ul>li {
+.legendItems>ul>li {
     margin: -0.2em -0.4em 0.0em -0.4em;
     padding: 0.2em 0.4em 0.3em 0.4em;
     border-radius: 0.2em;
@@ -353,23 +369,23 @@ a {
     cursor: default;
 }
 
-.legend>ul>li:hover, .legend>ul>li.hovering {
+.legendItems>ul>li:hover, .legendItems>ul>li.hovering {
     background-color: #f8f8f8;
 }
 
-.legend>ul>li>a {
+.legendItems>ul>li>a {
     text-decoration: none;
     color: #152d74;
 }
 
-.legend>ul>li::before {
+.legendItems>ul>li::before {
     content: "———";
     font-family: monospace;
     margin-right: 0.1em;
     font-weight: bold;
 }
 
-.legend>ul>li.inactive::before {
+.legendItems>ul>li.inactive::before {
     visibility: hidden;
 }
 
@@ -377,56 +393,56 @@ a {
     content: "— —";
 }
 
-.legend>ul>li.color0::before {
+.legendItems>ul>li.color0::before {
     color: #f94a01;
 }
 
-.legend>ul>li.color1::before {
+.legendItems>ul>li.color1::before {
     color: #6b42b6;
 }
 
-.legend>ul>li.color2::before {
+.legendItems>ul>li.color2::before {
     color: #11a854;
 }
 
-.legend>ul>li.color3::before {
+.legendItems>ul>li.color3::before {
     color: #128db2;
 }
 
-.legend>ul>li.color4::before {
+.legendItems>ul>li.color4::before {
     color: #e12fbc;
 }
 
-.legend>ul>li.color5::before {
+.legendItems>ul>li.color5::before {
     color: #e6ab02;
 }
 
-.legend>ul>li.color6::before {
+.legendItems>ul>li.color6::before {
     color: #b40e0e;
 }
 
-.legend>ul>li.color7::before {
+.legendItems>ul>li.color7::before {
     color: #4257b6;
 }
 
-.legend>ul>li.color8::before {
+.legendItems>ul>li.color8::before {
     color: #18a380;
 }
 
-.legend>ul>li.color9::before {
+.legendItems>ul>li.color9::before {
     color: #ad27c5;
 }
 
-.legend>ul>li.color10::before {
+.legendItems>ul>li.color10::before {
     color: #2e2e2e;
 }
 
-.legend input[type="text"] {
+.legendItems input[type="text"] {
     font-size: 80%;
     min-width: 5.2em;
 }
 
-.legend input[type="button"] {
+.legendItems input[type="button"] {
     font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-size: 90%;
     width: 1.4em;
