@@ -218,7 +218,7 @@ let backendPromise = import("./backend.js");
     setTimeout(() => {
         on_popstate();
         if (currentWord === '') {
-            mainPlot.showPrompt();
+            mainPlot.showInputPrompt();
         }
         wordInput.selectionStart = wordInput.selectionEnd = wordInput.value.length;
         wordInput.focus();
@@ -434,7 +434,7 @@ let backendPromise = import("./backend.js");
 
             if (currentWord === '') {
                 document.title = "The Linguistic Time Capsule";
-                mainPlot.showPrompt();
+                mainPlot.showInputPrompt();
                 legend.style.display = 'none';
                 if (!suppress_save_state) {
                     history.pushState(null, "The Linguistic Time Capsule", "#");

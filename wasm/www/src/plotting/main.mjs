@@ -36,7 +36,7 @@ export function createPlot(
     let showMousePrompt = true;
 
     _initialize()
-    return { plotLine, setMainLine, clear, showPrompt, hoverLine, unhoverLine, lineToFront };
+    return { plotLine, setMainLine, clear, showInputPrompt, hoverLine, unhoverLine, lineToFront };
 
     function _initialize() {
         const svg = createSvgElement('svg');
@@ -167,8 +167,8 @@ export function createPlot(
             mousePrompt.appendChild(current);
         }
         mousePrompt.addEventListener('mouseover', () => {
-            mousePrompt.style.opacity = 0;
             showMousePrompt = false;
+            mousePrompt.style.opacity = 0;
             setTimeout(() => mousePrompt.style.display = 'none', 500);
         });
 
@@ -216,9 +216,12 @@ export function createPlot(
                     }
                     hoverCursorContainer.classList.remove('hidden');
 
-                    showMousePrompt = false;
-                    mousePrompt.style.opacity = 0;
-                    setTimeout(() => mousePrompt.style.display = 'none', 500);
+                    if (showMousePrompt) {
+                        showMousePrompt = false;
+                        mousePrompt.style.opacity = 0;
+                        setTimeout(() => mousePrompt.style.display = 'none', 500);
+                    }
+
                     updateTooltipContents(cursorTooltip, line, index);
                     showTooltip(cursorTooltip, line, index, mouseY < y);
                 }
@@ -427,16 +430,18 @@ export function createPlot(
         while (plotPane.childNodes.length != 0) {
             plotPane.childNodes.forEach(el => el.remove());
         }
-
-        mousePrompt.style.opacity = 0;
-        setTimeout(() => {
-            if (mousePrompt.style.opacity == 0) { // Yes, we want == and not === here.
-                mousePrompt.style.display = 'none';
-            }
-        }, 500);
     }
 
-    function showPrompt() {
+    function showInputPrompt() {
+        if (showMousePrompt) {
+            mousePrompt.style.opacity = 0;
+            setTimeout(() => {
+                if (mousePrompt.style.opacity == 0) { // Yes, we want == and not === here.
+                    mousePrompt.style.display = 'none';
+                }
+            }, 500);
+        }
+
         inputPrompt.style.display = 'block';
         inputPrompt.style.opacity = 0.7;
     }
