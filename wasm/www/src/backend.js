@@ -1,5 +1,5 @@
-import * as wasm from "linguistic-time-capsule-backend";
-import { memory } from "linguistic-time-capsule-backend/linguistic_time_capsule_backend_bg";
+import * as wasm from "linguistic-flux-capacitor-backend";
+import { memory } from "linguistic-flux-capacitor-backend/linguistic_flux_capacitor_backend_bg";
 
 // import file from "../assets/random_6_100_16.dwe";
 import dweFile from "../assets/step34000_T209_V30000_K100.dwe";

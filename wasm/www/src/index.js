@@ -225,7 +225,7 @@ let backendPromise = import("./backend.js");
     }, 0);
 
     function getLinkAndDescription() {
-        let link = 'https://robamler.github.io/linguistic-time-capsule';
+        let link = 'https://robamler.github.io/linguistic-flux-capacitor';
         if (currentWord !== '') {
             link = link + location.hash;
         }
@@ -433,23 +433,23 @@ let backendPromise = import("./backend.js");
             mainPlot.clear();
 
             if (currentWord === '') {
-                document.title = "The Linguistic Time Capsule";
+                document.title = "The Linguistic Flux Capacitor";
                 mainPlot.showInputPrompt();
                 legend.classList.add('empty');
                 if (!suppress_save_state) {
-                    history.pushState(null, "The Linguistic Time Capsule", "#");
+                    history.pushState(null, "The Linguistic Flux Capacitor", "#");
                 }
                 return;
             }
 
-            document.title = "The Linguistic Time Capsule: " + currentWord;
+            document.title = "The Linguistic Flux Capacitor: " + currentWord;
 
             if (!suppress_save_state) {
                 let stateUrl = "#v=0&c=en&w=" + encodeURIComponent(currentWord);
                 if (manualComparisons.length != 0) {
                     stateUrl = stateUrl + "&o=" + manualComparisons.map(encodeURIComponent).join("+");
                 }
-                history.pushState(null, "The Linguistic Time Capsule: " + currentWord, stateUrl);
+                history.pushState(null, "The Linguistic Flux Capacitor: " + currentWord, stateUrl);
             }
 
             legend.classList.remove('empty');

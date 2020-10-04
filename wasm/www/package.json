@@ -1,5 +1,5 @@
 {
-  "name": "linguistic-time-capsule",
+  "name": "linguistic-flux-capacitor",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
@@ -12,7 +12,7 @@
   "author": "Robert Bamler <robert.bamler@gmail.com>",
   "license": "(MIT OR Apache-2.0)",
   "dependencies": {
-    "linguistic-time-capsule-backend": "file:../pkg"
+    "linguistic-flux-capacitor-backend": "file:../pkg"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^6.1.1",
