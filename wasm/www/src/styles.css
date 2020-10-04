@@ -1,11 +1,6 @@
 body {
     font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-size: 20px;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
 }
 
 .pageContainer {
@@ -22,6 +17,7 @@ h1 {
     font-family: 'DM Serif Display', serif;
     margin: 0.3em 0 0.7em 0;
     padding: 0;
+    line-height: 1.1em;
 }
 
 .app>h2 {
@@ -32,7 +28,7 @@ h1 {
     margin: 0.2em 0;
 }
 
-.legend>h3 {
+.legendItems>h3 {
     font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-size: 110%;
     font-weight: bold;
@@ -64,6 +60,10 @@ h3 {
     line-height: 150%;
 }
 
+.prose li {
+    margin-top: 0.3em;
+}
+
 footer {
     opacity: 0.7;
     font-size: 80%;
@@ -78,6 +78,21 @@ footer {
     text-align: center;
     font-size: 120%;
     margin: 4em 2em 7em 2em;
+}
+
+#wasmErrorMessage {
+    text-align: center;
+}
+
+#wasmErrorMessage>table {
+    border: 0;
+    width: 100%;
+}
+
+#wasmErrorMessage td {
+    width: 20%;
+    text-align: center;
+    vertical-align: top;
 }
 
 .appContainer {
@@ -122,7 +137,7 @@ footer {
 
 .plotAndLegend {
     position: relative;
-    margin-top: 1.3em;
+    margin: 1.3em -2% 0 -2%;
 }
 
 .plotContainer {
@@ -204,16 +219,26 @@ input.invalid:focus {
     font-size: 80%;
 }
 
-.shareContainer>span {
+.shareContainer::before {
     display: inline-block;
     vertical-align: top;
     padding-top: 0.1em;
+    content: 'Share current plot on:';
+}
+
+.legend.empty>.shareContainer::before {
+    content: 'Share this app on:';
+    display: block;
 }
 
 .shareContainer>a {
     display: inline-block;
     vertical-align: top;
     margin-left: 0.2em;
+}
+
+.legend.empty>.shareContainer>a {
+    margin: 0.4em 0.4em 0.2em 0.4em;
 }
 
 .shareContainer>a>img {
@@ -229,15 +254,16 @@ input.invalid:focus {
 
 .toast {
     position: relative;
-    left: -0.75em;
+    left: -0.9em;
     display: none;
     opacity: 0;
     transition: opacity 0.8s;
 }
 
-.toast>div {
+.toast>span {
+    display: block;
     position: absolute;
-    top: 1.6em;
+    top: 1.1em;
     transform: translateX(-50%);
     white-space: nowrap;
     background: #cddbc5;
@@ -251,9 +277,11 @@ input.invalid:focus {
 
 .wordInputError {
     position: absolute;
-    margin: 0.65em 0 0 0.6em;
+    margin: 0.2em 0 0 0.6em;
     color: #821313;
     display: none;
+    line-height: 1.05em;
+    text-align: left;
 }
 
 .tooltipContent table {
@@ -311,7 +339,6 @@ a {
 }
 
 .legend {
-    display: none;
     background-color: #e8e8e8;
     border-radius: 0.5em;
     padding: 0.6em 0.7em 0.2em 0.6em;
@@ -319,16 +346,23 @@ a {
     position: absolute;
     left: 40em;
     top: 0;
-    min-width: 10em;
 }
 
-.legend>ul {
+.legend.empty {
+    text-align: center;
+}
+
+.legend.empty>.legendItems {
+    display: none;
+}
+
+.legendItems>ul {
     list-style-type: none;
     margin: 0 0 0.5em 0;
     padding: 0;
 }
 
-.legend>ul>li {
+.legendItems>ul>li {
     margin: -0.2em -0.4em 0.0em -0.4em;
     padding: 0.2em 0.4em 0.3em 0.4em;
     border-radius: 0.2em;
@@ -336,79 +370,80 @@ a {
     cursor: default;
 }
 
-.legend>ul>li:hover, .legend>ul>li.hovering {
+.legendItems>ul>li:hover, .legendItems>ul>li.hovering {
     background-color: #f8f8f8;
 }
 
-.legend>ul>li>a {
+.legendItems>ul>li>a {
     text-decoration: none;
     color: #152d74;
 }
 
-.legend>ul>li::before {
-    content: "⸺";
+.legendItems>ul>li::before {
+    content: "———";
+    font-family: monospace;
     margin-right: 0.1em;
     font-weight: bold;
 }
 
-.legend>ul>li.inactive::before {
+.legendItems>ul>li.inactive::before {
     visibility: hidden;
 }
 
 #manualComparisons>li::before {
-    content: "– –";
+    content: "— —";
 }
 
-.legend>ul>li.color0::before {
+.legendItems>ul>li.color0::before {
     color: #f94a01;
 }
 
-.legend>ul>li.color1::before {
+.legendItems>ul>li.color1::before {
     color: #6b42b6;
 }
 
-.legend>ul>li.color2::before {
+.legendItems>ul>li.color2::before {
     color: #11a854;
 }
 
-.legend>ul>li.color3::before {
+.legendItems>ul>li.color3::before {
     color: #128db2;
 }
 
-.legend>ul>li.color4::before {
+.legendItems>ul>li.color4::before {
     color: #e12fbc;
 }
 
-.legend>ul>li.color5::before {
+.legendItems>ul>li.color5::before {
     color: #e6ab02;
 }
 
-.legend>ul>li.color6::before {
+.legendItems>ul>li.color6::before {
     color: #b40e0e;
 }
 
-.legend>ul>li.color7::before {
+.legendItems>ul>li.color7::before {
     color: #4257b6;
 }
 
-.legend>ul>li.color8::before {
+.legendItems>ul>li.color8::before {
     color: #18a380;
 }
 
-.legend>ul>li.color9::before {
+.legendItems>ul>li.color9::before {
     color: #ad27c5;
 }
 
-.legend>ul>li.color10::before {
+.legendItems>ul>li.color10::before {
     color: #2e2e2e;
 }
 
-.legend input[type="text"] {
+.legendItems input[type="text"] {
     font-size: 80%;
     min-width: 5.2em;
 }
 
-.legend input[type="button"] {
+.legendItems input[type="button"] {
     font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
     font-size: 90%;
     width: 1.4em;
@@ -446,4 +481,55 @@ a {
     text-decoration: none;
     display: inline-block;
     font-size: 80%;
+}
+
+.github-corner>svg {
+    fill: #666;
+    color: #fff;
+    position: absolute;
+    top: 0;
+    border: 0;
+    right: 0;
+    width: 3.5em;
+    height: 3.5em;
+}
+
+.github-corner:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out;
+}
+
+@keyframes octocat-wave {
+    0%, 100% {
+        transform: rotate(0);
+    }
+    20%, 60% {
+        transform: rotate(-25deg);
+    }
+    40%, 80% {
+        transform: rotate(10deg);
+    }
+}
+
+@media (max-width: 70em) {
+    body {
+        font-size: 16px;
+    }
+    .pageContainer {
+        width: 95%;
+    }
+    .appContainer {
+        width: 100%;
+    }
+    .plotContainer {
+        left: 0;
+        width: 68%;
+    }
+    .legend {
+        left: 70%;
+        font-size: 75%;
+    }
+    .github-corner>svg {
+        width: 2.5em;
+        height: 2.5em;
+    }
 }

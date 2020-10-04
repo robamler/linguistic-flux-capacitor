@@ -8,6 +8,12 @@ import metaDataFile from "../assets/googlebooks_metadata_1800to2008_vocabsize300
 let backendPromise = import("./backend.js");
 
 (async function () {
+    if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
+        // Error message will be unveiled from main page because it's unclear whether
+        // ancient browsers that don't support WebAssembly can even parse this JS file.
+        return;
+    }
+
     const Plotter = await import('./plotting/main.mjs');
     if (document.readyState === 'loading') {
         await new Promise(function (resolve, _reject) {
@@ -161,7 +167,7 @@ let backendPromise = import("./backend.js");
             manualComparisonInputs.push(otherWordInput);
             manualComparisonRemoveButtons.push(removeButton);
 
-            let inputEventHandler = () => manualComparisonChanged(otherWordInput, manualIndex);
+            let inputEventHandler = event => manualComparisonChanged(event, otherWordInput, manualIndex);
             otherWordInput.onkeydown = inputEventHandler;
             otherWordInput.onchange = inputEventHandler;
             otherWordInput.onclick = inputEventHandler;
@@ -211,12 +217,11 @@ let backendPromise = import("./backend.js");
     window.addEventListener('popstate', on_popstate);
     setTimeout(() => {
         on_popstate();
+        if (currentWord === '') {
+            mainPlot.showInputPrompt();
+        }
         wordInput.selectionStart = wordInput.selectionEnd = wordInput.value.length;
         wordInput.focus();
-        if (currentWord === '') {
-            // Explicitly clear plot so that prompt becomes visible.
-            mainPlot.clear();
-        }
     }, 0);
 
     function getLinkAndDescription() {
@@ -255,7 +260,7 @@ let backendPromise = import("./backend.js");
     async function copyLink(event) {
         event.preventDefault();
         let [link, description] = getLinkAndDescription();
-        await navigator.clipboard.writeText(description + ':\n' + link);
+        await navigator.clipboard.writeText(description + ': ' + link);
         let toast = document.querySelector('.toast');
         toast.style.display = 'inline-block';
         toast.style.opacity = 1;
@@ -279,13 +284,20 @@ let backendPromise = import("./backend.js");
     }
 
     function wordChanged() {
+        let handler = () => updatePlot(wordInput.value.trim(), null);
+
         // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => updatePlot(wordInput.value.trim(), null), 0);
+        setTimeout(handler, 0);
+
+        // Fire one more time with some delay. This is an ugly hack to work around an
+        // unresolved issue where sometimes the last keystroke does not get registered
+        // (mainly on Safari, but sometimes also on other browsers). The handler doesn't
+        // do much work if `updatePlot` realizes that nothing actually changed.
+        setTimeout(handler, 300);
     }
 
-    function manualComparisonChanged(inputField, index) {
-        // Wait for next turn in JS executor to let change take effect.
-        setTimeout(() => {
+    function manualComparisonChanged(event, inputField, index) {
+        let handler = () => {
             let otherWord = inputField.value.trim();
 
             // Make a *copy* of the array so that `updatePlot` can check if anything changed.
@@ -300,8 +312,20 @@ let backendPromise = import("./backend.js");
                 newManualComparisons.push(otherWord);
             }
             updatePlot(null, newManualComparisons);
-            mainPlot.setMainLine(suggestedComparisonItems.length + index);
-        }, 0);
+
+            if (event.type !== 'blur' && event.type !== 'change') {
+                mainPlot.setMainLine(suggestedComparisonItems.length + index);
+            }
+        };
+
+        // Wait for next turn in JS executor to let change take effect.
+        setTimeout(handler, 0);
+
+        // Fire one more time with some delay. This is an ugly hack to work around an
+        // unresolved issue where sometimes the last keystroke does not get registered.
+        // (mainly on Safari, but sometimes also on other browsers). The handler doesn't
+        // do much work if `updatePlot` realizes that nothing actually changed.
+        setTimeout(handler, 300);
     }
 
     function removeManualComparison(index) {
@@ -409,12 +433,16 @@ let backendPromise = import("./backend.js");
             mainPlot.clear();
 
             if (currentWord === '') {
-                legend.style.display = 'none';
+                document.title = "The Linguistic Time Capsule";
+                mainPlot.showInputPrompt();
+                legend.classList.add('empty');
                 if (!suppress_save_state) {
                     history.pushState(null, "The Linguistic Time Capsule", "#");
                 }
                 return;
             }
+
+            document.title = "The Linguistic Time Capsule: " + currentWord;
 
             if (!suppress_save_state) {
                 let stateUrl = "#v=0&c=en&w=" + encodeURIComponent(currentWord);
@@ -424,7 +452,7 @@ let backendPromise = import("./backend.js");
                 history.pushState(null, "The Linguistic Time Capsule: " + currentWord, stateUrl);
             }
 
-            legend.style.display = 'block';
+            legend.classList.remove('empty');
             allComparisonItems.forEach(el => {
                 el.classList.remove('hovering');
                 el.firstElementChild.textContent = currentWord;

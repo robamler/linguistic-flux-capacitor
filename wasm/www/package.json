@@ -1,5 +1,5 @@
 {
-  "name": "word-history-explorer",
+  "name": "linguistic-time-capsule",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
@@ -12,9 +12,10 @@
   "author": "Robert Bamler <robert.bamler@gmail.com>",
   "license": "(MIT OR Apache-2.0)",
   "dependencies": {
-    "word-history-explorer-backend": "file:../pkg"
+    "linguistic-time-capsule-backend": "file:../pkg"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^6.1.1",
     "css-loader": "^3.4.0",
     "file-loader": "^5.0.2",
     "html-loader": "^0.5.5",

@@ -36,7 +36,7 @@ export function createPlot(
     let showMousePrompt = true;
 
     _initialize()
-    return { plotLine, setMainLine, clear, hoverLine, unhoverLine, lineToFront };
+    return { plotLine, setMainLine, clear, showInputPrompt, hoverLine, unhoverLine, lineToFront };
 
     function _initialize() {
         const svg = createSvgElement('svg');
@@ -156,17 +156,23 @@ export function createPlot(
         });
         svg.appendChild(inputPrompt);
 
-        mousePrompt = createSvgElement('text', 'plotPrompt', { y: 95 });
-        ['Move mouse', 'across this area', 'to explore more.'].forEach((text, index) => {
-            let tspan = createSvgElement('tspan', null, { x: 347, dy: index === 0 ? '0' : '1.2em' });
-            tspan.appendChild(document.createTextNode(text));
-            mousePrompt.appendChild(tspan);
-        });
-        mousePrompt.addEventListener('mouseover', () => {
-            mousePrompt.style.opacity = 0;
+        mousePrompt = createSvgElement('g', 'plotPrompt');
+        for (let i = 0; i < 2; i += 1) {
+            let current = createSvgElement('text', i === 0 ? 'plotPromptOutline' : '', { y: 95 });
+            ['Move mouse', 'across this area', 'to explore more.'].forEach((text, index) => {
+                let tspan = createSvgElement('tspan', null, { x: 347, dy: index === 0 ? '0' : '1.2em' });
+                tspan.appendChild(document.createTextNode(text));
+                current.appendChild(tspan);
+            });
+            mousePrompt.appendChild(current);
+        }
+        let removeLinePrompt = () => {
             showMousePrompt = false;
+            mousePrompt.style.opacity = 0;
             setTimeout(() => mousePrompt.style.display = 'none', 500);
-        });
+        };
+        mousePrompt.addEventListener('mouseover', removeLinePrompt);
+        mousePrompt.addEventListener('click', removeLinePrompt);
 
         svg.appendChild(mousePrompt);
 
@@ -212,9 +218,12 @@ export function createPlot(
                     }
                     hoverCursorContainer.classList.remove('hidden');
 
-                    showMousePrompt = false;
-                    mousePrompt.style.opacity = 0;
-                    setTimeout(() => mousePrompt.style.display = 'none', 500);
+                    if (showMousePrompt) {
+                        showMousePrompt = false;
+                        mousePrompt.style.opacity = 0;
+                        setTimeout(() => mousePrompt.style.display = 'none', 500);
+                    }
+
                     updateTooltipContents(cursorTooltip, line, index);
                     showTooltip(cursorTooltip, line, index, mouseY < y);
                 }
@@ -376,7 +385,15 @@ export function createPlot(
             payload,
         };
 
-        lineGroup.addEventListener('click', () => setMainLine(lines.indexOf(line)));
+        lineGroup.addEventListener('click', () => {
+            if (showMousePrompt) {
+                showMousePrompt = false;
+                mousePrompt.style.opacity = 0;
+                setTimeout(() => mousePrompt.style.display = 'none', 500);
+            }
+
+            setMainLine(lines.indexOf(line));
+        });
         lineGroup.addEventListener('mouseover', () => lineMouseover(lines.indexOf(line)));
         lineGroup.addEventListener('mouseout', () => lineMouseout(lines.indexOf(line)));
         lines.push(line);
@@ -423,13 +440,18 @@ export function createPlot(
         while (plotPane.childNodes.length != 0) {
             plotPane.childNodes.forEach(el => el.remove());
         }
+    }
 
-        mousePrompt.style.opacity = 0;
-        setTimeout(() => {
-            if (mousePrompt.style.opacity == 0) { // Yes, we want == and not === here.
-                mousePrompt.style.display = 'none';
-            }
-        }, 500);
+    function showInputPrompt() {
+        if (showMousePrompt) {
+            mousePrompt.style.opacity = 0;
+            setTimeout(() => {
+                if (mousePrompt.style.opacity == 0) { // Yes, we want == and not === here.
+                    mousePrompt.style.display = 'none';
+                }
+            }, 500);
+        }
+
         inputPrompt.style.display = 'block';
         inputPrompt.style.opacity = 0.7;
     }
@@ -487,8 +509,6 @@ export function createPlot(
         let y = coordY * containerElement.offsetHeight / SVG_HEIGHT;
         tooltip.style.left = x + 'px';
         tooltip.style.top = y + 'px';
-
-        let relativeY = (coordY - MIN_Y) / (MAX_Y - MIN_Y);
 
         if (showBelow) {
             tooltip.classList.add('pointsUp');
