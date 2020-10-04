@@ -3,8 +3,8 @@ authors = ["Robert Bamler <robert.bamler@gmail.com>"]
 description = "Provides access to compressed dynamic word embeddings files from WebAssembly."
 edition = "2018"
 license = "MIT OR Apache-2.0"
-name = "linguistic-time-capsule-backend"
-repository = "https://github.com/robamler/linguistic-time-capsule.git"
+name = "linguistic-flux-capacitor-backend"
+repository = "https://github.com/robamler/linguistic-flux-capacitor.git"
 version = "0.0.1"
 
 [lib]

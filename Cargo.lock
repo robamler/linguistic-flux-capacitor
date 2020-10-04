@@ -346,6 +346,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "flux-capacitor"
+version = "0.0.1"
+dependencies = [
+ "byteorder",
+ "compressed_dynamic_word_embeddings",
+ "failure",
+ "log",
+ "ndarray",
+ "ndarray-npy",
+ "stderrlog",
+ "structopt",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -438,7 +452,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2f02823cf78b754822df5f7f268fb59822e7296276d3e069d8e8cb26a14bd10"
 
 [[package]]
-name = "linguistic-time-capsule-backend"
+name = "linguistic-flux-capacitor-backend"
 version = "0.0.1"
 dependencies = [
  "byteorder",
@@ -1126,20 +1140,6 @@ checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "time-capsule"
-version = "0.0.1"
-dependencies = [
- "byteorder",
- "compressed_dynamic_word_embeddings",
- "failure",
- "log",
- "ndarray",
- "ndarray-npy",
- "stderrlog",
- "structopt",
 ]
 
 [[package]]
