@@ -1,7 +1,7 @@
-name: New or Updated Pull Request
+name: Test and Deploy
 
 on:
-  pull_request:
+  push:
     branches:
     - master
   workflow_dispatch:
@@ -10,20 +10,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check-rust-code-format:
-    name: Check rust code format
+  test-and-deploy:
+    name: Test, build, and deploy
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - run: cargo fmt -- --check
 
-  test-and-stage:
-    name: Test, build, and stage
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
+    - name: Get tools versions
+      id: versions
+      run: |
+        echo "::set-output name=rustc::`rustc --version | awk '{print $2}'`"
+        echo "::set-output name=node::10.16"
 
     - name: Cache backend (cargo) dependencies
       uses: actions/cache@v2
@@ -31,9 +29,10 @@ jobs:
         path: |
           target
           .cargo_home
-        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+        key: ${{ runner.os }}-rustc-${{ steps.versions.outputs.rustc }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-
+          ${{ runner.os }}-rustc-${{ steps.versions.outputs.rustc }}-
+          ${{ runner.os }}-rustc-
 
     - name: Run backend tests
       run: CARGO_HOME=.cargo_home cargo test
@@ -49,10 +48,10 @@ jobs:
     - name: Build backend
       run: cd wasm && CARGO_HOME=../.cargo_home wasm-pack build
 
-    - name: Install node.js version 10.16 
+    - name: Install node.js
       uses: actions/setup-node@v1
       with:
-        node-version: 10.16
+        node-version: ${{ steps.versions.outputs.node }}
 
     - name: Audit npm dependencies (with --audit-level=high)
       run: cd wasm/www && npm audit --audit-level=high
@@ -61,8 +60,9 @@ jobs:
       uses: actions/cache@v2
       with:
         path: wasm/www/node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('wasm/www/package-lock.json') }}
+        key: ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-${{ hashFiles('wasm/package-lock.json') }}
         restore-keys: |
+          ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-
           ${{ runner.os }}-node-
 
     - name: Install frontend (npm) dependencies
@@ -71,11 +71,10 @@ jobs:
     - name: Get frontend assets from current staging branch
       uses: actions/checkout@v2
       with:
-        # TODO: set to "gh-pages" (also in title) when available
         ref: gh-pages-staging
         path: wasm/www/assets.tmp
-    
-    - name: Clean up unused assets
+
+    - name: Move over assets
       run: |
         cd wasm/www
         mv assets.tmp/*.dwe assets/*.dwe
@@ -85,9 +84,9 @@ jobs:
     - name: Build frontend
       run: cd wasm/www && npm run build
 
-    - name: Stage to gh-pages-staging
+    - name: Deploy to gh-pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./wasm/www/dist
-        publish_branch: gh-pages-staging
+        commit_message: Deploy
