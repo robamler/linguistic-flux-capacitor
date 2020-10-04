@@ -17,6 +17,7 @@ h1 {
     font-family: 'DM Serif Display', serif;
     margin: 0.3em 0 0.7em 0;
     padding: 0;
+    line-height: 1.1em;
 }
 
 .app>h2 {
@@ -136,7 +137,7 @@ footer {
 
 .plotAndLegend {
     position: relative;
-    margin-top: 1.3em;
+    margin: 1.3em -2% 0 -2%;
 }
 
 .plotContainer {
@@ -506,5 +507,29 @@ a {
     }
     40%, 80% {
         transform: rotate(10deg);
+    }
+}
+
+@media (max-width: 70em) {
+    body {
+        font-size: 16px;
+    }
+    .pageContainer {
+        width: 95%;
+    }
+    .appContainer {
+        width: 100%;
+    }
+    .plotContainer {
+        left: 0;
+        width: 68%;
+    }
+    .legend {
+        left: 70%;
+        font-size: 75%;
+    }
+    .github-corner>svg {
+        width: 2.5em;
+        height: 2.5em;
     }
 }

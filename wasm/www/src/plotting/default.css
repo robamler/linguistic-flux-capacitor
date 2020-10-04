@@ -61,7 +61,6 @@ svg.plot .plotPrompt {
     text-anchor: middle;
     opacity: 0;
     display: none;
-    text-shadow: 0 0 0.1em #fff;
     transition: opacity 0.4s;
 }
 
@@ -257,11 +256,22 @@ svg.plot .hoverCursor.color10 {
 .plot.tooltip {
     position: relative;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 16pt;
     transition: opacity 0.4s cubic-bezier(.75, 0, .84, .05);
     opacity: 0.97;
     width: 0;
     /* (Setting `width` to zero prevents spurious horizontal scroll bar from appearing.) */
+}
+
+@media (max-width: 60em) {
+    .plot.tooltip {
+        font-size: 80%;
+    }
+}
+
+@media (max-width: 40em) {
+    .plot.tooltip {
+        font-size: 70%;
+    }
 }
 
 .plot.tooltip.hidden {

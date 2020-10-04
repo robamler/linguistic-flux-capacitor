@@ -166,11 +166,13 @@ export function createPlot(
             });
             mousePrompt.appendChild(current);
         }
-        mousePrompt.addEventListener('mouseover', () => {
+        let removeLinePrompt = () => {
             showMousePrompt = false;
             mousePrompt.style.opacity = 0;
             setTimeout(() => mousePrompt.style.display = 'none', 500);
-        });
+        };
+        mousePrompt.addEventListener('mouseover', removeLinePrompt);
+        mousePrompt.addEventListener('click', removeLinePrompt);
 
         svg.appendChild(mousePrompt);
 
@@ -383,7 +385,15 @@ export function createPlot(
             payload,
         };
 
-        lineGroup.addEventListener('click', () => setMainLine(lines.indexOf(line)));
+        lineGroup.addEventListener('click', () => {
+            if (showMousePrompt) {
+                showMousePrompt = false;
+                mousePrompt.style.opacity = 0;
+                setTimeout(() => mousePrompt.style.display = 'none', 500);
+            }
+
+            setMainLine(lines.indexOf(line));
+        });
         lineGroup.addEventListener('mouseover', () => lineMouseover(lines.indexOf(line)));
         lineGroup.addEventListener('mouseout', () => lineMouseout(lines.indexOf(line)));
         lines.push(line);
