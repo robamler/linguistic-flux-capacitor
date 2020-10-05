@@ -77,31 +77,36 @@
                     <tr>
                         <td>
                             <a href='https://getfirefox.com'>
-                                <img id='firefox-logo' alt='Mozilla Firefox'><br>
+                                <img src='data:image/gif;base64,R0lGODdhAQABAIAAAP///////ywAAAAAAQABAAACAkQBADs='
+                                    id='firefox-logo' alt='Mozilla Firefox'><br>
                                 Mozilla Firefox
                             </a>
                         </td>
                         <td>
                             <a href='https://www.google.com/chrome/'>
-                                <img id='chrome-logo' alt='Google Chrome'><br>
+                                <img src='data:image/gif;base64,R0lGODdhAQABAIAAAP///////ywAAAAAAQABAAACAkQBADs='
+                                    id='chrome-logo' alt='Google Chrome'><br>
                                 Google Chrome
                             </a>
                         </td>
                         <td>
                             <a href='https://www.apple.com/safari/'>
-                                <img id='safari-logo' alt='Apple Safari'><br>
+                                <img src='data:image/gif;base64,R0lGODdhAQABAIAAAP///////ywAAAAAAQABAAACAkQBADs='
+                                    id='safari-logo' alt='Apple Safari'><br>
                                 Apple Safari
                             </a>
                         </td>
                         <td>
                             <a href='https://www.microsoft.com/en-us/edge'>
-                                <img id='edge-logo' alt='Microsoft Edge (Chromium)'><br>
+                                <img src='data:image/gif;base64,R0lGODdhAQABAIAAAP///////ywAAAAAAQABAAACAkQBADs='
+                                    id='edge-logo' alt='Microsoft Edge (Chromium)'><br>
                                 Microsoft Edge (Chromium)
                             </a>
                         </td>
                         <td>
                             <a href='https://www.opera.com/'>
-                                <img id='opera-logo' alt='Opera (Chromium)'><br>
+                                <img src='data:image/gif;base64,R0lGODdhAQABAIAAAP///////ywAAAAAAQABAAACAkQBADs='
+                                    id='opera-logo' alt='Opera (Chromium)'><br>
                                 Opera (Chromium)
                             </a>
                         </td>
@@ -126,14 +131,14 @@
                 </div>
                 <div class='centered hint'>
                     <strong>hint:</strong> try
-                    “<a href="#v=0&c=en&w=surgery">surgery</a>”,
                     “<a href="#v=0&c=en&w=file">file</a>”,
-                    “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
                     “<a href="#v=0&c=en&w=peer">peer</a>”,
+                    “<a href="#v=0&c=en&w=taxes">taxes</a>”,
+                    “<a href="#v=0&c=en&w=pathetic">pathetic</a>”,
                     “<a href="#v=0&c=en&w=marginal">marginal</a>”,
-                    “<a href="#v=0&c=en&w=monitor">monitor</a>”,
-                    “<a href="#v=0&c=en&w=energy">energy</a>”, or
-                    “<a href="#v=0&c=en&w=novel">novel</a>”
+                    “<a href="#v=0&c=en&w=surgery">surgery</a>”,
+                    “<a href="#v=0&c=en&w=communism">communism</a>”, or
+                    “<a href="#v=0&c=en&w=monitor">monitor</a>”
                 </div>
                 <div class='plotAndLegend'>
                     <div class='legend empty' id='mainLegend'>
@@ -261,7 +266,7 @@
                 </div>
             </div>
         </div>
-        <script type="text/javascript">
+        <script>
             // For very old browsers (mainly IE) that don't support WebAssembly.
             if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
                 // Load browser logos only if they're needed (which is highly unlikely).
@@ -280,39 +285,43 @@
                 This app lets you explore how the meaning of individual words in the English language has changed over
                 the past two centuries.
             </p>
-            <p>
             <h3>Try it out:</h3>
             enter the word
-            “<a href="#v=0&c=en&w=surgery"
-                onclick="document.querySelector('.app').scrollIntoView({ behavior: 'smooth', block:'nearest' })">surgery</a>”
+            “<a href="#v=0&c=en&w=file"
+                onclick="document.querySelector('.app').scrollIntoView({ behavior: 'smooth', block:'nearest' })">file</a>”
             into the text box at the top of the page.
-            You'll see a diagram with several lines that compare the word “surgery” to other words.
+            You'll see a diagram with several lines that compare the word “file” to other words.
             Some lines go up and others go down.
             Look at the legend on the right.
-            It says that the orange line, for example, measures similarity between the words “surgery” and
-            “anesthesia”.
-            This similarity stays close to zero until about 1850, suggesting that people didn't associate surgeries
-            with anesthetics until the middle of the 19th century&mdash;a gruesome thought from today's perspective.
-            </p>
+            It says that the orange line, for example, measures similarity between the words “file” and
+            “database”.
+            This similarity stays close to zero for the entire 19th century and only goes up recently.
+            So far, that's not too surprising.
             <p>
-                Now look at the pink line.
-                It measures similarity between the words “surgery” and “morality”, and it goes down.
-                Could this mean that society used to be critical of the thought of doctors intervening with peoples
-                destiny, and has since become more supportive of this idea?
-                Or does it mean that society has just lost interest in discussing the moral implications of surgeries?
-                <em>I don't know the answer,</em> but it would sure be an interesting question to research (if you know
-                the answer, please <a href="https://robamler.github.io">reach out to me</a>).
+                But now look at the yellow line.
+                It measures similarity between the words “file” and “wounded”, and it goes down.
+                Where does this come from, and what do the words “file” and “wounded” have in common?
+                To answer this question, click on the yellow line in the diagram and move your mouse towards the year
+                1800.
+                You'll see a popup that tells you which other words were related to “file” and “wounded”, respectively,
+                in this year.
+                In the column for “file” you'll find words like “gun”, “marines”, and “soldier”.
+                Since English is not my first language I was surprised when I found this, so I searched for an
+                explanation.
+                This way I found out that the word “file” can also refer to a
+                <a href='https://en.wikipedia.org/wiki/File_(formation)' target='_blank'>military formation</a> (and,
+                by the way, also to the way
+                <a href='https://dictionary.cambridge.org/dictionary/english/single-file' target='_blank'>schoolchildren
+                    are sometimes told to walk</a>).
+                <em>I learned something new today!</em>
             </p>
 
-            <p>
             <h3>Your turn:</h3>
-            click on a line and move your mouse across the diagram to dive in deeper.
-            You'll see a popup that shows how word associations changed over time.
+            click on a different line and move your mouse across the diagram to dive in deeper.
             Click on a word in the popup or enter a different word in the input box to continue your journey back in
             time.
-            </p>
-
             <p>
+
             <h3>A word of warning:</h3>
             remember that this is just a tool for <em>hypothesis generation</em>.
             Our language model is far from perfect, so take all diagrams with a grain of salt.
@@ -321,9 +330,11 @@
             Nevertheless, if you play with this app for a while you'll likely find something that's
             <em>interesting</em>.
             Formulate your findings as a hypothesis and use complementary tools to research it.
-            </p>
 
-            <h2>What Do You Mean With “Word Similarity”?</h2>
+            <h2>
+                What Do You Mean With “Word Similarity”?
+                <span class='subtitle'>(and what is a flux capacitor?)</span>
+            </h2>
             <p>
                 The lines in the above diagram measure a very specific notion of “word similarity” that may be
                 counterintuitive in some cases.
@@ -347,6 +358,18 @@
                 language.
                 But the two words are very different: “you” is a pronoun and “are” is a verb, so we can't even compare
                 them.
+            </p>
+            <p>
+                And, since you asked, a <strong>flux capacitor</strong> was a critical component of time machines built
+                in the 1980s.
+                The term is used here as a
+                <a href="#v=0&c=en&w=metaphor"
+                    onclick="document.querySelector('.app').scrollIntoView({ behavior: 'smooth', block:'nearest' })">metaphor</a>
+                since this app lets you travel back in time.
+                According to the
+                <a href="https://www.imdb.com/title/tt0088763/" target="_blank">publication</a>, a flux capacitor only
+                works once it has been accelerated to 88&nbsp;mph, which is why we've spent a lot of effort on making
+                this app <em>lightning</em> fast.
             </p>
 
             <h2>Who Built This?</h2>
@@ -373,24 +396,23 @@
             </ul>
             <p>
                 You can read more about the natural language model and the compression algorithm in the scientific
-                papers
-                listed in the next section below.
+                papers listed in the next section below.
             </p>
 
             <h2>
                 How Does This Work?
-                <div class="subtitle">(and how can I cite it?)</div>
+                <span class="subtitle">(and how can I cite it?)</span>
             </h2>
             <p>
-                This app is a technical demonstration of both a natural language model and a novel compression algorithm
-                for machine learning models.
-                If this app is useful for your research then please consider citing one of the following papers (if
-                you're not sure which one, choose the first one).
+                This app is a technical demonstration of both a natural language model and a novel compression
+                algorithm for machine learning models.
+                If this app is useful for your research then please consider citing one of the following papers
+                (if you're not sure which one, choose the first one).
             </p>
             <p>
-                <strong>The natural language model</strong> is a probabilistic time series model that represents each
-                word by a
-                trajectory in a semantic vector space.
+                <strong>The natural language model</strong> is a probabilistic time series model that represents
+                each
+                word by a trajectory in a semantic vector space.
                 The model is trained on digitized historic books from the
                 <a href="http://storage.googleapis.com/books/ngrams/books/datasetsv2.html" target="_blank">Google
                     Books</a> corpus (about 10 billion words).
@@ -417,23 +439,22 @@
                 </li>
             </ul>
             <p>
-                An unusual approach in this app is that all model predictions are calculated on the client side, i.e.,
-                <em>the model runs directly inside your browser</em>.
-                This is why predictions appear almost instantly: we don't have to send a request to some server every
-                time you press a key or move your mouse across the diagram.
+                An unusual approach in this app is that all model predictions are calculated on the client side,
+                i.e., <em>the model runs directly inside your browser</em>.
+                This is why predictions appear almost instantly: we don't have to send a request to some server
+                every time you press a key or move your mouse across the diagram.
                 However, the trained model has about 600&nbsp;million parameters.
                 So how can we run such a large model in your browser without forcing a giant download on you?
             </p>
             <p>
-                The answer lies in a novel <strong>compression algorithm</strong> for Bayesian machine learning models,
-                which packs the
-                600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size (about 0.34&nbsp;bits per
-                model parameter).
+                The answer lies in a novel <strong>compression algorithm</strong> for Bayesian machine learning
+                models, which packs the 600&nbsp;million model parameters into a file that's just 26&nbsp;MB in size
+                (about 0.34&nbsp;bits per model parameter).
                 The main idea is to exploit the model's varying degree of certainty about its own parameters.
-                Some model parameters are known only up to some degree of uncertainty, and we therefore encode these
-                parameters with lower accuracy than parameters about which the model is very confident.
-                Such <em>posterior uncertainty estimates</em> can be derived in a principled way using approximate
-                Bayesian machine learning methods.
+                Some model parameters are known only up to some degree of uncertainty, and we therefore encode
+                these parameters with lower accuracy than parameters about which the model is very confident.
+                Such <em>posterior uncertainty estimates</em> can be derived in a principled way using
+                approximate Bayesian machine learning methods.
                 Details of this novel compression algorithm are described in the following paper:
             </p>
             <ul>
@@ -446,12 +467,12 @@
                 </li>
             </ul>
             <p>
-                In this web app, a WebAssembly module decompresses parts of the model lazily just when they're needed
-                for some calculation.
-                We discard the decompressed part of the model immediately after the calculation so that we never have to
-                hold the entire uncompressed model in memory.
-                You can find the code <a href="https://github.com/robamler/linguistic-flux-capacitor" target="_blank">on
-                    Github</a>.
+                In this web app, a WebAssembly module decompresses parts of the model lazily just when they're
+                needed for some calculation.
+                We discard the decompressed part of the model immediately after the calculation so that we never
+                have to hold the entire uncompressed model in memory.
+                You can find the code
+                <a href="https://github.com/robamler/linguistic-flux-capacitor" target="_blank">on Github</a>.
             </p>
 
             <h2>Could You Add Language X or Feature Y?</h2>
@@ -475,8 +496,8 @@
                         paper</a>);
                 </li>
                 <li>
-                    adding specialized corpora to analyze how language evolves within a specific community (e.g.,
-                    scientific communities, courts, or parliaments);
+                    adding specialized corpora to analyze how language evolves within a specific community
+                    (e.g., scientific communities, courts, or parliaments);
                 </li>
                 <li>
                     adding more languages besides English (maybe one you speak?).
