@@ -1,5 +1,7 @@
 # The Linguistic Flux Capacitor
 
+![Test and Deploy status](https://github.com/robamler/linguistic-flux-capacitor/workflows/Test%20and%20Deploy/badge.svg)
+
 The Linguistic Flux Capacitor is a free web application that lets you explore how the meaning of words in the English language has changed over the past two centuries.
 
 **Try it out (no installation required):**
