@@ -68,7 +68,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: wasm/www/node_modules
-        key: ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-${{ hashFiles('wasm/package-lock.json') }}
+        key: ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-${{ hashFiles('wasm/www/package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-
           ${{ runner.os }}-node-
