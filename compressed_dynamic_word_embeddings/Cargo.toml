@@ -12,6 +12,7 @@ rand = "0.7.2"
 static_assertions = "1.1.0"
 
 [dev-dependencies]
+constriction = {path = "../../constriction"}
 criterion = "0.3"
 
 [[bench]]
