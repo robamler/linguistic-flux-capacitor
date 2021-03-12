@@ -5,9 +5,12 @@ use std::{fs::File, io::BufReader};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use constriction::{
-    models::lookup::{DecoderLookupTable, ExplicitSymbolTable},
-    stack::{backend::ReadCursorForward, Stack},
-    Decode,
+    backends::Cursor,
+    stream::{
+        models::lookup::{DecoderLookupTable, DefaultDecoderGenericLookupTable},
+        stack::AnsCoder,
+        Decode, Seek,
+    },
 };
 use criterion::{black_box, Criterion};
 use rand::prelude::*;
@@ -178,9 +181,8 @@ fn decompress_constriction(c: &mut Criterion) {
     let decompress_t = |t: u32| {
         let decoder_model = &decoder_models[t as usize];
         let JumpPointer { offset, state } = full_jump_table[t as usize * jump_points_per_timestep];
-        let buf =
-            ReadCursorForward::with_buf_and_pos(compressed_data_section, offset as usize).unwrap();
-        let mut decoder = Stack::with_buf_and_state(buf, state).unwrap();
+        let mut decoder = AnsCoder::from_reversed_compressed(compressed_data_section).unwrap();
+        decoder.seek((offset as usize, state)).unwrap();
 
         let mut checksum = 0i32;
         for _ in 0..vocab_size {
@@ -262,13 +264,7 @@ fn get_u16_slice(data: &[u32]) -> &[u16] {
 
 fn deserialize_decoder_model(
     serialized: &[u16],
-) -> Result<
-    (
-        DecoderLookupTable<i16, u16, Box<[u16]>, ExplicitSymbolTable<Box<[(u16, i16)]>>, 12>,
-        &[u16],
-    ),
-    (),
-> {
+) -> Result<(DefaultDecoderGenericLookupTable<i16>, &[u16]), ()> {
     let num_symbols = serialized[0];
     let packed_size = 3 * num_symbols as usize / 4;
 
@@ -280,7 +276,7 @@ fn deserialize_decoder_model(
     let packed_frequencies =
         &serialized[1 + num_symbols as usize..1 + num_symbols as usize + packed_size];
 
-    let model = DecoderLookupTable::with_inferred_last_probability(
+    let model = DefaultDecoderGenericLookupTable::from_symbols_and_partial_probabilities(
         symbols.iter().map(|&s| s as i16),
         unpack_u12s(packed_frequencies, num_symbols - 1),
     )?;
