@@ -5,12 +5,8 @@ use std::{fs::File, io::BufReader};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use constriction::{
-    backends::Cursor,
-    stream::{
-        models::lookup::{DecoderLookupTable, DefaultDecoderGenericLookupTable},
-        stack::AnsCoder,
-        Decode, Seek,
-    },
+    stream::{models::lookup::DefaultDecoderGenericLookupTable, stack::AnsCoder, Decode},
+    Seek,
 };
 use criterion::{black_box, Criterion};
 use rand::prelude::*;
