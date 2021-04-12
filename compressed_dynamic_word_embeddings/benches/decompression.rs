@@ -5,7 +5,7 @@ use std::{fs::File, io::BufReader};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use constriction::{
-    stream::{models::lookup::DefaultDecoderGenericLookupTable, stack::AnsCoder, Decode},
+    stream::{models::SmallNonContiguousLookupDecoderModel, stack::AnsCoder, Decode},
     Seek,
 };
 use criterion::{black_box, Criterion};
@@ -260,7 +260,7 @@ fn get_u16_slice(data: &[u32]) -> &[u16] {
 
 fn deserialize_decoder_model(
     serialized: &[u16],
-) -> Result<(DefaultDecoderGenericLookupTable<i16>, &[u16]), ()> {
+) -> Result<(SmallNonContiguousLookupDecoderModel<i16>, &[u16]), ()> {
     let num_symbols = serialized[0];
     let packed_size = 3 * num_symbols as usize / 4;
 
@@ -272,10 +272,12 @@ fn deserialize_decoder_model(
     let packed_frequencies =
         &serialized[1 + num_symbols as usize..1 + num_symbols as usize + packed_size];
 
-    let model = DefaultDecoderGenericLookupTable::from_symbols_and_partial_probabilities(
-        symbols.iter().map(|&s| s as i16),
-        unpack_u12s(packed_frequencies, num_symbols - 1),
-    )?;
+    let model =
+        SmallNonContiguousLookupDecoderModel::from_symbols_and_nonzero_fixed_point_probabilities(
+            symbols.iter().map(|&s| s as i16),
+            unpack_u12s(packed_frequencies, num_symbols - 1),
+            true,
+        )?;
 
     Ok((model, remainder))
 }
