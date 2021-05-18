@@ -5,7 +5,7 @@ use std::{fs::File, io::BufReader};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use constriction::{
-    stream::{models::SmallNonContiguousLookupDecoderModel, stack::AnsCoder, Decode},
+    stream::{model::SmallNonContiguousLookupDecoderModel, stack::AnsCoder, Decode},
     Seek,
 };
 use criterion::{black_box, Criterion};
@@ -175,34 +175,18 @@ fn decompress_constriction(c: &mut Criterion) {
     let compressed_data_section = get_u16_slice(&data[compressed_data_start..]);
 
     let decompress_t = |t: u32| {
-        let decoder_model = &decoder_models[t as usize];
+        let decoder_model = decoder_models[t as usize].as_view();
         let JumpPointer { offset, state } = full_jump_table[t as usize * jump_points_per_timestep];
         let mut decoder = AnsCoder::from_reversed_compressed(compressed_data_section).unwrap();
         decoder.seek((offset as usize, state)).unwrap();
 
         let mut checksum = 0i32;
         for _ in 0..vocab_size {
-            // for s in 0..embedding_dim {
-            //     let d = decoder.decode_symbol(decoder_model).unwrap();
-            //     // Perform some more-or-less realistic amount of computation on each symbol.
-            //     checksum = checksum.wrapping_add(s as i32 * d as i32);
-            // }
-
-            // for (s, d) in decoder
-            //     .decode_iid_symbols(embedding_dim as usize, decoder_model)
-            //     .map(Result::unwrap)
-            //     .enumerate()
-            // {
-            //     // Perform some more-or-less realistic amount of computation on each symbol.
-            //     checksum = checksum.wrapping_add(s as i32 * d as i32);
-            // }
-
-            decoder
-                .map_decode_iid_symbols(0..embedding_dim, decoder_model, |s, d| {
-                    // Perform some more-or-less realistic amount of computation on each symbol.
-                    checksum = checksum.wrapping_add(s as i32 * d as i32);
-                })
-                .unwrap();
+            for s in 0..embedding_dim {
+                let d = decoder.decode_symbol(decoder_model).unwrap();
+                // Perform some more-or-less realistic amount of computation on each symbol.
+                checksum = checksum.wrapping_add(s as i32 * d as i32);
+            }
         }
         checksum
     };

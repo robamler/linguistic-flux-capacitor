@@ -230,7 +230,7 @@ mod test {
 
         let packed = [];
         let frequencies = unpack_u12s(&packed, 0).collect::<Vec<_>>();
-        assert_eq!(frequencies, []);
+        assert!(frequencies.is_empty());
     }
 
     #[test]
@@ -257,7 +257,7 @@ mod test {
 
         let frequencies = [];
         let packed = pack_u12s(&frequencies).collect::<Vec<_>>();
-        assert_eq!(packed, []);
+        assert!(packed.is_empty());
 
         // Directly taken from the example in the file format specification:
         let frequencies = [0x167, 0x289, 0x3ab, 0x0cd, 0x5ef];
