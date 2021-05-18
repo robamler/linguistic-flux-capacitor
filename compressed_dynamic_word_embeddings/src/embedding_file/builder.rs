@@ -1,18 +1,20 @@
 use super::{FileHeader, JumpPointer, HEADER_SIZE};
 use crate::{
-    compression::Encoder12_16,
-    compression::{EncoderModel12_16, EntropyModel12_16},
     tensors::{RankThreeTensor, RankThreeTensorView},
     u12::pack_u12s,
 };
 
 use byteorder::{LittleEndian, WriteBytesExt};
+use constriction::Pos;
 
 use std::{collections::HashMap, convert::TryInto, io::Write};
 
+type EncoderModel = constriction::stream::model::SmallNonContiguousCategoricalEncoderModel<i16>;
+type AnsCoder = constriction::stream::stack::SmallAnsCoder;
+
 fn create_and_serialize_encoder_models(
     counts: &[HashMap<i16, u32>],
-) -> Result<(Vec<EncoderModel12_16<i16>>, Vec<u16>), ()> {
+) -> Result<(Vec<EncoderModel>, Vec<u16>), ()> {
     let mut serialized = Vec::new();
     let mut models = Vec::with_capacity(counts.len());
 
@@ -34,11 +36,11 @@ fn create_and_serialize_encoder_models(
         }
 
         models.push(
-            EntropyModel12_16::new(
+            EncoderModel::from_symbols_and_nonzero_fixed_point_probabilities(
                 symbols_and_frequencies.iter().map(|&(s, _)| s),
                 symbols_and_frequencies.iter().map(|&(_, f)| f),
-            )
-            .encoder_model(),
+                false,
+            )?,
         );
     }
 
@@ -52,7 +54,7 @@ fn create_and_serialize_encoder_models(
 
 fn compress_data(
     diffs: RankThreeTensorView<i16>,
-    encoder_models: &[EncoderModel12_16<i16>],
+    models: &[EncoderModel],
     jump_interval: u32,
 ) -> Result<(Vec<JumpPointer>, Vec<u16>), ()> {
     let (num_timesteps, vocab_size, embedding_dim) = diffs.shape();
@@ -76,53 +78,36 @@ fn compress_data(
 
     let jump_points_per_timestep = (vocab_size + jump_interval - 1) / jump_interval;
     let jump_table_len = num_timesteps * jump_points_per_timestep;
-    let mut jump_table_section = vec![
-        JumpPointer {
-            offset: 0,
-            state: 0
-        };
-        jump_table_len as usize
-    ];
-    let mut previous_encoder: Option<Encoder12_16<i16>> = None;
+    let mut jump_table_section = vec![JumpPointer::default(); jump_table_len as usize];
+
+    let mut encoder = AnsCoder::new();
 
     for &t in tree_order.iter().rev() {
-        let mut data_iter = diffs.subview(t as usize).slice().iter().rev();
+        let model = &models[t as usize];
+        let data = diffs.subview(t as usize).slice();
+        let chunks = data.chunks(jump_interval as usize * embedding_dim as usize);
 
-        previous_encoder = previous_encoder.map(|old| {
-            let (buf, state) = old.into_inner();
-            encoder_models[t as usize].encoder_with_history(buf, state)
-        });
-        let encoder = previous_encoder.get_or_insert_with(|| encoder_models[t as usize].encoder());
-
-        for i in (0..vocab_size).rev() {
-            for _k in (0..embedding_dim).rev() {
-                encoder
-                    .push_symbol(data_iter.next().unwrap())
-                    .map_err(|_| ())?;
-            }
-
-            if i % jump_interval == 0 {
-                jump_table_section[(t * jump_points_per_timestep + i / jump_interval) as usize] =
-                    JumpPointer {
-                        offset: encoder.compressed_len().try_into().map_err(|_| ())?,
-                        state: encoder.state(),
-                    }
-            }
+        for (i, chunk) in chunks.enumerate().rev() {
+            encoder
+                .encode_iid_symbols_reverse(chunk, model)
+                .map_err(|_| ())?;
+            let (pos, state) = encoder.pos();
+            jump_table_section[(t * jump_points_per_timestep + i as u32) as usize] = JumpPointer {
+                offset: pos as u32,
+                state,
+            };
         }
     }
 
-    let encoder = previous_encoder.unwrap();
+    let (mut compressed_data_section, _) = encoder.into_raw_parts();
+    compressed_data_section.reverse();
 
-    let final_compressed_size: u32 = encoder.compressed_len().try_into().map_err(|_| ())?;
-
+    let final_compressed_size: u32 = compressed_data_section.len().try_into().map_err(|_| ())?;
     for JumpPointer { offset, .. } in jump_table_section.iter_mut() {
         *offset = final_compressed_size - *offset;
     }
 
-    let (mut compressed_data_section, _) = encoder.into_inner();
-    compressed_data_section.reverse();
-
-    // Apply padding if necessary.
+    // Apply padding if necessary (*after* getting `final_compressed_size`).
     if compressed_data_section.len() % 2 == 1 {
         compressed_data_section.push(0);
     }

@@ -1,6 +1,8 @@
 use std::cmp::Ordering::*;
 use std::collections::BinaryHeap;
 
+use constriction::{stream::Decode, UnwrapInfallible};
+
 use crate::tensors::RankTwoTensorViewMut;
 
 use super::embedding_file::{EmbeddingFile, TimestepReader};
@@ -239,12 +241,11 @@ impl RandomAccessReader {
         let timestep_size = header.vocab_size * header.embedding_dim;
 
         let extract_timestep = |t| {
-            let mut buf = Vec::with_capacity(timestep_size as usize);
-            let mut decoder = self.file.timestep(t).unwrap().into_inner();
+            let (mut decoder, model) = self.file.timestep(t).unwrap().into_inner();
             decoder
-                .streaming_decode(0..timestep_size, |&s, _| buf.push(s))
-                .unwrap();
-            buf
+                .decode_iid_symbols(timestep_size as usize, model)
+                .map(UnwrapInfallible::unwrap_infallible)
+                .collect::<Vec<_>>()
         };
 
         let result = if t == 0 || t == header.num_timesteps - 1 {
@@ -258,15 +259,15 @@ impl RandomAccessReader {
 
             loop {
                 let t_center = (t_left + t_right) / 2;
-                let mut decoder = self.file.timestep(t_center).unwrap().into_inner();
-                decoder
-                    .streaming_decode(
-                        buf.iter_mut().zip(buf_left.iter().zip(buf_right.iter())),
-                        |&s, (target, (&l, &r))| {
-                            *target = s.wrapping_add(((l as i32 + r as i32) / 2) as i16);
-                        },
-                    )
-                    .unwrap();
+                let (mut decoder, model) = self.file.timestep(t_center).unwrap().into_inner();
+                let symbols = decoder.decode_iid_symbols(timestep_size as usize, model);
+                for (((s, target), &l), &r) in
+                    symbols.zip(buf.iter_mut()).zip(&buf_left).zip(&buf_right)
+                {
+                    *target = s
+                        .unwrap_infallible()
+                        .wrapping_add(((l as i32 + r as i32) / 2) as i16);
+                }
 
                 match t_center.cmp(&t) {
                     Equal => break buf,
@@ -312,8 +313,9 @@ impl RandomAccessReader {
             (emb_vector, timestep.into_inner())
         };
 
-        let (first_target, mut first_timestep) = extract_single_embedding_vector(0, target_word);
-        let (last_target, mut last_timestep) =
+        let (first_target, (mut first_timestep_decoder, first_timestep_model)) =
+            extract_single_embedding_vector(0, target_word);
+        let (last_target, (mut last_timestep_decoder, last_timestep_model)) =
             extract_single_embedding_vector(num_timesteps - 1, target_word);
 
         let mut increasing_front_runners = Vec::<FrontRunnerCandidate<i64>>::new();
@@ -323,19 +325,16 @@ impl RandomAccessReader {
         decreasing_front_runners.resize_with(amt as usize, Default::default);
 
         for word in 0..vocab_size {
-            let mut first_dot_product = 0;
-            first_timestep
-                .streaming_decode(first_target.iter(), |&a, &b| {
-                    first_dot_product += a as i32 * b as i32;
-                })
-                .unwrap();
-
-            let mut last_dot_product = 0;
-            last_timestep
-                .streaming_decode(last_target.iter(), |&a, &b| {
-                    last_dot_product += a as i32 * b as i32;
-                })
-                .unwrap();
+            let first_dot_product = first_timestep_decoder
+                .decode_iid_symbols(embedding_dim as usize, first_timestep_model)
+                .zip(&first_target)
+                .map(|(a, &b)| a.unwrap_infallible() as i32 * b as i32)
+                .sum::<i32>();
+            let last_dot_product = last_timestep_decoder
+                .decode_iid_symbols(embedding_dim as usize, last_timestep_model)
+                .zip(&last_target)
+                .map(|(a, &b)| a.unwrap_infallible() as i32 * b as i32)
+                .sum::<i32>();
 
             if word != target_word {
                 let diff = last_dot_product as i64 - first_dot_product as i64;

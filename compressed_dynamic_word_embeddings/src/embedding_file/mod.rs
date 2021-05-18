@@ -1,15 +1,22 @@
 use std::io::{Read, Write};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use constriction::{stream::Decode, Seek, UnwrapInfallible};
 
 use super::random_access_reader::RandomAccessReader;
-use crate::{compression::DecoderModel12_16, u12::unpack_u12s};
+use crate::u12::unpack_u12s;
 
 pub mod builder;
 
-type EntropyModel<SI, FI> = crate::compression::EntropyModel12_16<SI, FI>;
-type DecoderModel = crate::compression::DecoderModel12_16<i16>;
-type Decoder<'model, 'data> = crate::compression::Decoder12_16<'model, 'data, i16>;
+type Cursor<'data> = constriction::backends::Cursor<u16, &'data [u16]>;
+type ReversedCursor<'data> = constriction::backends::Reverse<Cursor<'data>>;
+type DecoderModel = constriction::stream::model::SmallNonContiguousLookupDecoderModel<i16>;
+type DecoderModelView<'a> = constriction::stream::model::SmallNonContiguousLookupDecoderModel<
+    i16,
+    &'a [(u16, i16)],
+    &'a [u16],
+>;
+type Decoder<'data> = constriction::stream::stack::SmallAnsCoder<ReversedCursor<'data>>;
 
 pub const HEADER_SIZE: u32 = (std::mem::size_of::<FileHeader>() / 4) as u32;
 
@@ -52,16 +59,17 @@ impl FileHeader {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 struct JumpPointer {
     offset: u32,
     state: u32,
 }
 
-pub struct Timestep<'a> {
-    decoder: Decoder<'a, 'a>,
-    jump_table: &'a [JumpPointer],
+pub struct Timestep<'data, 'model> {
+    decoder: Decoder<'data>,
+    model: DecoderModelView<'model>,
+    jump_table: &'data [JumpPointer],
     word_index: u32,
     embedding_dim: u32,
     jump_interval: u32,
@@ -204,7 +212,7 @@ impl EmbeddingFile {
     }
 }
 
-fn deserialize_decoder_model(serialized: &[u16]) -> Result<(DecoderModel12_16<i16>, &[u16]), ()> {
+fn deserialize_decoder_model(serialized: &[u16]) -> Result<(DecoderModel, &[u16]), ()> {
     let num_symbols = serialized[0];
     let packed_size = 3 * num_symbols as usize / 4;
 
@@ -216,27 +224,39 @@ fn deserialize_decoder_model(serialized: &[u16]) -> Result<(DecoderModel12_16<i1
     let packed_frequencies =
         &serialized[1 + num_symbols as usize..1 + num_symbols as usize + packed_size];
 
-    let model = EntropyModel::new(
+    let model = DecoderModel::from_symbols_and_nonzero_fixed_point_probabilities(
         symbols.iter().map(|&s| s as i16),
         unpack_u12s(packed_frequencies, num_symbols - 1),
+        true,
     )
-    .decoder_model();
+    .expect("Invalid entropy model.");
 
     Ok((model, remainder))
 }
 
-impl<'a> Timestep<'a> {
+impl<'data, 'model> Timestep<'data, 'model> {
     fn new(
-        decoder_model: &'a DecoderModel,
-        jump_table: &'a [JumpPointer],
-        compressed: &'a [u16],
+        decoder_model: &'model DecoderModel,
+        jump_table: &'data [JumpPointer],
+        compressed: &'data [u16],
         embedding_dim: u32,
         jump_interval: u32,
     ) -> Self {
         let JumpPointer { offset, state } = jump_table[0];
+        let cursor =
+            Cursor::new_at_pos(compressed, offset as usize).expect("Jump position out of bounds");
+
+        let decoder = unsafe {
+            // SAFETY: we check explicitly that we satisfy the contract of `from_raw_parts`.
+            if state < 1 << 16 && offset as usize != compressed.len() {
+                panic!("Invalid jump position.");
+            }
+            Decoder::from_raw_parts(constriction::backends::Reverse(cursor), state)
+        };
 
         Timestep {
-            decoder: decoder_model.decoder_with_history(compressed, offset as usize, state),
+            decoder,
+            model: decoder_model.as_view(),
             jump_table,
             word_index: 0,
             embedding_dim,
@@ -244,8 +264,8 @@ impl<'a> Timestep<'a> {
         }
     }
 
-    pub fn into_inner(self) -> Decoder<'a, 'a> {
-        self.decoder
+    pub fn into_inner(self) -> (Decoder<'data>, DecoderModelView<'model>) {
+        (self.decoder, self.model)
     }
 }
 
@@ -259,15 +279,18 @@ pub trait TimestepReader {
     fn jump_to(&mut self, word_index: u32) -> Result<(), ()>;
 }
 
-impl<'a> TimestepReader for Timestep<'a> {
+impl<'data, 'model> TimestepReader for Timestep<'data, 'model> {
     fn read_single_embedding_vector<I: Iterator>(
         &mut self,
         dest_iter: I,
         mut callback: impl FnMut(i16, I::Item),
     ) -> Result<(), ()> {
-        self.decoder
-            .streaming_decode(dest_iter, |&symbol, dest| callback(symbol, dest))
-            .map_err(|_| ())?;
+        let decoder = &mut self.decoder;
+        let model = self.model;
+        for dest in dest_iter {
+            let symbol = decoder.decode_symbol(model).unwrap_infallible();
+            callback(symbol, dest);
+        }
         self.word_index += 1;
         Ok(())
     }
@@ -276,13 +299,18 @@ impl<'a> TimestepReader for Timestep<'a> {
         let jump_point = word_index / self.jump_interval;
         if word_index < self.word_index || jump_point != self.word_index / self.jump_interval {
             let JumpPointer { offset, state } = self.jump_table[jump_point as usize];
-            self.decoder.jump_to(offset as usize, state);
+            self.decoder.seek((offset as usize, state))?;
             self.word_index = jump_point * self.jump_interval;
         }
 
-        self.decoder
-            .skip(self.embedding_dim as usize * (word_index - self.word_index) as usize)
-            .map_err(|_| ())?;
+        // Note that just calling `decode_iid_symbols` won't do anything because it's lazy.
+        // We actually actually have to drain the iterator.
+        for symbol in self.decoder.decode_iid_symbols(
+            self.embedding_dim as usize * (word_index - self.word_index) as usize,
+            self.model,
+        ) {
+            symbol.unwrap_infallible();
+        }
         self.word_index = word_index;
 
         Ok(())
