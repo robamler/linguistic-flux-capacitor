@@ -2,8 +2,12 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 var path = require('path');
 
+
 module.exports = {
   mode: 'development', // TODO: Eventually change to 'production'.
+  experiments: {
+    asyncWebAssembly: true,
+  },
   module: {
     rules: [
       {
