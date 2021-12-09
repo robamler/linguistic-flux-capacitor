@@ -1,5 +1,5 @@
 import * as wasm from "linguistic-flux-capacitor-backend";
-import { memory } from "linguistic-flux-capacitor-backend/linguistic_flux_capacitor_backend_bg";
+import { memory } from "linguistic-flux-capacitor-backend/linguistic_flux_capacitor_backend_bg.wasm";
 
 import dweFile from "../assets/step100000_T209_V30000_K100_q32.dwe";
 
