@@ -17,11 +17,21 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Install node.js
+        uses: actions/setup-node@v2
+
       - name: Get tools versions
         id: versions
         run: |
           echo "::set-output name=rustc::`rustc --version | awk '{print $2}'`"
-          echo "::set-output name=node::12.22"
+          echo "::set-output name=node::`node --version`"
 
       - name: Cache backend (cargo) dependencies
         uses: actions/cache@v2
@@ -37,21 +47,11 @@ jobs:
       - name: Run backend tests
         run: CARGO_HOME=.cargo_home cargo test
 
-      - name: Install wasm-pack 0.8.1
+      - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0
-        with:
-          # Restrict to version 0.8.1 to work around this issue:
-          # https://users.rust-lang.org/t/unexpected-wasm-opt-crash-when-running-wasm-pack/46573
-          # https://github.com/rustwasm/wasm-pack/issues/886
-          version: v0.8.1
 
       - name: Build backend
         run: cd wasm && CARGO_HOME=../.cargo_home wasm-pack build
-
-      - name: Install node.js
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ steps.versions.outputs.node }}
 
       - name: Audit npm dependencies (with --audit-level=high)
         run: cd wasm/www && npm audit --audit-level=high
