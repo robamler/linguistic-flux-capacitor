@@ -92,10 +92,8 @@ jobs:
       - name: Build frontend
         run: cd wasm/www && npm run build
 
-      - name: Stage to gh-pages-staging
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./wasm/www/dist
-          publish_branch: gh-pages-staging
-          commit_message: Stage
+          name: tlfc-staging
+          path: wasm/www/dist
