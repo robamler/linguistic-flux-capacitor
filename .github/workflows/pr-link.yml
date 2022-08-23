@@ -1,0 +1,20 @@
+name: Add artifact link to pull request
+
+on:
+  workflow_run:
+    workflows: [New or Updated Pull Request]
+    types: [completed]
+
+jobs:
+  artifacts-url-comments:
+    name: Add artifact link to pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add artifact link to pull request
+        uses: tonyhallett/artifacts-url-comments@v1.1.0
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            prefix: "Tests passed. You can download the compiled web app here:"
+            format: name
+            addTo: pull
