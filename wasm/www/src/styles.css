@@ -448,7 +448,7 @@ a {
     color: #2e2e2e;
 }
 
-.legendItems input[type="text"] {
+.manualComparisonInput {
     font-size: 80%;
     min-width: 5.2em;
 }
