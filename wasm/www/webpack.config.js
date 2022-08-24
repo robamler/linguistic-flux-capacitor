@@ -4,7 +4,7 @@ var path = require('path');
 
 
 module.exports = {
-  mode: 'development', // TODO: Eventually change to 'production'.
+  mode: 'production',
   experiments: {
     asyncWebAssembly: true,
   },
@@ -28,7 +28,7 @@ module.exports = {
         use: 'file-loader'
       },
       {
-        test: /\.(png|svg|jpg|gif)$/,
+        test: /\.(png|svg|jpg|gif|woff2)$/,
         loader: 'file-loader',
         options: {
           esModule: false,
