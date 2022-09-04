@@ -9,7 +9,6 @@ version = "0.0.1"
 [dependencies]
 byteorder = "1.3.2"
 compressed_dynamic_word_embeddings = {path = "../compressed_dynamic_word_embeddings"}
-failure = "0.1.6"
 log = {version = "0.4.8", features = ["std"]}
 ndarray = "0.15.4"
 ndarray-npy = "0.8.1"

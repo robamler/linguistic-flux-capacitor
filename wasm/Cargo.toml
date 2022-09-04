@@ -14,10 +14,7 @@ crate-type = ["cdylib"]
 default = []
 
 [dependencies]
-byteorder = "1.3.2"
 compressed_dynamic_word_embeddings = {path = "../compressed_dynamic_word_embeddings"}
-# rand = "0.7.2"
-getrandom = {version = "0.2.3", features = ["js"]}
 wasm-bindgen = "0.2"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
@@ -32,6 +29,3 @@ console_error_panic_hook = {version = "0.1.6", optional = true}
 # [I've observed some hard-to-reproduce errors when using wee_alloc; turning it
 # off by default for now to see if that makes these errors go away.]
 wee_alloc = {version = "0.4.5", optional = true}
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.6"
