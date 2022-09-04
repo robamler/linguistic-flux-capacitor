@@ -24,6 +24,12 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - name: Lint with rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+
       - name: Install node.js
         uses: actions/setup-node@v2
 
@@ -44,8 +50,21 @@ jobs:
             ${{ runner.os }}-rustc-${{ steps.versions.outputs.rustc }}-
             ${{ runner.os }}-rustc-
 
+      - name: Lint with clippy
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
+        with:
+          command: clippy
+          args: --all-targets --all-features
+          
       - name: Run backend tests
-        run: CARGO_HOME=.cargo_home cargo test
+        uses: actions-rs/cargo@v1.0.1
+        env:
+          RUSTFLAGS: "-D warnings"
+        with:
+          command: test
+          toolchain: stable
 
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0

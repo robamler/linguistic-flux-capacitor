@@ -43,7 +43,9 @@ pub struct FileHeader {
 }
 
 impl FileHeader {
-    /// SAFETY: `data.len()` must be at least `HEADER_SIZE`
+    /// # Safety
+    ///
+    /// `data.len()` must be at least `HEADER_SIZE`
     #[inline(always)]
     pub unsafe fn memory_map_unsafe(data: &[u32]) -> &Self {
         #[allow(unused_unsafe)] // See Rust RFC #2585.
