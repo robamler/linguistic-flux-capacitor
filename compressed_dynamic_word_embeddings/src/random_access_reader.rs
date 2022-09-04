@@ -31,6 +31,7 @@ impl RandomAccessReader {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn pairwise_trajectories(
         &self,
         mut words1: Vec<u32>,

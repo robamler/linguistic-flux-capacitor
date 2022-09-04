@@ -229,6 +229,7 @@ mod test {
         assert_eq!(frequencies, [0x0bcd]);
 
         let packed = [];
+        #[allow(clippy::needless_collect)]
         let frequencies = unpack_u12s(&packed, 0).collect::<Vec<_>>();
         assert!(frequencies.is_empty());
     }
@@ -256,6 +257,7 @@ mod test {
         assert_eq!(packed, [0x0bcd]);
 
         let frequencies = [];
+        #[allow(clippy::needless_collect)]
         let packed = pack_u12s(&frequencies).collect::<Vec<_>>();
         assert!(packed.is_empty());
 
