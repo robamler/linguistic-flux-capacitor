@@ -347,10 +347,7 @@ impl RandomAccessReader {
                     .find(|(_index, fr)| fr.n >= diff);
                 let increasing_first_worse =
                     increasing_last_better.map_or(0, |(index, _)| index + 1);
-                let mut insert_fr = FrontRunnerCandidate {
-                    word: word as u32,
-                    n: diff,
-                };
+                let mut insert_fr = FrontRunnerCandidate { word, n: diff };
                 for dest in increasing_front_runners[increasing_first_worse..].iter_mut() {
                     std::mem::swap(dest, &mut insert_fr);
                 }
@@ -363,10 +360,7 @@ impl RandomAccessReader {
                     .find(|(_index, fr)| fr.n >= neg_diff);
                 let decreasing_first_worse =
                     decreasing_last_better.map_or(0, |(index, _)| index + 1);
-                let mut insert_fr = FrontRunnerCandidate {
-                    word: word as u32,
-                    n: neg_diff,
-                };
+                let mut insert_fr = FrontRunnerCandidate { word, n: neg_diff };
                 for dest in decreasing_front_runners[decreasing_first_worse..].iter_mut() {
                     std::mem::swap(dest, &mut insert_fr);
                 }
