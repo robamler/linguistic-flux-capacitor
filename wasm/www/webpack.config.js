@@ -25,14 +25,11 @@ module.exports = {
       },
       {
         test: /\/assets\//,
-        use: 'file-loader'
+        type: 'asset/resource'
       },
       {
         test: /\.(png|svg|jpg|gif|woff2)$/,
-        loader: 'file-loader',
-        options: {
-          esModule: false,
-        },
+        type: 'asset'
       },
     ]
   },

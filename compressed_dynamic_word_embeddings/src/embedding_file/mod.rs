@@ -85,7 +85,7 @@ impl EmbeddingFile {
 
         let header = unsafe {
             // SAFETY: We checked above that data.len() >= HEADER_SIZE
-            FileHeader::memory_map_unsafe(&*data)
+            FileHeader::memory_map_unsafe(&data)
         };
 
         let embeddings_size = header.vocab_size * header.embedding_dim;
@@ -163,7 +163,7 @@ impl EmbeddingFile {
     pub fn header(&self) -> &FileHeader {
         unsafe {
             // SAFETY: the ensures checks that `self.raw_data` is big enough.
-            FileHeader::memory_map_unsafe(&*self.raw_data)
+            FileHeader::memory_map_unsafe(&self.raw_data)
         }
     }
 

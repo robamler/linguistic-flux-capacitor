@@ -184,7 +184,7 @@ impl<'a> Iterator for CompactifiedU12Iterator<'a> {
             let left_part = self.unpacked[self.left_cursor];
             let right_part = self.unpacked[self.right_cursor];
             let shift_r = ((self.unpacked.len() - self.right_cursor - 1) % 4) * 4;
-            let new = ((left_part as u32) << self.shift_l) as u16 | (right_part >> shift_r) as u16;
+            let new = ((left_part as u32) << self.shift_l) as u16 | (right_part >> shift_r);
 
             self.left_cursor = self.right_cursor + (shift_r == 0) as usize;
             self.right_cursor = self.left_cursor + 1;

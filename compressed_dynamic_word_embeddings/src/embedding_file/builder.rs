@@ -314,18 +314,14 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
 /// slice of `diff` to their counts.
 fn get_diffs(input: RankThreeTensorView<i16>) -> (RankThreeTensor<i16>, Vec<HashMap<i16, u32>>) {
     let (num_timesteps, vocab_size, embedding_dim) = input.shape();
-    let mut diffs = RankThreeTensor::new(
-        num_timesteps as usize,
-        vocab_size as usize,
-        embedding_dim as usize,
-    );
+    let mut diffs = RankThreeTensor::new(num_timesteps, vocab_size, embedding_dim);
     let mut diffs_view = diffs.as_view_mut();
     let mut counts = vec![HashMap::new(); num_timesteps];
 
     // Copy over first and last time step and create their `counts`.
     for &t in [0, num_timesteps - 1].iter() {
-        let source_view = input.subview(t as usize);
-        let mut target_view = diffs_view.subview_mut(t as usize);
+        let source_view = input.subview(t);
+        let mut target_view = diffs_view.subview_mut(t);
         let current_counts = &mut counts[t];
 
         for (target, source) in target_view
@@ -349,10 +345,10 @@ fn get_diffs(input: RankThreeTensorView<i16>) -> (RankThreeTensor<i16>, Vec<Hash
         num_timesteps - 1,
         1,
         &mut |t, _level, left_t, _left_level, right_t, _right_level| {
-            let left_view = input.subview(left_t as usize);
-            let right_view = input.subview(right_t as usize);
-            let center_view = input.subview(t as usize);
-            let mut target_view = diffs_view.subview_mut(t as usize);
+            let left_view = input.subview(left_t);
+            let right_view = input.subview(right_t);
+            let center_view = input.subview(t);
+            let mut target_view = diffs_view.subview_mut(t);
             let current_counts = &mut counts[t];
 
             for (((target, left), right), center) in target_view
