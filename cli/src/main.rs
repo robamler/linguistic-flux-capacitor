@@ -1,8 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt};
+use clap::Parser;
 use log::info;
 use ndarray::{Array, Array0, Array3};
 use ndarray_npy::{NpzReader, NpzWriter};
-use structopt::StructOpt;
 
 use std::{
     error::Error,
@@ -17,36 +17,36 @@ use compressed_dynamic_word_embeddings::{
     tensors::RankThreeTensor,
 };
 
-#[derive(StructOpt)]
-#[structopt(about = "TODO")]
-enum Opt {
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+enum Args {
     /// Creates a compressed dynamic embedding file from an uncompressed quantized
     /// tensor.
-    Create(CreateOpt),
+    Create(CreateArgs),
 
     /// Decodes a compressed dynamic embedding file into an uncompressed quantized
     /// tensor.
-    Decode(DecodeOpt),
+    Decode(DecodeArgs),
 
     /// Prints out the trajectories of the dot product between pairs of words.
-    PairwiseTrajectories(PairwiseTrajectoriesOpt),
+    PairwiseTrajectories(PairwiseTrajectoriesArgs),
 
     /// Prints out the file header of a compressed dynamic word embedding file.
-    Inspect(InspectOpts),
+    Inspect(InspectArgs),
 }
 
-#[derive(StructOpt)]
-struct CreateOpt {
+#[derive(Parser, Debug)]
+struct CreateArgs {
     /// Number of words that comprise a compressed chunk. For now, this must be a
     /// divisor of the vocabulary size. Larger chunk sizes slightly improve
     /// compression rate but slow down tasks that don't need access to all
     /// embedding vectors in a time step.
-    #[structopt(long, short = "C", default_value = "100")]
+    #[arg(long, short = 'C', default_value = "100")]
     jump_interval: u32,
 
     /// Path to output file [defaults to input file with extension replaced by
     /// ".dwe"].
-    #[structopt(long, short)]
+    #[arg(long, short)]
     output: Option<PathBuf>,
 
     /// Path to a `.npz` file containing a rank-three tensor `uncompressed_quantized`
@@ -57,28 +57,28 @@ struct CreateOpt {
     input: PathBuf,
 }
 
-#[derive(StructOpt)]
-struct DecodeOpt {
+#[derive(Parser, Debug)]
+struct DecodeArgs {
     /// Path to output file [defaults to input file with extension replaced by
     /// ".npz"].
-    #[structopt(long, short)]
+    #[arg(long, short)]
     output: Option<PathBuf>,
 
     /// Path to a `.dwe` input file.
     input: PathBuf,
 }
 
-#[derive(StructOpt)]
-struct PairwiseTrajectoriesOpt {
+#[derive(Parser, Debug)]
+struct PairwiseTrajectoriesArgs {
     /// Space separated list of zero based word IDs. For each word in the list, the
     /// program calculates the trajectory of its cosine similarity with the
     /// corresponding word (at the same index in the list) provided with --words2.
-    #[structopt(long)]
+    #[arg(long)]
     words1: Vec<u32>,
 
     /// Space separated list of zero based word IDs. Must have the same length as
     /// --words1.
-    #[structopt(long)]
+    #[arg(long)]
     words2: Vec<u32>,
 
     /// Path to a compressed dynamic word embeddings file. Separate from the word
@@ -86,34 +86,34 @@ struct PairwiseTrajectoriesOpt {
     input: PathBuf,
 }
 
-#[derive(StructOpt)]
-struct InspectOpts {
+#[derive(Parser, Debug)]
+struct InspectArgs {
     /// Path to a compressed dynamic word embeddings file.
     input: PathBuf,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let opt = Opt::from_args();
+    let args = Args::parse();
 
     stderrlog::new()
         .verbosity(2)
         .timestamp(stderrlog::Timestamp::Second)
         .init()?;
 
-    match opt {
-        Opt::Create(create_opt) => create(create_opt),
-        Opt::Decode(decode_opt) => decode(decode_opt),
-        Opt::PairwiseTrajectories(pairwise_trajectories_opt) => {
-            pairwise_trajectories(pairwise_trajectories_opt)
+    match args {
+        Args::Create(create_args) => create(create_args),
+        Args::Decode(decode_args) => decode(decode_args),
+        Args::PairwiseTrajectories(pairwise_trajectories_args) => {
+            pairwise_trajectories(pairwise_trajectories_args)
         }
-        Opt::Inspect(inspect_opt) => inspect(inspect_opt),
+        Args::Inspect(inspect_args) => inspect(inspect_args),
     }
 }
 
-fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
+fn create(mut args: CreateArgs) -> Result<(), Box<dyn Error>> {
     // Fail early if we can't open output file (e.g., if it already exists).
-    let output_path = opt.output.take().unwrap_or_else(|| {
-        let mut output_path = opt.input.clone();
+    let output_path = args.output.take().unwrap_or_else(|| {
+        let mut output_path = args.input.clone();
         output_path.set_extension("dwe");
         output_path
     });
@@ -124,10 +124,10 @@ fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
 
     info!(
         "Loading uncompressed tensor from file at {} ...",
-        opt.input.display()
+        args.input.display()
     );
 
-    let mut npz_reader = NpzReader::new(File::open(&opt.input)?)?;
+    let mut npz_reader = NpzReader::new(File::open(&args.input)?)?;
 
     let uncompressed: Array3<i16> = npz_reader.by_name("uncompressed_quantized.npy")?;
     if !uncompressed.is_standard_layout() {
@@ -160,7 +160,7 @@ fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
     let output_file = BufWriter::new(output_file);
     write_compressed_dwe_file(
         uncompressed.as_view(),
-        opt.jump_interval,
+        args.jump_interval,
         scale_factor,
         output_file,
     )
@@ -170,10 +170,10 @@ fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn decode(mut opt: DecodeOpt) -> Result<(), Box<dyn Error>> {
+fn decode(mut args: DecodeArgs) -> Result<(), Box<dyn Error>> {
     // Fail early if we can't open output file (e.g., if it already exists).
-    let output_path = opt.output.take().unwrap_or_else(|| {
-        let mut output_path = opt.input.clone();
+    let output_path = args.output.take().unwrap_or_else(|| {
+        let mut output_path = args.input.clone();
         output_path.set_extension("npz");
         output_path
     });
@@ -185,9 +185,9 @@ fn decode(mut opt: DecodeOpt) -> Result<(), Box<dyn Error>> {
 
     info!(
         "Opening compressed dynamic embeddings file at {} ...",
-        opt.input.display()
+        args.input.display()
     );
-    let file = BufReader::new(File::open(opt.input)?);
+    let file = BufReader::new(File::open(args.input)?);
     let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
     let header = embedding_file.header();
     println!("{:#?}", header);
@@ -236,19 +236,19 @@ fn decode(mut opt: DecodeOpt) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn pairwise_trajectories(opt: PairwiseTrajectoriesOpt) -> Result<(), Box<dyn Error>> {
+fn pairwise_trajectories(args: PairwiseTrajectoriesArgs) -> Result<(), Box<dyn Error>> {
     info!(
         "Loading compressed dynamic embeddings from {} ...",
-        opt.input.display()
+        args.input.display()
     );
-    let file = BufReader::new(File::open(opt.input)?);
+    let file = BufReader::new(File::open(args.input)?);
     let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
 
     info!("Calculating trajectories ...");
 
     let trajectories = embedding_file
         .into_random_access_reader()
-        .pairwise_trajectories(opt.words1, opt.words2);
+        .pairwise_trajectories(args.words1, args.words2);
 
     println!("[");
     for trajectory in trajectories.as_view().iter_subviews() {
@@ -261,12 +261,12 @@ fn pairwise_trajectories(opt: PairwiseTrajectoriesOpt) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-fn inspect(opt: InspectOpts) -> Result<(), Box<dyn Error>> {
+fn inspect(args: InspectArgs) -> Result<(), Box<dyn Error>> {
     info!(
         "Peeking into compressed dynamic embeddings at {} ...",
-        opt.input.display()
+        args.input.display()
     );
-    let mut file = File::open(opt.input)?;
+    let mut file = File::open(args.input)?;
     let mut buf = [0u32; HEADER_SIZE as usize];
     file.read_u32_into::<LittleEndian>(&mut buf)?;
     let header = unsafe {

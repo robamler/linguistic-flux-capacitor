@@ -8,9 +8,9 @@ version = "0.0.1"
 
 [dependencies]
 byteorder = "1.3.2"
+clap = {version = "4.0.32", features = ["derive"]}
 compressed_dynamic_word_embeddings = {path = "../compressed_dynamic_word_embeddings"}
 log = {version = "0.4.8", features = ["std"]}
 ndarray = "0.15.4"
 ndarray-npy = "0.8.1"
 stderrlog = "0.5.1"
-structopt = "0.3.7"
