@@ -1,5 +1,8 @@
-use ndarray::{Array0, Array3};
-use ndarray_npy::NpzReader;
+use byteorder::{LittleEndian, ReadBytesExt};
+use log::info;
+use ndarray::{Array, Array0, Array3};
+use ndarray_npy::{NpzReader, NpzWriter};
+use structopt::StructOpt;
 
 use std::{
     error::Error,
@@ -8,10 +11,6 @@ use std::{
     io::BufWriter,
     path::PathBuf,
 };
-
-use byteorder::{LittleEndian, ReadBytesExt};
-use log::info;
-use structopt::StructOpt;
 
 use compressed_dynamic_word_embeddings::{
     embedding_file::{builder::write_compressed_dwe_file, EmbeddingFile, FileHeader, HEADER_SIZE},
@@ -24,6 +23,10 @@ enum Opt {
     /// Creates a compressed dynamic embedding file from an uncompressed quantized
     /// tensor.
     Create(CreateOpt),
+
+    /// Decodes a compressed dynamic embedding file into an uncompressed quantized
+    /// tensor.
+    Decode(DecodeOpt),
 
     /// Prints out the trajectories of the dot product between pairs of words.
     PairwiseTrajectories(PairwiseTrajectoriesOpt),
@@ -51,6 +54,17 @@ struct CreateOpt {
     /// `scale_factor` (which is typically < 1). Create with:
     /// `np.savez_compressed('filename.npz', scale_factor=scale_factor,
     /// uncompressed_quantized=uncompressed_quantized)`.
+    input: PathBuf,
+}
+
+#[derive(StructOpt)]
+struct DecodeOpt {
+    /// Path to output file [defaults to input file with extension replaced by
+    /// ".npz"].
+    #[structopt(long, short)]
+    output: Option<PathBuf>,
+
+    /// Path to a `.dwe` input file.
     input: PathBuf,
 }
 
@@ -88,6 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match opt {
         Opt::Create(create_opt) => create(create_opt),
+        Opt::Decode(decode_opt) => decode(decode_opt),
         Opt::PairwiseTrajectories(pairwise_trajectories_opt) => {
             pairwise_trajectories(pairwise_trajectories_opt)
         }
@@ -150,6 +165,72 @@ fn create(mut opt: CreateOpt) -> Result<(), Box<dyn Error>> {
         output_file,
     )
     .map_err(|()| "Error when compressing file")?;
+
+    info!("Done.");
+    Ok(())
+}
+
+fn decode(mut opt: DecodeOpt) -> Result<(), Box<dyn Error>> {
+    // Fail early if we can't open output file (e.g., if it already exists).
+    let output_path = opt.output.take().unwrap_or_else(|| {
+        let mut output_path = opt.input.clone();
+        output_path.set_extension("npz");
+        output_path
+    });
+    let output_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&output_path)?;
+    let mut npz_writer = NpzWriter::new_compressed(BufWriter::new(output_file));
+
+    info!(
+        "Opening compressed dynamic embeddings file at {} ...",
+        opt.input.display()
+    );
+    let file = BufReader::new(File::open(opt.input)?);
+    let embedding_file = EmbeddingFile::from_reader(file).map_err(|()| "Error loading file.")?;
+    let header = embedding_file.header();
+    println!("{:#?}", header);
+
+    let num_timesteps = header.num_timesteps;
+    let vocab_size = header.vocab_size;
+    let embedding_dim = header.embedding_dim;
+    let scale_factor = header.scale_factor;
+
+    let mut uncompressed =
+        Vec::with_capacity(num_timesteps as usize * vocab_size as usize * embedding_dim as usize);
+
+    info!("Decoding .dwe file...");
+
+    let reader = embedding_file.into_random_access_reader();
+    for t in 0..num_timesteps {
+        // This is very inefficient as it both copies data around unnecessarily and decodes many
+        // time steps multiple times. But we prioritize correctness (and therefore simplicity) here
+        // since this function is not meant to be used frequently.
+        uncompressed.extend(reader.get_embeddings_at(t).into_inner());
+    }
+
+    let uncompressed = Array::from_shape_vec(
+        (
+            num_timesteps as usize,
+            vocab_size as usize,
+            embedding_dim as usize,
+        ),
+        uncompressed,
+    )
+    .expect("size and shape must match by construction");
+
+    info!(
+        "Writing uncompressed representation and saving to {}...",
+        output_path.display()
+    );
+
+    npz_writer.add_array("uncompressed_quantized.npy", &uncompressed)?;
+    let scale_factor =
+        Array::from_shape_vec((), vec![scale_factor]).expect("scalars have shape `()`");
+    npz_writer.add_array("scale_factor.npy", &scale_factor)?;
+
+    std::mem::drop(npz_writer);
 
     info!("Done.");
     Ok(())

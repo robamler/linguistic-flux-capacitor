@@ -237,7 +237,7 @@ impl RandomAccessReader {
         reordered_top_k
     }
 
-    fn get_embeddings_at(&self, t: u32) -> RankTwoTensor<i16> {
+    pub fn get_embeddings_at(&self, t: u32) -> RankTwoTensor<i16> {
         let header = self.file.header();
         let timestep_size = header.vocab_size * header.embedding_dim;
 
