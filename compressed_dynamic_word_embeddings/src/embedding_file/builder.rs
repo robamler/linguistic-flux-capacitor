@@ -5,12 +5,11 @@ use crate::{
 };
 
 use byteorder::{LittleEndian, WriteBytesExt};
-use constriction::Pos;
+use constriction::{stream::stack::SmallAnsCoder, Pos, UnwrapInfallible};
 
 use std::{collections::HashMap, convert::TryInto, io::Write};
 
 type EncoderModel = constriction::stream::model::SmallNonContiguousCategoricalEncoderModel<i16>;
-type AnsCoder = constriction::stream::stack::SmallAnsCoder;
 
 fn create_and_serialize_encoder_models(
     counts: &[HashMap<i16, u32>],
@@ -80,7 +79,7 @@ fn compress_data(
     let jump_table_len = num_timesteps * jump_points_per_timestep;
     let mut jump_table_section = vec![JumpPointer::default(); jump_table_len as usize];
 
-    let mut encoder = AnsCoder::new();
+    let mut encoder = SmallAnsCoder::from_binary(vec![0]).unwrap_infallible();
 
     for &t in tree_order.iter().rev() {
         let model = &models[t as usize];
