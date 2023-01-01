@@ -441,6 +441,7 @@ dependencies = [
  "log",
  "ndarray",
  "ndarray-npy",
+ "rayon",
  "stderrlog",
 ]
 

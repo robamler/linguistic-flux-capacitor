@@ -13,4 +13,5 @@ compressed_dynamic_word_embeddings = {path = "../compressed_dynamic_word_embeddi
 log = {version = "0.4.8", features = ["std"]}
 ndarray = "0.15.4"
 ndarray-npy = "0.8.1"
+rayon = "1.6.1"
 stderrlog = "0.5.1"

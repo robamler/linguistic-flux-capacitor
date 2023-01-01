@@ -3,6 +3,7 @@ use clap::Parser;
 use log::info;
 use ndarray::{Array, Array0, Array3};
 use ndarray_npy::{NpzReader, NpzWriter};
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 use std::{
     error::Error,
@@ -197,19 +198,18 @@ fn decode(mut args: DecodeArgs) -> Result<(), Box<dyn Error>> {
     let embedding_dim = header.embedding_dim;
     let scale_factor = header.scale_factor;
 
-    let mut uncompressed =
-        Vec::with_capacity(num_timesteps as usize * vocab_size as usize * embedding_dim as usize);
-
     info!("Decoding .dwe file...");
 
+    // Calling `reader.get_embeddings_at(t)` for each time step `t` is very inefficient as it both
+    // copies data around unnecessarily and internally decodes many time steps multiple times. But
+    // we prioritize correctness (and therefore simplicity) here since the `decode` subcommand is
+    // not meant to be used frequently. It also makes parallelization via `rayon` trivial.
     let reader = embedding_file.into_random_access_reader();
-    for t in 0..num_timesteps {
-        // This is very inefficient as it both copies data around unnecessarily and decodes many
-        // time steps multiple times. But we prioritize correctness (and therefore simplicity) here
-        // since this function is not meant to be used frequently.
-        uncompressed.extend(reader.get_embeddings_at(t).into_inner());
-    }
-
+    let uncompressed = (0..num_timesteps)
+        .into_par_iter()
+        .map(|t| reader.get_embeddings_at(t).into_inner())
+        .flatten()
+        .collect::<Vec<_>>();
     let uncompressed = Array::from_shape_vec(
         (
             num_timesteps as usize,
@@ -218,7 +218,7 @@ fn decode(mut args: DecodeArgs) -> Result<(), Box<dyn Error>> {
         ),
         uncompressed,
     )
-    .expect("size and shape must match by construction");
+    .expect("size and shape match by construction");
 
     info!(
         "Writing uncompressed representation and saving to {}...",
