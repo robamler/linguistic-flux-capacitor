@@ -23,4 +23,4 @@ wasm-bindgen = "0.2"
 # code size when deploying. Therefore, it's turned off by default.
 console_error_panic_hook = {version = "0.1.6", optional = true}
 
-lol_alloc = "0.3.0"
+lol_alloc = "0.4.1"

@@ -247,13 +247,7 @@ impl<'data, 'model> Timestep<'data, 'model> {
         let cursor =
             Cursor::new_at_pos(compressed, offset as usize).expect("Jump position out of bounds");
 
-        let decoder = unsafe {
-            // SAFETY: we check explicitly that we satisfy the contract of `from_raw_parts`.
-            if state < 1 << 16 && offset as usize != compressed.len() {
-                panic!("Invalid jump position.");
-            }
-            Decoder::from_raw_parts(constriction::backends::Reverse(cursor), state)
-        };
+        let decoder = Decoder::from_raw_parts(constriction::backends::Reverse(cursor), state);
 
         Timestep {
             decoder,
