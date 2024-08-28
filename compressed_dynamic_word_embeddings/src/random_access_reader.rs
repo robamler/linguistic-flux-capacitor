@@ -408,8 +408,8 @@ struct FrontRunnerCandidate<T> {
 impl Default for FrontRunnerCandidate<i32> {
     fn default() -> Self {
         Self {
-            word: std::u32::MAX,
-            n: std::i32::MIN,
+            word: u32::MAX,
+            n: i32::MIN,
         }
     }
 }
@@ -417,8 +417,8 @@ impl Default for FrontRunnerCandidate<i32> {
 impl Default for FrontRunnerCandidate<i64> {
     fn default() -> Self {
         Self {
-            word: std::u32::MAX,
-            n: std::i64::MIN,
+            word: u32::MAX,
+            n: i64::MIN,
         }
     }
 }

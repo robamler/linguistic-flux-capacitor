@@ -94,9 +94,7 @@ fn construct_decoder_models(c: &mut Criterion) {
     );
 
     let mut file = BufReader::new(File::open(file_name).unwrap());
-    let mut buf = Vec::new();
-    buf.resize(HEADER_SIZE as usize, 0);
-    file.read_u32_into::<LittleEndian>(&mut buf[..]).unwrap();
+    let mut buf = vec![0; HEADER_SIZE as usize];
 
     let header = unsafe {
         // SAFETY: We made sure that buf.len() == HEADER_SIZE

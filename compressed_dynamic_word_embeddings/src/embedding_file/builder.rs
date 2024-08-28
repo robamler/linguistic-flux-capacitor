@@ -214,14 +214,14 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
 
             // How much the cross entropy would decrease when increasing the weight by one.
             let win = if weight == max_weight {
-                std::f64::NEG_INFINITY
+                f64::NEG_INFINITY
             } else {
                 count as f64 * ((weight + 1) as f64 / weight as f64).log2()
             };
 
             // How much the cross entropy would increase when decreasing the weight by one.
             let loss = if weight == 1 {
-                std::f64::INFINITY
+                f64::INFINITY
             } else {
                 count as f64 * (weight as f64 / (weight - 1) as f64).log2()
             };
@@ -240,7 +240,7 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
     {
         *weight += 1; // Cannot end up in `max_weight` because win would otherwise be zero.
         *win = if *weight == max_weight {
-            std::f64::NEG_INFINITY
+            f64::NEG_INFINITY
         } else {
             *count as f64 * ((*weight + 1) as f64 / *weight as f64).log2()
         };
@@ -280,7 +280,7 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
         *seller_win =
             *seller_count as f64 * ((*seller_weight + 1) as f64 / *seller_weight as f64).log2();
         *seller_loss = if *seller_weight == 1 {
-            std::f64::INFINITY
+            f64::INFINITY
         } else {
             *seller_count as f64 * (*seller_weight as f64 / (*seller_weight - 1) as f64).log2()
         };
@@ -289,7 +289,7 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
             &mut symbols_counts_weights_wins_losses[buyer_index];
         *buyer_weight += 1;
         *buyer_win = if *buyer_weight == max_weight {
-            std::f64::NEG_INFINITY
+            f64::NEG_INFINITY
         } else {
             *buyer_count as f64 * ((*buyer_weight + 1) as f64 / *buyer_weight as f64).log2()
         };
@@ -301,7 +301,7 @@ fn optimal_frequencies_12bit(counts: &HashMap<i16, u32>) -> Vec<(i16, u16)> {
         .into_iter()
         .map(|(symbol, _, weight, _, _)| (symbol, weight))
         .collect::<Vec<_>>();
-    ret.sort_by_key(|&(s, w)| (u16::max_value() - w, s)); // Sort to make output deterministic.
+    ret.sort_by_key(|&(s, w)| (u16::MAX - w, s)); // Sort to make output deterministic.
     ret
 }
 

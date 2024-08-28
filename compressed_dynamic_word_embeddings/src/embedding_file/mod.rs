@@ -131,8 +131,7 @@ impl EmbeddingFile {
     }
 
     pub fn from_reader(mut reader: impl Read) -> Result<EmbeddingFile, ()> {
-        let mut buf = Vec::new();
-        buf.resize(HEADER_SIZE as usize, 0);
+        let mut buf = vec![0; HEADER_SIZE as usize];
         reader
             .read_u32_into::<LittleEndian>(&mut buf[..])
             .map_err(|_| ())?;
@@ -350,7 +349,7 @@ mod test {
             *i = i.to_le();
         }
 
-        let mut entropy_models_definition_section = vec![
+        let mut entropy_models_definition_section = [
             2u16, // num_symbols (time step 1)
             1, 2,      // symbols
             0x0abc, // frequencies
@@ -365,7 +364,7 @@ mod test {
             *i = i.to_le();
         }
 
-        let mut jump_table_section = vec![
+        let mut jump_table_section = [
             0u32,
             0x1234_5678, // t=0, i=0
             2,
@@ -383,7 +382,7 @@ mod test {
             *i = i.to_le();
         }
 
-        let compressed_data_section = vec![
+        let compressed_data_section = [
             1u16, 2, 3, 4, 5, 6, 7, 8, // Dummy content (we won't actually decode it).
         ];
 

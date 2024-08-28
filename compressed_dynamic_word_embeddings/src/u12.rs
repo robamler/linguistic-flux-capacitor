@@ -101,7 +101,7 @@ impl<'a> ExpandedU12Iterator<'a> {
             // The only reason why we don't initialize it to `packed[0]`
             // in all cases is to take into account the edge case
             // `amt == 0`, in which case `packed.len() == 0`.
-            (0, usize::max_value())
+            (0, usize::MAX)
         } else {
             (packed[0] as u32, 0)
         };
