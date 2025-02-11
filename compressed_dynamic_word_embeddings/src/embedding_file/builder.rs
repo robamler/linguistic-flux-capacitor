@@ -75,7 +75,7 @@ fn compress_data(
         },
     );
 
-    let jump_points_per_timestep = (vocab_size + jump_interval - 1) / jump_interval;
+    let jump_points_per_timestep = vocab_size.div_ceil(jump_interval);
     let jump_table_len = num_timesteps * jump_points_per_timestep;
     let mut jump_table_section = vec![JumpPointer::default(); jump_table_len as usize];
 
@@ -508,7 +508,7 @@ mod test {
             let mut timestep = file.timestep(t).unwrap();
             assert_eq!(
                 timestep.jump_table.len(),
-                ((VOCAB_SIZE + JUMP_INTERVAL - 1) / JUMP_INTERVAL) as usize
+                VOCAB_SIZE.div_ceil(JUMP_INTERVAL) as usize
             );
 
             let mut buf = [0i16; EMBEDDING_DIM as usize];

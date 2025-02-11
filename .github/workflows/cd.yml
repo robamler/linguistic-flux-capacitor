@@ -40,7 +40,7 @@ jobs:
           echo "::set-output name=node::`node --version`"
 
       - name: Cache backend (cargo) dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             target
@@ -76,7 +76,7 @@ jobs:
         run: cd wasm/www && npm audit --audit-level=high
 
       - name: Cache frontend (npm) dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: wasm/www/node_modules
           key: ${{ runner.os }}-node-${{ steps.versions.outputs.node }}-${{ hashFiles('wasm/www/package-lock.json') }}

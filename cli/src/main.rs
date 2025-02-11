@@ -140,12 +140,10 @@ fn create(mut args: CreateArgs) -> Result<(), Box<dyn Error>> {
             vocabulary size {}, and embedding dimension {}.",
         num_timesteps, vocab_size, embedding_dim
     );
-    let uncompressed = RankThreeTensor::from_flattened(
-        uncompressed.into_raw_vec(),
-        num_timesteps,
-        vocab_size,
-        embedding_dim,
-    );
+    let (uncompressed, offset) = uncompressed.into_raw_vec_and_offset();
+    assert_eq!(offset, Some(0));
+    let uncompressed =
+        RankThreeTensor::from_flattened(uncompressed, num_timesteps, vocab_size, embedding_dim);
 
     let scale_factor: Array0<f32> = npz_reader.by_name("scale_factor.npy")?;
     let scale_factor = scale_factor.into_scalar();

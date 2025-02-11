@@ -117,8 +117,7 @@ impl EmbeddingFile {
             Err(())?
         }
 
-        let jump_points_per_timestep =
-            ((header.vocab_size + header.jump_interval - 1) / header.jump_interval) as usize;
+        let jump_points_per_timestep = header.vocab_size.div_ceil(header.jump_interval) as usize;
         let compressed_data_start = header.jump_table_address as usize
             + 2 * header.num_timesteps as usize * jump_points_per_timestep;
 
@@ -274,7 +273,7 @@ pub trait TimestepReader {
     fn jump_to(&mut self, word_index: u32) -> Result<(), ()>;
 }
 
-impl<'data, 'model> TimestepReader for Timestep<'data, 'model> {
+impl TimestepReader for Timestep<'_, '_> {
     fn read_single_embedding_vector<I: Iterator>(
         &mut self,
         dest_iter: I,
