@@ -115,7 +115,7 @@ impl<'a> ExpandedU12Iterator<'a> {
     }
 }
 
-impl<'a> Iterator for ExpandedU12Iterator<'a> {
+impl Iterator for ExpandedU12Iterator<'_> {
     type Item = u16;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -144,7 +144,7 @@ impl<'a> Iterator for ExpandedU12Iterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ExpandedU12Iterator<'a> {}
+impl ExactSizeIterator for ExpandedU12Iterator<'_> {}
 
 /// Iterator that yields `u16`s containing overlapping parts of 12-bit numbers.
 ///
@@ -174,7 +174,7 @@ impl<'a> CompactifiedU12Iterator<'a> {
     }
 }
 
-impl<'a> Iterator for CompactifiedU12Iterator<'a> {
+impl Iterator for CompactifiedU12Iterator<'_> {
     type Item = u16;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -200,7 +200,7 @@ impl<'a> Iterator for CompactifiedU12Iterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for CompactifiedU12Iterator<'a> {}
+impl ExactSizeIterator for CompactifiedU12Iterator<'_> {}
 
 #[cfg(test)]
 mod test {

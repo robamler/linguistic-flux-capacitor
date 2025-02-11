@@ -86,7 +86,7 @@ pub struct RankThreeTensorViewMut<'a, T> {
     data: &'a mut [T],
 }
 
-impl<'a, T> RankThreeTensorViewMut<'a, T> {
+impl<T> RankThreeTensorViewMut<'_, T> {
     pub fn subview_mut(&mut self, index0: usize) -> RankTwoTensorViewMut<T> {
         let start = index0 * self.stride0;
         let end = start + self.stride0;
@@ -219,7 +219,7 @@ impl<'a, T> RankTwoTensorView<'a, T> {
     }
 }
 
-impl<'a, T: Default + Clone> RankTwoTensorView<'a, T> {
+impl<T: Default + Clone> RankTwoTensorView<'_, T> {
     pub fn to_transposed(&self) -> RankTwoTensor<T> {
         let data = &self.data;
         let len = data.len();

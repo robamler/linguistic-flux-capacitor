@@ -45,7 +45,7 @@ fn decompress(c: &mut Criterion) {
         checksum
     };
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Benchmark average runtime for decompressing a randomly selected time step.
     // The measured runtime can be used to estimate the runtime for calculating
@@ -147,8 +147,7 @@ fn decompress_constriction(c: &mut Criterion) {
         .collect::<Vec<_>>();
     assert!(remainder.len() <= 1);
 
-    let jump_points_per_timestep =
-        ((header.vocab_size + header.jump_interval - 1) / header.jump_interval) as usize;
+    let jump_points_per_timestep = header.vocab_size.div_ceil(header.jump_interval) as usize;
     let compressed_data_start = header.jump_table_address as usize
         + 2 * header.num_timesteps as usize * jump_points_per_timestep;
 
@@ -189,7 +188,7 @@ fn decompress_constriction(c: &mut Criterion) {
         checksum
     };
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Benchmark average runtime for decompressing a randomly selected time step.
     // The measured runtime can be used to estimate the runtime for calculating
