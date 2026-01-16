@@ -45,7 +45,7 @@
 /// let unpacked = unpack_u12s(&packed, 3).collect::<Vec<_>>();
 /// assert_eq!(unpacked, [0x0a12, 0x0345, 0x0678]);
 /// ```
-pub fn unpack_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator {
+pub fn unpack_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator<'_> {
     ExpandedU12Iterator::new(packed, amt)
 }
 
@@ -69,7 +69,7 @@ pub fn unpack_u12s(packed: &[u16], amt: u16) -> ExpandedU12Iterator {
 /// let packed = pack_u12s(&unpacked).collect::<Vec<_>>();
 /// assert_eq!(packed, [0x0012, 0x03456, 0x789a, 0xbcde, 0xfa1b]);
 /// ```
-pub fn pack_u12s(unpacked: &[u16]) -> CompactifiedU12Iterator {
+pub fn pack_u12s(unpacked: &[u16]) -> CompactifiedU12Iterator<'_> {
     CompactifiedU12Iterator::new(unpacked)
 }
 
@@ -96,7 +96,7 @@ impl<'a> ExpandedU12Iterator<'a> {
             / 4;
         assert_eq!(packed.len(), expected_compact_len);
 
-        let (carry, cursor) = if amt % 4 == 0 {
+        let (carry, cursor) = if amt.is_multiple_of(4) {
             // The initial value of `carry` doesn't matter in this case.
             // The only reason why we don't initialize it to `packed[0]`
             // in all cases is to take into account the edge case
@@ -123,7 +123,9 @@ impl Iterator for ExpandedU12Iterator<'_> {
             None
         } else {
             self.remaining -= 1;
-            self.cursor = self.cursor.wrapping_add((self.remaining % 4 != 0) as usize);
+            self.cursor = self
+                .cursor
+                .wrapping_add(!self.remaining.is_multiple_of(4) as usize);
 
             let shift_l = (self.remaining % 4) * 4;
             let shift_r = 16 - shift_l;
@@ -159,7 +161,7 @@ pub struct CompactifiedU12Iterator<'a> {
 impl<'a> CompactifiedU12Iterator<'a> {
     #[inline]
     fn new(unpacked: &'a [u16]) -> Self {
-        let (right_cursor, shift_l) = if unpacked.len() % 4 == 0 {
+        let (right_cursor, shift_l) = if unpacked.len().is_multiple_of(4) {
             (1, 4)
         } else {
             (0, 16)

@@ -29,7 +29,7 @@ impl<T: Default> RankThreeTensor<T> {
         }
     }
 
-    pub fn as_view(&self) -> RankThreeTensorView<T> {
+    pub fn as_view(&self) -> RankThreeTensorView<'_, T> {
         RankThreeTensorView {
             stride0: self.stride0,
             stride1: self.stride1,
@@ -37,7 +37,7 @@ impl<T: Default> RankThreeTensor<T> {
         }
     }
 
-    pub fn as_view_mut(&mut self) -> RankThreeTensorViewMut<T> {
+    pub fn as_view_mut(&mut self) -> RankThreeTensorViewMut<'_, T> {
         RankThreeTensorViewMut {
             stride0: self.stride0,
             stride1: self.stride1,
@@ -87,7 +87,7 @@ pub struct RankThreeTensorViewMut<'a, T> {
 }
 
 impl<T> RankThreeTensorViewMut<'_, T> {
-    pub fn subview_mut(&mut self, index0: usize) -> RankTwoTensorViewMut<T> {
+    pub fn subview_mut(&mut self, index0: usize) -> RankTwoTensorViewMut<'_, T> {
         let start = index0 * self.stride0;
         let end = start + self.stride0;
         RankTwoTensorViewMut::from_raw_parts_mut(self.stride1, &mut self.data[start..end])
@@ -99,9 +99,9 @@ impl<T> RankThreeTensorViewMut<'_, T> {
         read2_index: usize,
         write_index: usize,
     ) -> (
-        RankTwoTensorView<T>,
-        RankTwoTensorView<T>,
-        RankTwoTensorViewMut<T>,
+        RankTwoTensorView<'_, T>,
+        RankTwoTensorView<'_, T>,
+        RankTwoTensorViewMut<'_, T>,
     ) {
         let read1_start = read1_index * self.stride0;
         let read2_start = read2_index * self.stride0;
@@ -135,7 +135,7 @@ impl<T> RankThreeTensorViewMut<'_, T> {
         }
     }
 
-    pub fn downgrade(&self) -> RankThreeTensorView<T> {
+    pub fn downgrade(&self) -> RankThreeTensorView<'_, T> {
         RankThreeTensorView::from_raw_parts(self.stride0, self.stride1, self.data)
     }
 }
@@ -173,14 +173,14 @@ impl<T: Default> RankTwoTensor<T> {
 }
 
 impl<T> RankTwoTensor<T> {
-    pub fn as_view(&self) -> RankTwoTensorView<T> {
+    pub fn as_view(&self) -> RankTwoTensorView<'_, T> {
         RankTwoTensorView {
             stride0: self.stride0,
             data: &self.data,
         }
     }
 
-    pub fn as_view_mut(&mut self) -> RankTwoTensorViewMut<T> {
+    pub fn as_view_mut(&mut self) -> RankTwoTensorViewMut<'_, T> {
         RankTwoTensorViewMut {
             stride0: self.stride0,
             data: &mut self.data,
@@ -281,7 +281,7 @@ impl<'a, T> RankTwoTensorViewMut<'a, T> {
         self.data.chunks_exact_mut(self.stride0)
     }
 
-    pub fn downgrade(&self) -> RankTwoTensorView<T> {
+    pub fn downgrade(&self) -> RankTwoTensorView<'_, T> {
         RankTwoTensorView::from_raw_parts(self.stride0, self.data)
     }
 }

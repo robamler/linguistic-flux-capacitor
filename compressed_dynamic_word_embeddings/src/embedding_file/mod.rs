@@ -177,7 +177,7 @@ impl EmbeddingFile {
         writer.flush()
     }
 
-    pub fn timestep(&self, t: u32) -> Result<Timestep, ()> {
+    pub fn timestep(&self, t: u32) -> Result<Timestep<'_, '_>, ()> {
         let header = self.header();
         if t as usize >= self.decoder_models.len() {
             Err(())

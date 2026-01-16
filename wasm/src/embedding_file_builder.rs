@@ -34,7 +34,7 @@ impl EmbeddingFileBuilder {
     pub fn reserve(&mut self, additional_bytes: usize) -> *mut u8 {
         self.buf.resize_with(
             usize::max(
-                (self.bytes_initialized + additional_bytes + 3) / 4,
+                (self.bytes_initialized + additional_bytes).div_ceil(4),
                 HEADER_SIZE as usize,
             ),
             MaybeUninit::uninit,
