@@ -9,7 +9,6 @@ export async function loadFile() {
     const builder = wasm.EmbeddingFileBuilder.new();
 
     let response = await fetch(dweFile);
-    let fileSizeStr = response.headers.get('content-length');
     let pointerAndLen = undefined;
     let totalWritten = 0;
     let reader = response.body.getReader();
@@ -30,10 +29,6 @@ export async function loadFile() {
             totalWritten += value.length;
             pointerAndLen = builder.avail(value.length);
         }
-    }
-
-    if (!!fileSizeStr && (fileSizeStr != pointerAndLen.len)) { // Yes, we want != and not !== here.
-        throw "File size in HTTP header does not match file size in file header.";
     }
 
     if (totalWritten > pointerAndLen.len) {
